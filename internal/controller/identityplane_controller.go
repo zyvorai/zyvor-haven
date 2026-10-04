@@ -5,6 +5,8 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"sort"
 	"strings"
@@ -41,9 +43,9 @@ type IdentityPlaneReconciler struct {
 	Scheme    *runtime.Scheme
 	Discovery discovery.DiscoveryInterface
 
-	cnpgOK  *bool
-	kcOK    *bool
-	certOK  *bool
+	cnpgOK *bool
+	kcOK   *bool
+	certOK *bool
 }
 
 func (r *IdentityPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -63,7 +65,7 @@ func (r *IdentityPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if err := r.Update(ctx, &plane); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
 	if err := r.ensureNamespace(ctx, plane.Namespace); err != nil {
@@ -76,11 +78,15 @@ func (r *IdentityPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	hasCert := r.hasGVK(certGVK)
 
 	// Always ensure JDBC secrets (plain Secrets) for when operators arrive later.
-	if err := r.ensureUnstructured(ctx, &plane, render.DBAppSecret(&plane)); err != nil {
-		logger.Error(err, "db app secret")
-	}
-	if err := r.ensureUnstructured(ctx, &plane, render.KeycloakDBSecret(&plane)); err != nil {
-		logger.Error(err, "keycloak db secret")
+	if dbPassword, err := r.dbPassword(ctx, &plane); err != nil {
+		logger.Error(err, "db password")
+	} else {
+		if err := r.ensureUnstructured(ctx, &plane, render.DBAppSecret(&plane, dbPassword)); err != nil {
+			logger.Error(err, "db app secret")
+		}
+		if err := r.ensureUnstructured(ctx, &plane, render.KeycloakDBSecret(&plane, dbPassword)); err != nil {
+			logger.Error(err, "keycloak db secret")
+		}
 	}
 
 	if hasCNPG {
@@ -177,6 +183,27 @@ func (r *IdentityPlaneReconciler) ensureNamespace(ctx context.Context, ns string
 	}
 	namespace.SetLabels(labels)
 	return r.Patch(ctx, &namespace, patch)
+}
+
+// dbPassword returns the password already stored in either JDBC secret, so
+// the pair stays consistent across reconciles, or a fresh random one for a
+// new plane. ensureUnstructured never overwrites an existing secret.
+func (r *IdentityPlaneReconciler) dbPassword(ctx context.Context, plane *havenv1.IdentityPlane) (string, error) {
+	for _, name := range []string{render.DBClusterName(plane.Name) + "-app", render.KeycloakName(plane.Name) + "-keycloak-db"} {
+		var sec corev1.Secret
+		err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: plane.Namespace}, &sec)
+		if err == nil && len(sec.Data["password"]) > 0 {
+			return string(sec.Data["password"]), nil
+		}
+		if err != nil && !errors.IsNotFound(err) {
+			return "", err
+		}
+	}
+	buf := make([]byte, 24)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
 func (r *IdentityPlaneReconciler) ensureUnstructured(ctx context.Context, plane *havenv1.IdentityPlane, desired *unstructured.Unstructured) error {

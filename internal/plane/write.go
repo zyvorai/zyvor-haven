@@ -26,14 +26,14 @@ type Capabilities struct {
 }
 
 type CreateRequest struct {
-	Name       string `json:"name,omitempty"`
-	Namespace  string `json:"namespace,omitempty"`
-	Profile    string `json:"profile"`
-	Hostname   string `json:"hostname"`
+	Name        string `json:"name,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Profile     string `json:"profile"`
+	Hostname    string `json:"hostname"`
 	ExposeClass string `json:"exposeClass,omitempty"`
-	AdminEmail string `json:"adminEmail,omitempty"`
-	FirstRealm string `json:"firstRealm,omitempty"`
-	Audience   string `json:"audience,omitempty"`
+	AdminEmail  string `json:"adminEmail,omitempty"`
+	FirstRealm  string `json:"firstRealm,omitempty"`
+	Audience    string `json:"audience,omitempty"`
 }
 
 func (r *Reader) Capabilities(ctx context.Context) Capabilities {

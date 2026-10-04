@@ -74,7 +74,7 @@ func (c *AdminClient) token(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 300 {
 		return "", fmt.Errorf("token request failed: %s", string(body))
@@ -116,7 +116,7 @@ func (c *AdminClient) do(ctx context.Context, method, path string, in any, out a
 	if err != nil {
 		return 0, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
 	if out != nil && resp.StatusCode < 300 && len(raw) > 0 {
 		if err := json.Unmarshal(raw, out); err != nil {

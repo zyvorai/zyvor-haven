@@ -64,6 +64,7 @@ func readInput(path string) ([]byte, error) {
 	if path == "-" {
 		return io.ReadAll(os.Stdin)
 	}
+	// #nosec G304 -- CLI reads the export file the operator names on the command line
 	return os.ReadFile(path)
 }
 
