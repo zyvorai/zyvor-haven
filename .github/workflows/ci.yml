@@ -44,6 +44,8 @@ jobs:
         uses: golang/govulncheck-action@v1
         with:
           go-version-file: go.mod
+          # A fresh checkout would delete the placeholder UI that go:embed needs.
+          repo-checkout: false
 
       - name: Security scan (gosec)
         # The gosec action's container lags the go.mod toolchain; build it with setup-go's Go instead.
