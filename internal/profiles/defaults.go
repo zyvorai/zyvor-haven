@@ -8,12 +8,12 @@ import (
 )
 
 type Defaults struct {
-	DBInstances      int
-	KCInstances      int
-	Storage          string
-	NetworkPolicy    bool
-	BackupRequired   bool
-	PoolSize         int
+	DBInstances    int
+	KCInstances    int
+	Storage        string
+	NetworkPolicy  bool
+	BackupRequired bool
+	PoolSize       int
 }
 
 var table = map[v1alpha1.PlaneProfile]Defaults{

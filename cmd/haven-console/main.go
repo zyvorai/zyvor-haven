@@ -42,8 +42,10 @@ func main() {
 	if realm := os.Getenv("HAVEN_BOOTSTRAP_REALM"); realm != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		if err := kc.Client().BootstrapRealm(ctx, realm); err != nil {
+			// #nosec G706 -- realm is operator config from the environment, quoted with %q
 			log.Printf("bootstrap realm %q: %v", realm, err)
 		} else {
+			// #nosec G706 -- realm is operator config from the environment, quoted with %q
 			log.Printf("bootstrap realm %q ok", realm)
 		}
 		cancel()
@@ -67,7 +69,8 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("haven-console listening on %s", addr)
+		// #nosec G706 -- addr is operator config from the environment, quoted with %q
+		log.Printf("haven-console listening on %q", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server: %v", err)
 		}

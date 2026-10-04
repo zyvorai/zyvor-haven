@@ -27,7 +27,7 @@ spec:
       credentialsSecret: haven-s3
   keycloak:
     instances: 3
-    version: "26.7.2"
+    version: "26.8.0"
     features:
       - persistent-user-sessions
       - opentelemetry

@@ -24,10 +24,10 @@ const (
 )
 
 type oidcDiscovery struct {
-	Issuer       string `json:"issuer"`
-	AuthEndpoint string `json:"authorization_endpoint"`
+	Issuer        string `json:"issuer"`
+	AuthEndpoint  string `json:"authorization_endpoint"`
 	TokenEndpoint string `json:"token_endpoint"`
-	Userinfo     string `json:"userinfo_endpoint"`
+	Userinfo      string `json:"userinfo_endpoint"`
 }
 
 func oidcIssuerFrom(baseURL string) string {
@@ -149,7 +149,9 @@ func (s *Server) OIDCLogin(w http.ResponseWriter, r *http.Request) {
 	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
 
 	secure := s.requestSecure(r)
+	// #nosec G124 -- HttpOnly always; Lax is required for the IdP redirect back; Secure follows the request scheme for HTTP dev installs
 	http.SetCookie(w, &http.Cookie{Name: oidcVerifierCookie, Value: verifier, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure, MaxAge: 600})
+	// #nosec G124 -- same attributes as the verifier cookie above
 	http.SetCookie(w, &http.Cookie{Name: oidcStateCookie, Value: state, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure, MaxAge: 600})
 
 	q := target.Query()
@@ -210,7 +212,7 @@ func (s *Server) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "token exchange failed: "+err.Error(), http.StatusBadGateway)
 		return
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode >= 300 {
 		http.Error(w, fmt.Sprintf("token exchange HTTP %d: %s", res.StatusCode, string(body)), http.StatusBadGateway)
@@ -236,8 +238,10 @@ func (s *Server) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	sess := s.Auth.Issue(user, "admin", "oidc")
 
 	secure := s.requestSecure(r)
-	http.SetCookie(w, &http.Cookie{Name: oidcVerifierCookie, Value: "", Path: "/", MaxAge: -1, Secure: secure})
-	http.SetCookie(w, &http.Cookie{Name: oidcStateCookie, Value: "", Path: "/", MaxAge: -1, Secure: secure})
+	// #nosec G124 -- expiring the PKCE cookies; Secure follows the request scheme
+	http.SetCookie(w, &http.Cookie{Name: oidcVerifierCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure})
+	// #nosec G124 -- expiring the PKCE cookies; Secure follows the request scheme
+	http.SetCookie(w, &http.Cookie{Name: oidcStateCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure})
 
 	// Hand Bearer token to SPA via query (sessionStorage); single-use from UI perspective.
 	redir := "/login?haven_token=" + url.QueryEscape(sess.Token) + "&sso=1"
@@ -259,7 +263,7 @@ func (s *Server) fetchOIDCDiscovery(r *http.Request, issuer string) (oidcDiscove
 	if err != nil {
 		return out, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode >= 300 {
 		b, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
 		return out, fmt.Errorf("discovery HTTP %d: %s", res.StatusCode, string(b))
@@ -298,7 +302,7 @@ func oidcPreferredUser(idToken, accessToken, userinfoURL string, r *http.Request
 		if err == nil {
 			req.Header.Set("Authorization", "Bearer "+accessToken)
 			if res, err := http.DefaultClient.Do(req); err == nil {
-				defer res.Body.Close()
+				defer func() { _ = res.Body.Close() }()
 				var info map[string]any
 				if json.NewDecoder(res.Body).Decode(&info) == nil {
 					return firstNonEmpty(

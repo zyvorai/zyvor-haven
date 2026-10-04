@@ -5,8 +5,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 
 var (
 	GroupVersion  = schema.GroupVersion{Group: Group, Version: Version}
-	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme   = SchemeBuilder.AddToScheme
 )
 
@@ -31,23 +31,23 @@ const (
 type PlanePhase string
 
 const (
-	PhasePending               PlanePhase = "Pending"
-	PhaseProvisioningDatabase  PlanePhase = "ProvisioningDatabase"
-	PhaseProvisioningKeycloak  PlanePhase = "ProvisioningKeycloak"
-	PhaseBootstrapping         PlanePhase = "Bootstrapping"
-	PhaseReady                 PlanePhase = "Ready"
-	PhaseDegraded              PlanePhase = "Degraded"
-	PhaseFailed                PlanePhase = "Failed"
-	PhaseSuspending            PlanePhase = "Suspending"
+	PhasePending              PlanePhase = "Pending"
+	PhaseProvisioningDatabase PlanePhase = "ProvisioningDatabase"
+	PhaseProvisioningKeycloak PlanePhase = "ProvisioningKeycloak"
+	PhaseBootstrapping        PlanePhase = "Bootstrapping"
+	PhaseReady                PlanePhase = "Ready"
+	PhaseDegraded             PlanePhase = "Degraded"
+	PhaseFailed               PlanePhase = "Failed"
+	PhaseSuspending           PlanePhase = "Suspending"
 )
 
 type DatabaseSpec struct {
-	Vendor       string         `json:"vendor,omitempty"`
-	Instances    int            `json:"instances,omitempty"`
-	Storage      string         `json:"storage,omitempty"`
-	StorageClass string         `json:"storageClass,omitempty"`
-	ImageName    string         `json:"imageName,omitempty"`
-	Backup       BackupSpec     `json:"backup,omitempty"`
+	Vendor       string     `json:"vendor,omitempty"`
+	Instances    int        `json:"instances,omitempty"`
+	Storage      string     `json:"storage,omitempty"`
+	StorageClass string     `json:"storageClass,omitempty"`
+	ImageName    string     `json:"imageName,omitempty"`
+	Backup       BackupSpec `json:"backup,omitempty"`
 }
 
 type BackupSpec struct {
@@ -79,11 +79,11 @@ type IssuerRef struct {
 }
 
 type ExposeSpec struct {
-	Class             string `json:"class,omitempty"`
-	IngressClassName  string `json:"ingressClassName,omitempty"`
-	GatewayName       string `json:"gatewayName,omitempty"`
-	NetworkPolicy     *bool  `json:"networkPolicy,omitempty"`
-	TLS               TLSSpec `json:"tls,omitempty"`
+	Class            string  `json:"class,omitempty"`
+	IngressClassName string  `json:"ingressClassName,omitempty"`
+	GatewayName      string  `json:"gatewayName,omitempty"`
+	NetworkPolicy    *bool   `json:"networkPolicy,omitempty"`
+	TLS              TLSSpec `json:"tls,omitempty"`
 }
 
 type BootstrapClientSpec struct {
@@ -105,16 +105,16 @@ type ObservabilitySpec struct {
 }
 
 type IdentityPlaneSpec struct {
-	Profile         PlaneProfile       `json:"profile,omitempty"`
-	Hostname        string             `json:"hostname"`
-	ConsoleHostname string             `json:"consoleHostname,omitempty"`
-	ReclaimPolicy   string             `json:"reclaimPolicy,omitempty"`
-	Suspend         bool               `json:"suspend,omitempty"`
-	Database        DatabaseSpec       `json:"database,omitempty"`
-	Keycloak        KeycloakSpec       `json:"keycloak,omitempty"`
-	Expose          ExposeSpec         `json:"expose,omitempty"`
-	Bootstrap       BootstrapSpec      `json:"bootstrap,omitempty"`
-	Observability   ObservabilitySpec  `json:"observability,omitempty"`
+	Profile         PlaneProfile      `json:"profile,omitempty"`
+	Hostname        string            `json:"hostname"`
+	ConsoleHostname string            `json:"consoleHostname,omitempty"`
+	ReclaimPolicy   string            `json:"reclaimPolicy,omitempty"`
+	Suspend         bool              `json:"suspend,omitempty"`
+	Database        DatabaseSpec      `json:"database,omitempty"`
+	Keycloak        KeycloakSpec      `json:"keycloak,omitempty"`
+	Expose          ExposeSpec        `json:"expose,omitempty"`
+	Bootstrap       BootstrapSpec     `json:"bootstrap,omitempty"`
+	Observability   ObservabilitySpec `json:"observability,omitempty"`
 }
 
 type EndpointsStatus struct {
@@ -152,7 +152,7 @@ type IdentityPlaneStatus struct {
 	Database           DatabaseStatus     `json:"database,omitempty"`
 	Keycloak           KeycloakStatus     `json:"keycloak,omitempty"`
 	TLS                TLSStatus          `json:"tls,omitempty"`
-	Conditions         []metav1.Condition   `json:"conditions,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -174,6 +174,8 @@ type IdentityPlaneList struct {
 	Items           []IdentityPlane `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&IdentityPlane{}, &IdentityPlaneList{})
+func addKnownTypes(s *runtime.Scheme) error {
+	s.AddKnownTypes(GroupVersion, &IdentityPlane{}, &IdentityPlaneList{})
+	metav1.AddToGroupVersion(s, GroupVersion)
+	return nil
 }

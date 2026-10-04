@@ -7,8 +7,8 @@ hero:
     console, one intent object, day-2 ops that don't require reading three
     operators' docs.
   swatches:
-    - {label: "Keycloak Operator 26.7.2"}
-    - {label: "CloudNativePG 1.27.1"}
+    - {label: "Keycloak Operator 26.8.0"}
+    - {label: "CloudNativePG 1.30.1"}
     - {label: "Apache-2.0"}
   highlights:
     - {value: "v0.1.0", label: "Only tagged release today — a v0 packaging layer, not the v1 controller", footnote: "1"}

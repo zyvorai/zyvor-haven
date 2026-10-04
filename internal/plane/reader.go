@@ -53,10 +53,10 @@ type StatusResponse struct {
 
 // KeycloakHint optionally upgrades cards when Admin API is connected.
 type KeycloakHint struct {
-	Connected bool
-	Version   string
+	Connected  bool
+	Version    string
 	RealmCount int
-	URL       string
+	URL        string
 }
 
 type Reader struct {

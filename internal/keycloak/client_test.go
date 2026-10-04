@@ -15,11 +15,11 @@ func TestStatusConnected(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/realms/master/protocol/openid-connect/token":
-			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 300})
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 300})
 		case "/admin/realms":
-			json.NewEncoder(w).Encode([]Realm{{Realm: "platform", Enabled: true}})
+			_ = json.NewEncoder(w).Encode([]Realm{{Realm: "platform", Enabled: true}})
 		case "/admin/serverinfo":
-			json.NewEncoder(w).Encode(ServerInfo{})
+			_ = json.NewEncoder(w).Encode(ServerInfo{})
 		default:
 			http.NotFound(w, r)
 		}

@@ -58,8 +58,7 @@ func (s *Server) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	method := ""
-	role := "operator"
+	var method, role string
 	switch {
 	case auth.MatchLabDemo(user, pass):
 		method = "lab"

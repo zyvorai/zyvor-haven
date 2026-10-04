@@ -27,9 +27,9 @@ func planeLabels(name string) map[string]string {
 	}
 }
 
-func DBClusterName(plane string) string  { return plane + "-db" }
-func KeycloakName(plane string) string   { return plane }
-func CertName(plane string) string       { return plane + "-tls" }
+func DBClusterName(plane string) string       { return plane + "-db" }
+func KeycloakName(plane string) string        { return plane }
+func CertName(plane string) string            { return plane + "-tls" }
 func ScheduledBackupName(plane string) string { return plane + "-db-scheduled" }
 
 func DBHost(plane, ns string) string {
@@ -50,8 +50,8 @@ func CNPGCluster(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 	obj.SetLabels(planeLabels(plane.Name))
 
 	clusterSpec := map[string]interface{}{
-		"instances": spec.Database.Instances,
-		"imageName": "ghcr.io/cloudnative-pg/postgresql:16.8",
+		"instances":             spec.Database.Instances,
+		"imageName":             "ghcr.io/cloudnative-pg/postgresql:16.15",
 		"enableSuperuserAccess": false,
 		"bootstrap": map[string]interface{}{
 			"initdb": map[string]interface{}{
@@ -174,7 +174,9 @@ func Certificate(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 	return obj
 }
 
-func DBAppSecret(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
+// DBAppSecret is the CNPG bootstrap owner secret; password must match
+// KeycloakDBSecret so Keycloak can log in to the database it creates.
+func DBAppSecret(plane *v1alpha1.IdentityPlane, password string) *unstructured.Unstructured {
 	name := DBClusterName(plane.Name) + "-app"
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "Secret"})
@@ -184,12 +186,13 @@ func DBAppSecret(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 	obj.Object["type"] = "kubernetes.io/basic-auth"
 	obj.Object["stringData"] = map[string]interface{}{
 		"username": "keycloak",
-		"password": "change-me-dev-only",
+		"password": password,
 	}
 	return obj
 }
 
-func KeycloakDBSecret(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
+// KeycloakDBSecret holds the JDBC credentials the Keycloak CR references.
+func KeycloakDBSecret(plane *v1alpha1.IdentityPlane, password string) *unstructured.Unstructured {
 	name := KeycloakName(plane.Name) + "-keycloak-db"
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "Secret"})
@@ -199,7 +202,7 @@ func KeycloakDBSecret(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured 
 	obj.Object["type"] = "Opaque"
 	obj.Object["stringData"] = map[string]interface{}{
 		"username": "keycloak",
-		"password": "change-me-dev-only",
+		"password": password,
 	}
 	return obj
 }
