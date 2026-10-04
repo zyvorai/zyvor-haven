@@ -1,9 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/social/haven-share-card-dark.png">
-  <img src="docs/social/haven-share-card.png" alt="Haven — identity for the private cloud." width="820">
-</picture>
+<img src="docs/social/haven-hero-dark.jpg" alt="Haven - One intent. One console. Keycloak + HA Postgres." width="100%">
 
 # Haven
 
@@ -12,9 +9,9 @@
 One intent. One console. Official Keycloak + HA Postgres that actually ship together.<br>
 A small packaging and operations layer over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, not a Keycloak fork.
 
-[![CI](https://github.com/zyvorai/haven/actions/workflows/ci.yml/badge.svg)](https://github.com/zyvorai/haven/actions/workflows/ci.yml)
+[![CI](https://github.com/zyvorai/zyvor-haven/actions/workflows/ci.yml/badge.svg)](https://github.com/zyvorai/zyvor-haven/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0071e3?style=flat-square&labelColor=1d1d1f)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-live-0071e3?style=flat-square&labelColor=1d1d1f)](https://zyvorai.github.io/haven/)
+[![Docs](https://img.shields.io/badge/docs-live-0071e3?style=flat-square&labelColor=1d1d1f)](https://zyvorai.github.io/zyvor-haven/)
 [![Keycloak Operator](https://img.shields.io/badge/Keycloak_Operator-26.7.2-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
 [![CloudNativePG](https://img.shields.io/badge/CloudNativePG-1.27.1-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
 [![Version](https://img.shields.io/badge/version-0.1.0-0071e3?style=flat-square&labelColor=1d1d1f)](CHANGELOG.md)
@@ -22,7 +19,7 @@ A small packaging and operations layer over the official Keycloak Operator and C
 [![Book a demo](https://img.shields.io/badge/Book_a_demo-0071e3?style=for-the-badge)](https://zyvor.dev/schedule?utm_source=github&utm_medium=haven&utm_campaign=readme_hero)
 [![30-day PoC](https://img.shields.io/badge/30--day_PoC-1d1d1f?style=for-the-badge)](https://zyvor.dev/poc?utm_source=github&utm_medium=haven&utm_campaign=readme_hero)
 
-[**Quick start**](#quick-start) · [**Console**](docs/console.md) · [**Docs**](https://zyvorai.github.io/haven/) · [**Production**](#production-overlay) · [**License**](#license)
+[**Quick start**](#quick-start) · [**Console**](docs/console.md) · [**Docs**](https://zyvorai.github.io/zyvor-haven/) · [**Production**](#production-overlay) · [**License**](#license)
 
 </div>
 
@@ -105,7 +102,7 @@ NetworkPolicies, TLS and metrics on in <code>production</code>.<br>
 ## Quick start
 
 ```bash
-git clone https://github.com/zyvorai/haven.git
+git clone https://github.com/zyvorai/zyvor-haven.git
 cd haven
 
 # 1. Operators (once per cluster)
@@ -155,7 +152,7 @@ Images: `ghcr.io/zyvorai/haven-console:0.1.0` · `ghcr.io/zyvorai/haven-controll
 
 | Doc | When to read |
 |---|---|
-| [zyvorai.github.io/haven](https://zyvorai.github.io/haven/) | Product docs |
+| [zyvorai.github.io/zyvor-haven](https://zyvorai.github.io/zyvor-haven/) | Product docs |
 | [docs/faq.md](docs/faq.md) | Deciding whether to adopt |
 | [docs/getting-started.md](docs/getting-started.md) | First deploy |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Real operational issues |
