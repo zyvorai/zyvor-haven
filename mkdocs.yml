@@ -1,7 +1,7 @@
 site_name: Haven
 site_description: Identity for the private cloud — Keycloak + PostgreSQL as one product.
-site_url: https://zyvorai.github.io/haven/
-repo_url: https://github.com/zyvorai/haven
+site_url: https://zyvorai.github.io/zyvor-haven/
+repo_url: https://github.com/zyvorai/zyvor-haven
 repo_name: zyvorai/haven
 edit_uri: edit/main/docs/
 
@@ -94,4 +94,4 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/zyvorai/haven
+      link: https://github.com/zyvorai/zyvor-haven
