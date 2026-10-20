@@ -87,7 +87,14 @@ func (s *Store) Issue(user, role, method string) Session {
 		Auth:      method,
 		ExpiresAt: time.Now().Add(s.ttl),
 	}
+	now := time.Now()
 	s.mu.Lock()
+	// Sweep expired sessions that were never looked up again.
+	for k, v := range s.active {
+		if now.After(v.ExpiresAt) {
+			delete(s.active, k)
+		}
+	}
 	s.active[token] = sess
 	s.mu.Unlock()
 	return sess
@@ -95,9 +102,18 @@ func (s *Store) Issue(user, role, method string) Session {
 
 func (s *Store) Get(token string) (Session, bool) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	sess, ok := s.active[token]
-	if !ok || time.Now().After(sess.ExpiresAt) {
+	s.mu.RUnlock()
+	if !ok {
+		return Session{}, false
+	}
+	if time.Now().After(sess.ExpiresAt) {
+		// Drop expired sessions so the map does not grow without bound.
+		s.mu.Lock()
+		if cur, ok := s.active[token]; ok && time.Now().After(cur.ExpiresAt) {
+			delete(s.active, token)
+		}
+		s.mu.Unlock()
 		return Session{}, false
 	}
 	return sess, true
