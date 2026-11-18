@@ -18,6 +18,8 @@
 
 ### Identity for the private cloud.
 
+[Client overview (PDF)](docs/Haven-Client-Overview.pdf)
+
 **One intent. One console. Official Keycloak + HA Postgres that actually ship together.** A small packaging and operations layer over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, not a Keycloak fork.
 
 **Official Keycloak Operator** · **CloudNativePG HA Postgres** · **0 Keycloak forks** · **One console** · **Apache-2.0**
