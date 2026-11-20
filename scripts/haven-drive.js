@@ -1,3 +1,6 @@
+// Copyright 2026 Zyvor AI Labs · https://zyvor.dev
+// SPDX-License-Identifier: LicenseRef-Zyvor-Production-1.0
+
 // Drive the deployed Haven console with a real Chromium instance (used when
 // the Claude-in-Chrome browser extension isn't connected). Logs in and
 // screenshots Command Deck / Realm Studio / Clients / Atlas.
