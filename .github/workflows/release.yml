@@ -86,7 +86,7 @@ jobs:
             org.opencontainers.image.description=Haven identity console (API + embedded SPA)
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.meta.outputs.version }}
-            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.licenses=LicenseRef-Zyvor-Production-1.0
           provenance: true
           sbom: true
 
@@ -106,7 +106,7 @@ jobs:
             org.opencontainers.image.description=Haven IdentityPlane controller
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.meta.outputs.version }}
-            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.licenses=LicenseRef-Zyvor-Production-1.0
           provenance: true
           sbom: true
 
