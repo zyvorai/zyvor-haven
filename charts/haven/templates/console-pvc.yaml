@@ -1,0 +1,20 @@
+{{- if and .Values.console.persistence.enabled (gt (int .Values.console.replicas) 1) }}
+{{- fail "Haven Time Machine file persistence currently requires console.replicas=1" }}
+{{- end }}
+{{- if and .Values.console.enabled .Values.console.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "haven.name" . }}-console-data
+  labels:
+    {{- include "haven.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.console.persistence.accessModes | nindent 4 }}
+  {{- with .Values.console.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.console.persistence.size }}
+{{- end }}

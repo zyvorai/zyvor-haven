@@ -1,0 +1,22 @@
+{
+  "realm": "production",
+  "enabled": true,
+  "registrationAllowed": false,
+  "verifyEmail": true,
+  "bruteForceProtected": true,
+  "clients": [
+    {
+      "clientId": "portal",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["https://portal.example.com/callback"],
+      "webOrigins": ["https://portal.example.com"],
+      "attributes": {"pkce.code.challenge.method": "S256"}
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+site_name: Haven
+site_description: Identity for the private cloud — Keycloak + PostgreSQL as one product.
+site_url: https://zyvorai.github.io/zyvor-haven/
+repo_url: https://github.com/zyvorai/zyvor-haven
+repo_name: zyvorai/haven
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  logo: assets/readme/zyvor-logo.svg
+  favicon: assets/readme/zyvor-logo.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+plugins:
+  - search
+
+hooks:
+  - docs/overrides/hooks.py
+extra_css:
+  - stylesheets/apple-glass.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: README.md
+  - Why Haven: why-haven.md
+  - What you get: what-you-get.md
+  - Quick start: quick-start.md
+  - FAQ: faq.md
+  - Troubleshooting: troubleshooting.md
+  - Getting started: getting-started.md
+  - Operations:
+      - Runbook: runbook.md
+      - Lab host: lab-host.md
+      - Console: console.md
+      - Security posture: security-posture.md
+      - Tutorials: tutorials.md
+      - CLI: cli.md
+      - Production overlay: production-overlay.md
+      - Install with Helm: install-helm.md
+      - Backups: backups.md
+  - Design:
+      - Architecture: architecture.md
+      - UX: ux.md
+      - Private cloud: private-cloud.md
+      - Roadmap: roadmap.md
+  - Meta:
+      - Documentation map: documentation-map.md
+      - Contributing: contributing.md
+      - License headers: LICENSE_HEADERS.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/zyvorai/zyvor-haven

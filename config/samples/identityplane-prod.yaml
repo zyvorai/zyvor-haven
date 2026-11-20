@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: identity
+  labels:
+    haven.identity/managed: "true"
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: identity.haven.dev/v1alpha1
+kind: IdentityPlane
+metadata:
+  name: platform
+  namespace: identity
+spec:
+  profile: production
+  reclaimPolicy: Orphan
+  hostname: auth.cloud.internal
+  consoleHostname: haven.cloud.internal
+  database:
+    vendor: postgres
+    instances: 3
+    storage: 50Gi
+    backup:
+      destination: s3://haven-backups/platform
+      schedule: "0 0 2 * * *"
+      retention: 14d
+      credentialsSecret: haven-s3
+  keycloak:
+    instances: 3
+    version: "26.8.0"
+    features:
+      - persistent-user-sessions
+      - opentelemetry
+    resources:
+      requests:
+        cpu: "2"
+        memory: 1250Mi
+      limits:
+        cpu: "6"
+        memory: 2250Mi
+  expose:
+    class: gateway
+    gatewayName: private-cloud-gw
+    networkPolicy: true
+    tls:
+      issuerRef:
+        kind: ClusterIssuer
+        name: private-ca
+  bootstrap:
+    adminEmail: platform@cloud.internal
+    firstRealm: platform
+    clients:
+      - name: haven-console
+        type: public
+        redirects:
+          - https://haven.cloud.internal/*
+      - name: zeus-os
+        type: public
+        redirects:
+          - https://zeus.cloud.internal/*
+      - name: kubernetes
+        type: confidential
+        audiences:
+          - https://kubernetes.default.svc
+      - name: grafana
+        type: confidential
+        redirects:
+          - https://grafana.cloud.internal/login/generic_oauth
+      - name: argocd
+        type: confidential
+        redirects:
+          - https://argo.cloud.internal/auth/callback
+  observability:
+    metrics: true
+    tracing: true
+---
+apiVersion: identity.haven.dev/v1alpha1
+kind: RealmBundle
+metadata:
+  name: platform
+  namespace: identity
+spec:
+  planeRef: platform
+  realm: platform
+  displayName: Private Cloud
+  blueprint: platform-sso
+---
+apiVersion: identity.haven.dev/v1alpha1
+kind: OidcClient
+metadata:
+  name: zeus-os
+  namespace: identity
+spec:
+  planeRef: platform
+  realm: platform
+  name: zeus-os
+  type: public
+  redirects:
+    - https://zeus.cloud.internal/*
+  secretName: oidc-zeus-os

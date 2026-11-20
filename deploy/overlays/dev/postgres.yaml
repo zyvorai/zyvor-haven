@@ -1,0 +1,51 @@
+# CloudNativePG cluster for the identity plane (compose path).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: platform-db
+  namespace: identity
+  labels:
+    haven.identity/plane: platform
+    app.kubernetes.io/component: database
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.15
+  enableSuperuserAccess: false
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret:
+        name: platform-db-app
+  storage:
+    size: 8Gi
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "256MB"
+---
+# Dev-only static password. Prod overlay does not commit a reusable password.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-db-app
+  namespace: identity
+  labels:
+    cnpg.io/reload: "true"
+    haven.identity/plane: platform
+type: kubernetes.io/basic-auth
+stringData:
+  username: keycloak
+  password: change-me-dev-only
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-keycloak-db
+  namespace: identity
+  labels:
+    haven.identity/plane: platform
+type: Opaque
+stringData:
+  username: keycloak
+  password: change-me-dev-only

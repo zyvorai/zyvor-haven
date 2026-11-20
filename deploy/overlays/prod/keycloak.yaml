@@ -1,0 +1,75 @@
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: platform
+  namespace: identity
+spec:
+  instances: 3
+  hostname:
+    hostname: auth.cloud.internal
+    strict: true
+  resources:
+    requests:
+      cpu: "2"
+      memory: 1250Mi
+    limits:
+      cpu: "6"
+      memory: 2250Mi
+  db:
+    vendor: postgres
+    host: platform-db-rw.identity.svc.cluster.local
+    database: keycloak
+    poolMinSize: 30
+    poolInitialSize: 30
+    poolMaxSize: 30
+    usernameSecret:
+      name: platform-keycloak-db
+      key: username
+    passwordSecret:
+      name: platform-keycloak-db
+      key: password
+  http:
+    tlsSecret: platform-tls
+  ingress:
+    enabled: false
+  proxy:
+    headers: xforwarded
+  update:
+    strategy: Auto
+  features:
+    enabled:
+      - persistent-user-sessions
+  additionalOptions:
+    - name: log-console-output
+      value: json
+    - name: metrics-enabled
+      value: "true"
+    - name: event-metrics-user-enabled
+      value: "true"
+    - name: health-enabled
+      value: "true"
+    - name: db-tls-mode
+      value: verify-server
+  truststores:
+    cnpg:
+      configMap:
+        name: platform-db-ca
+  scheduling:
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: keycloak
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: platform-keycloak
+  namespace: identity
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: keycloak

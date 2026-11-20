@@ -1,0 +1,62 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: platform-db
+  namespace: identity
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.15
+  enableSuperuserAccess: false
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret:
+        name: platform-db-app
+  storage:
+    size: 50Gi
+    # storageClass: ceph-block   # set to your block class; omit to use the cluster default
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: topology.kubernetes.io/zone
+    podAntiAffinityType: preferred
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "1GB"
+      effective_cache_size: "3GB"
+      work_mem: "16MB"
+      maintenance_work_mem: "256MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "32MB"
+      max_wal_size: "2GB"
+# Backups are not in this file on purpose.
+# A ScheduledBackup with method barmanObjectStore fails unless Cluster.spec.backup
+# (legacy) or a CNPG-I ObjectStore plugin is configured.
+# See deploy/overlays/prod/backup/README.md
+---
+# Placeholder only. Replace before apply:
+#   ./hack/gen-prod-secrets.sh
+# or ExternalSecrets / Sealed Secrets.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-db-app
+  namespace: identity
+  labels:
+    cnpg.io/reload: "true"
+type: kubernetes.io/basic-auth
+stringData:
+  username: keycloak
+  password: REPLACE_ME_BEFORE_APPLY
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-keycloak-db
+  namespace: identity
+type: Opaque
+stringData:
+  username: keycloak
+  password: REPLACE_ME_BEFORE_APPLY

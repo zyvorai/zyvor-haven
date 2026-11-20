@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: identity
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - keycloak.yaml
+  - ingress.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: haven
+      haven.identity/plane: platform
+      haven.identity/profile: dev

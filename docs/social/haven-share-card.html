@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Haven share card</title>
+<!--
+  1200x630 Open Graph / README hero card (light). Dark twin: haven-share-card-dark.html.
+  Build:  ./docs/social/build-social-card.sh
+  Palette: white/#f5f5f7, ink #1d1d1f, secondary #6e6e73, hairline #d2d2d7,
+  blue #0071e3 -> #2997ff. Orange (#ff6a2a) appears once, as a single dot.
+-->
+<style>
+  :root { --ink:#1d1d1f; --soft:#6e6e73; --hair:#d2d2d7; --blue:#0071e3; --blue2:#2997ff; --deep:#0066cc; --wash:#f5f5f7;
+    --card:#ffffff; --chip-g-bg:#e8f2fd; --chip-g-line:#b9d7f7; --wire:#7db8f5; --orange:#ff6a2a;
+    --sans:'Helvetica Neue',Helvetica,Arial,sans-serif; --mono:'SF Mono',Menlo,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body { width:1200px; height:630px; overflow:hidden; color:var(--ink); font-family:var(--sans); position:relative;
+    background:radial-gradient(900px 520px at 84% 46%, rgba(0,113,227,.12), rgba(0,113,227,.04) 55%, rgba(0,113,227,0) 100%), linear-gradient(180deg,#fff 0%,var(--wash) 100%); }
+  .wrap { position:absolute; left:64px; right:64px; top:44px; bottom:38px; display:flex; flex-direction:column; }
+
+  .top { display:flex; align-items:center; gap:12px; font-family:var(--mono); font-size:18px; letter-spacing:.14em; text-transform:uppercase; color:var(--soft); }
+  .top svg { width:38px; height:38px; }
+  .top b { color:var(--deep); letter-spacing:.1em; }
+  .top .r { margin-left:auto; letter-spacing:.08em; }
+
+  .copy { width:600px; }
+  h1 { margin:52px 0 0; font-size:70px; line-height:1.05; letter-spacing:-.035em; font-weight:700; }
+  h1 em { font-style:normal; background:linear-gradient(90deg,var(--blue),var(--blue2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { margin:24px 0 0; font-size:24px; line-height:1.42; color:var(--soft); }
+
+  .chips { margin-top:auto; display:flex; flex-wrap:wrap; gap:10px; padding-bottom:22px; max-width:640px; flex-wrap:nowrap; white-space:nowrap; }
+  .chip { font-size:16.5px; font-weight:700; padding:7px 14px; border-radius:22px; background:var(--blue); color:#fff; border:1.5px solid var(--blue); }
+  .chip.g { background:var(--chip-g-bg); color:var(--deep); border:1.5px solid var(--chip-g-line); }
+
+  .foot { padding-top:16px; border-top:1px solid var(--hair); display:flex; align-items:center; font-family:var(--mono); font-size:20px; color:var(--soft); }
+  .foot b { color:var(--ink); }
+  .foot .r { margin-left:auto; }
+
+  .diagram { position:absolute; right:56px; top:118px; width:530px; height:380px; }
+  .diagram .card { fill:var(--card); stroke:var(--hair); stroke-width:1.2; }
+  .diagram .t { font-family:var(--sans); font-weight:700; font-size:21px; fill:var(--ink); }
+  .diagram .s { font-family:var(--mono); font-size:13.5px; fill:var(--soft); }
+  .diagram .wire { fill:none; stroke:var(--wire); stroke-width:2.6; stroke-linecap:round; }
+  .diagram .node { fill:var(--blue); }
+  .diagram .hubt { font-family:var(--sans); font-weight:700; font-size:30px; fill:#fff; }
+  .diagram .hubs { font-family:var(--mono); font-size:15px; fill:#dcecff; }
+  .diagram .dot { fill:var(--orange); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <svg viewBox="0 0 64 64" role="img" aria-label="Zyvor"><defs><linearGradient id="zg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2997ff"/><stop offset="1" stop-color="#0058c8"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#zg)"/><path d="M18.5,20.5 45.5,20.5 18.5,43.5 45.5,43.5" fill="none" stroke="#fff" stroke-width="8.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <b>Zyvor</b><span>&middot;</span><span>Haven</span><span class="r">Identity plane</span>
+  </div>
+
+  <div class="copy">
+    <h1>Identity for the<br><em>private cloud.</em></h1>
+    <p class="sub">Keycloak + HA Postgres as one plane — official operators, one console, Zyvor Production License.</p>
+  </div>
+
+  <div class="chips">
+    <span class="chip">CloudNativePG</span>
+    <span class="chip">Keycloak Operator</span>
+    <span class="chip g">Command Deck</span>
+    <span class="chip g">Realm Studio</span>
+  </div>
+
+  <div class="foot"><span><b>zyvorai.github.io/haven</b></span><span class="r">v0.1.0 &middot; Zyvor Production License</span></div>
+</div>
+
+<svg class="diagram" viewBox="0 0 530 380" role="img" aria-label="Haven: one plane composing CloudNativePG, the Keycloak Operator and one console">
+  <defs>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity=".10"/></filter>
+    <linearGradient id="hub" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a84ff"/><stop offset="1" stop-color="#0060d6"/></linearGradient>
+  </defs>
+  <g class="wire">
+    <path d="M150 190 C 185 190, 185 66, 222 66"/>
+    <path d="M150 190 L 222 190"/>
+    <path d="M150 190 C 185 190, 185 314, 222 314"/>
+  </g>
+  <g class="node"><circle cx="150" cy="190" r="6"/><circle cx="222" cy="66" r="5"/><circle cx="222" cy="190" r="5"/><circle cx="222" cy="314" r="5"/></g>
+  <rect x="0" y="136" width="150" height="108" rx="22" fill="url(#hub)" filter="url(#sh)"/>
+  <text class="hubt" x="75" y="186" text-anchor="middle">Haven</text>
+  <text class="hubs" x="75" y="214" text-anchor="middle">one plane</text>
+
+  <g filter="url(#sh)">
+    <rect class="card" x="230" y="30" width="290" height="72" rx="16"/>
+    <rect class="card" x="230" y="154" width="290" height="72" rx="16"/>
+    <rect class="card" x="230" y="278" width="290" height="72" rx="16"/>
+  </g>
+  <text class="t" x="252" y="62">CloudNativePG</text>
+  <text class="s" x="252" y="84">HA Postgres</text>
+  <text class="t" x="252" y="186">Keycloak Operator</text>
+  <text class="s" x="252" y="208">official, no fork</text>
+  <circle class="dot" cx="498" cy="176" r="5.5"/>
+  <text class="t" x="252" y="310">One console</text>
+  <text class="s" x="252" y="332">Command Deck · Realm Studio</text>
+</svg>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "/": "Public product landing \u2014 sign in or jump to Command Deck when already authenticated.",
+  "/login": "Sign in to the Haven identity console \u2014 lab demo, local console user, or Keycloak admin.",
+  "/deck": "Home operations surface \u2014 Keycloak connection, IdentityPlane health cards, reconcile timeline.",
+  "/deploy": "Spin up an identity plane \u2014 Postgres + Keycloak via Haven compose path.",
+  "/planes": "IdentityPlane instances \u2014 health, profile, and endpoints.",
+  "/atlas": "Traffic path to identity \u2014 Console \u2192 Ingress \u2192 Keycloak \u2192 Postgres.",
+  "/realms": "Create and manage Keycloak realms as tenant boundaries.",
+  "/realms/:realm": "Users and clients inside one realm \u2014 invite, set password, mint/rotate secrets.",
+  "/clients": "OIDC clients across all realms \u2014 mint, rotate secrets, manage redirect URIs.",
+  "/settings": "Connect Haven to Keycloak and manage console appearance / passwords."
+}

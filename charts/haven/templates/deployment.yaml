@@ -1,0 +1,79 @@
+{{- if .Values.controller.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "haven.name" . }}-controller
+  labels:
+    {{- include "haven.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "haven.name" . }}
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "haven.name" . }}
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: manager
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --leader-elect
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+{{- end }}
+---
+{{- if .Values.console.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "haven.name" . }}-console
+  labels:
+    {{- include "haven.labels" . | nindent 4 }}
+    app.kubernetes.io/component: console
+spec:
+  replicas: {{ .Values.console.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "haven.name" . }}
+      app.kubernetes.io/component: console
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "haven.name" . }}
+        app.kubernetes.io/component: console
+    spec:
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: console
+          image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: HAVEN_DATA_DIR
+              value: /var/lib/haven
+            - name: HAVEN_CLIENT_SECRET_ROTATION_DAYS
+              value: {{ .Values.console.clientSecretRotationDays | quote }}
+          volumeMounts:
+            - name: haven-data
+              mountPath: /var/lib/haven
+          resources:
+            {{- toYaml .Values.console.resources | nindent 12 }}
+      volumes:
+        - name: haven-data
+          {{- if .Values.console.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "haven.name" . }}-console-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

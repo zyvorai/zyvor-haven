@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Embed placeholder UI
+        # haven-console embeds ui/web's build output (gitignored); the UI job builds the real one.
+        run: mkdir -p cmd/haven-console/dist && echo '<!doctype html>' > cmd/haven-console/dist/index.html
+
+      - name: Format
+        run: test -z "$(gofmt -l api cmd internal)" || { gofmt -l api cmd internal; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0
+
+      - name: Vulnerability scan
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+          # A fresh checkout would delete the placeholder UI that go:embed needs.
+          repo-checkout: false
+
+      - name: Security scan (gosec)
+        # The gosec action's container lags the go.mod toolchain; build it with setup-go's Go instead.
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 ./...
+
+      - name: Test
+        run: go test -race ./...
+
+  ui:
+    name: UI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui/web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ui/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build

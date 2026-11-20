@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Getting Started — Haven</title>
+<style>
+@page{size:A4;margin:15mm 16mm}*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Segoe UI',system-ui,sans-serif;color:#1f2937;line-height:1.58;font-size:10.5pt}
+.cover{height:262mm;margin:-15mm -16mm 0;background:linear-gradient(135deg,#04140f,#064e3b,#0d1b2a);color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;page-break-after:always;position:relative}
+.cover .kicker{letter-spacing:5px;text-transform:uppercase;opacity:.72;margin-bottom:1.4em}
+.cover h1{font-size:3.2em;font-weight:800;letter-spacing:-2px}
+.cover h1 span{color:#34d399}
+.cover .sub{font-size:1.3em;font-weight:300;opacity:.93;margin:1em 0;max-width:24em}
+.cover .badge{display:inline-block;background:rgba(96,165,250,.2);border:1px solid #34d399;padding:8px 22px;border-radius:20px;margin-top:2em}
+.cover .foot{position:absolute;bottom:34px;font-size:.82em;opacity:.6}
+h2{page-break-before:always;margin:0 0 .35em;font-size:1.55em;font-weight:750;color:#12203a;border-bottom:2px solid #e5edfb;padding-bottom:.28em}
+h2:first-of-type{page-break-before:avoid}
+h3{margin:1.1em 0 .4em;font-size:1.12em;font-weight:700}
+p,li{margin:.4em 0}ul,ol{margin:.5em 0 .9em 1.4em}
+a{color:#2563eb;text-decoration:none}
+code{background:#eef2f7;padding:1px 6px;border-radius:4px;font-size:.86em;font-family:ui-monospace,Menlo,monospace}
+pre{background:#0f172a;color:#e2e8f0;padding:12px 15px;border-radius:9px;overflow-x:auto;margin:.8em 0}
+table{width:100%;border-collapse:collapse;margin:.8em 0 1.1em;font-size:9.5pt}
+th,td{border:1px solid #e5e7eb;padding:6px 8px;text-align:left;vertical-align:top}th{background:#f1f5f9}
+hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
+</style></head><body>
+<section class="cover"><div class="kicker">ZyvorAI Labs · User Documentation</div>
+<h1>Ha<span>ven</span></h1>
+<div class="sub">Getting Started</div>
+<div class="badge">2026-09-04</div>
+<div class="foot">zyvor.dev · Zyvor Production License · source-available</div></section>
+<main><h2>Prerequisites</h2>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Kubernetes / k3s</td>
+<td>kubectl access</td>
+</tr>
+<tr>
+<td>Keycloak Admin URL <strong>or</strong> Haven compose operators</td>
+<td>Existing Keycloak or Deploy wizard</td>
+</tr>
+<tr>
+<td>Browser</td>
+<td>Console NodePort (default <strong>30742</strong>)</td>
+</tr>
+</tbody></table>
+<h2>1. Lab deploy (remote)</h2>
+<pre><code class="language-bash">git clone https://github.com/zyvorai/haven.git
+cd haven
+./scripts/deploy-remote.sh &lt;host&gt; &lt;user&gt;
+./scripts/deploy-remote.sh &lt;host&gt; &lt;user&gt; --quick   # skip image rebuild
+</code></pre>
+<p>Open <code>http://&lt;host&gt;:30742/login</code>.</p>
+<h2>2. Sign in</h2>
+<table>
+<thead>
+<tr>
+<th>Account</th>
+<th>Credentials</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Lab demo</td>
+<td><code>demo</code> / <code>demo</code></td>
+<td><code>HAVEN_LAB_LOGIN</code> enabled</td>
+</tr>
+<tr>
+<td>Admin</td>
+<td>Keycloak admin user/password</td>
+<td>Synced into <code>haven-keycloak-admin</code></td>
+</tr>
+<tr>
+<td>Local console</td>
+<td><code>HAVEN_CONSOLE_USER</code> / <code>PASSWORD</code></td>
+<td>Role <code>admin</code></td>
+</tr>
+</tbody></table>
+<p>Full login UX: <a href="pages/auth/login.md">Login</a>.</p>
+<h2>3. Orient yourself (UX)</h2>
+<ol>
+<li><strong>Command Deck</strong> (<code>/deck</code>) — Keycloak connected? Phase Ready?</li>
+<li><strong>Planes</strong> — fleet card for your IdentityPlane.</li>
+<li><strong>Atlas</strong> — Console → Ingress → Keycloak → Postgres path.</li>
+<li><strong>Realm Studio</strong> — list/create realms; open detail for users/clients.</li>
+<li><strong>Settings</strong> — <strong>Test &amp; connect</strong> until the green banner appears.</li>
+</ol>
+<p>Command palette: <code>⌘K</code> / <code>Ctrl+K</code>.</p>
+<h2>4. First real job</h2>
+<ul>
+<li><a href="workflows.md#verify-a-fresh-lab">Verify a fresh lab</a></li>
+<li><a href="workflows.md#create-a-realm-and-invite-a-user">Create a realm and invite a user</a></li>
+<li><a href="workflows.md#mint-an-oidc-client">Mint an OIDC client</a></li>
+</ul>
+<h2>Next steps</h2>
+<ul>
+<li><a href="using-the-dashboard.md">Using the Dashboard</a></li>
+<li><a href="admin-basics.md">Admin basics</a></li>
+<li><a href="passwords.md">Passwords</a></li>
+</ul>
+<hr>
+<p>Haven’s console is the day-2 identity operator surface over Keycloak (and optional CloudNativePG).</p>
+<h2>Shell chrome</h2>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Job</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Sidebar</td>
+<td>Command Deck · Deploy · Planes · Realm Studio · Clients · Atlas · Settings</td>
+</tr>
+<tr>
+<td>Status chip</td>
+<td>Keycloak connected / version / realm count · plane phase</td>
+</tr>
+<tr>
+<td>Command palette</td>
+<td><code>⌘K</code> / <code>Ctrl+K</code></td>
+</tr>
+<tr>
+<td>Top bar / mobile nav</td>
+<td>Same destinations on small viewports</td>
+</tr>
+</tbody></table>
+<p>Backups / Approvals may appear as placeholders (<code>#</code>) until shipped — ignore for production recipes.</p>
+<h2>Operate tips</h2>
+<ol>
+<li>Always confirm <strong>Connected</strong> on Deck or Settings before realm work.</li>
+<li>Create realms in <strong>Realm Studio</strong>; mint OIDC clients under <strong>Clients</strong> or realm detail.</li>
+<li>Persist password changes in secrets before pod restart — see <a href="passwords.md">Passwords</a>.</li>
+<li>Never paste lab IPs into runbooks — use <code>&lt;host&gt;</code>.</li>
+</ol>
+<h2>Related</h2>
+<ul>
+<li><a href="getting-started.md">Getting Started</a></li>
+<li><a href="PAGE_INDEX.md">Page index</a></li>
+<li><a href="pages/console/deck.md">Command Deck</a></li>
+</ul>
+<hr>
+<p>Each recipe assumes <code>http://&lt;host&gt;:30742/</code> is reachable.</p>
+<h2>Verify a fresh lab</h2>
+<ol>
+<li>Deploy: <code>./scripts/deploy-remote.sh &lt;host&gt; &lt;user&gt;</code> (<a href="getting-started.md">Getting Started</a>).</li>
+<li>Sign in (<code>demo</code> / <code>demo</code> or admin).</li>
+<li><a href="pages/console/deck.md">Command Deck</a> — Connected + Ready (or external Postgres noted).</li>
+<li><a href="pages/console/settings.md">Settings</a> — green Connected banner.</li>
+<li><a href="pages/console/atlas.md">Atlas</a> — path hops look healthy.</li>
+</ol>
+<h2>Create a realm and invite a user</h2>
+<ol>
+<li><a href="pages/console/realms.md">Realm Studio</a> → <strong>+ Create realm</strong>.</li>
+<li>Open <a href="pages/console/realms-realm.md">Realm detail</a> → <strong>+ Invite user</strong>.</li>
+<li>Set password when prompted; verify login against that realm’s account console if needed.</li>
+</ol>
+<h2>Mint an OIDC client</h2>
+<ol>
+<li><a href="pages/console/clients.md">Clients</a> (or realm detail Clients tab).</li>
+<li>Create confidential/public client with redirect URI for your app.</li>
+<li>Copy client secret once; paste into the relying party.</li>
+<li>Optional: regenerate secret later with confirm.</li>
+</ol>
+<h2>Deploy a new identity plane</h2>
+<ol>
+<li><a href="pages/console/deploy.md">Deploy wizard</a> → Review &amp; Deploy.</li>
+<li>Watch <a href="pages/console/planes.md">Planes</a> and Deck reconcile timeline until Ready.</li>
+</ol>
+<h2>Related</h2>
+<ul>
+<li><a href="using-the-dashboard.md">Using the Dashboard</a></li>
+<li><a href="passwords.md">Passwords</a></li>
+</ul>
+</main></body></html>

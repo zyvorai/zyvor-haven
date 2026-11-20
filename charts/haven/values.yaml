@@ -1,0 +1,65 @@
+# Haven chart — controller + console.
+# Database and Keycloak are NOT subcharts. They are created from IdentityPlane CRs
+# so official operators stay in charge of reconciliation.
+
+image:
+  repository: ghcr.io/zyvorai/haven-controller
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+console:
+  enabled: false
+  image:
+    repository: ghcr.io/zyvorai/haven-console
+    tag: "0.1.0"
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  persistence:
+    enabled: false
+    size: 2Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+  clientSecretRotationDays: 90
+
+controller:
+  enabled: false
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi
+  clusterScope: false
+  watchNamespace: ""
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: haven-controller
+
+# Optional: install CRDs with the chart. Prefer `kubectl apply -f config/crd` in GitOps.
+# CRDs live in config/crd and must be applied out of band (GitOps-friendly).
+installCRDs: false
+
+# Default plane the chart can optionally emit (off by default — apply samples instead).
+plane:
+  create: false
+  name: platform
+  namespace: identity
+  profile: dev
+  hostname: auth.127.0.0.1.nip.io
+  consoleHostname: haven.127.0.0.1.nip.io
+
+observability:
+  serviceMonitor: false

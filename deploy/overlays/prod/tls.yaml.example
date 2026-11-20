@@ -1,0 +1,15 @@
+# Rename to tls.yaml and add to kustomization.yaml after the issuer exists.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: platform-tls
+  namespace: identity
+spec:
+  secretName: platform-tls
+  commonName: auth.cloud.internal
+  dnsNames:
+    - auth.cloud.internal
+    - haven.cloud.internal
+  issuerRef:
+    kind: ClusterIssuer
+    name: private-ca

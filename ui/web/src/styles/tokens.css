@@ -1,0 +1,126 @@
+/* Copyright 2026 Zyvor AI Labs · https://zyvor.dev
+ * SPDX-License-Identifier: LicenseRef-Zyvor-Production-1.0 */
+:root {
+  /* apple.com off-white (global) */
+  --zy-canvas: #fbfbfd;
+  --zy-surface: #ffffff;
+  --zy-surface-2: #f5f5f7;
+  --zy-elevated: #ffffff;
+  --zy-hairline: #d2d2d7;
+  --zy-ink: #1d1d1f;
+  --zy-slate: #6e6e73;
+  --zy-muted: #86868b;
+
+  /* Apple blue + iPhone 17 Mist Blue accent */
+  --zy-500: #0071e3;
+  --zy-600: #0077ed;
+  --zy-700: #006edb;
+  --zy-tint: rgba(0, 113, 227, 0.1);
+  --zy-mist: #96aed1;
+  --zy-mist-tint: rgba(150, 174, 209, 0.22);
+
+  /* Zyvor brand (logo only) */
+  --zyvor-orange: #ff5a15;
+  --zyvor-orange-dark: #cc420a;
+  --zyvor-orange-tint: rgba(255, 90, 21, 0.1);
+
+  --zy-ok: #248a3d;
+  --zy-ok-tint: rgba(36, 138, 61, 0.1);
+  --zy-warn: #bf4800;
+  --zy-warn-tint: rgba(191, 72, 0, 0.1);
+  --zy-err: #e30000;
+  --zy-err-tint: rgba(227, 0, 0, 0.08);
+  --zy-danger: #e30000;
+
+  --zy-s1: 4px;
+  --zy-s2: 8px;
+  --zy-s3: 12px;
+  --zy-s4: 16px;
+  --zy-s5: 22px;
+  --zy-s6: 32px;
+  --zy-s7: 44px;
+  --zy-s8: 64px;
+  --zy-s9: 88px;
+  --zy-s10: 120px;
+
+  --zy-r-sm: 8px;
+  --zy-r-md: 12px;
+  --zy-r-lg: 18px;
+  --zy-r-xl: 22px;
+  --zy-r-pill: 980px;
+
+  --zy-e1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 8px rgba(0, 0, 0, 0.04);
+  --zy-e2: 0 4px 16px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --zy-e3: 0 12px 40px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  --zy-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  --zy-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --zy-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+
+  --zy-max: 980px;
+  --zy-max-narrow: 692px;
+  --zy-gutter: 22px;
+  --zy-nav-h: 44px;
+  --zy-sidebar-w: 196px;
+  --zy-sidebar-w-collapsed: 52px;
+
+  --zy-fast: 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --zy-base: 0.32s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --zy-slow: 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  --gnav-bg: rgba(251, 251, 253, 0.78);
+  --gnav-border: rgba(0, 0, 0, 0.08);
+  --topbar-bg: rgba(251, 251, 253, 0.72);
+  --sidebar-bg: #ffffff;
+  --overlay-bg: rgba(0, 0, 0, 0.4);
+  --palette-bg: rgba(255, 255, 255, 0.92);
+  --featured-gradient: linear-gradient(135deg, #ffffff 0%, var(--zy-mist-tint) 55%, #ffffff 100%);
+  --card-border: var(--zy-hairline);
+}
+
+/* Apple-style dark — deeper canvas, elevated layers, soft hairlines */
+[data-theme="dark"] {
+  --zy-canvas: #000000;
+  --zy-surface: #1c1c1e;
+  --zy-surface-2: #2c2c2e;
+  --zy-elevated: #3a3a3c;
+  --zy-hairline: rgba(255, 255, 255, 0.12);
+  --zy-ink: #f5f5f7;
+  --zy-slate: #a1a1a6;
+  --zy-muted: #6e6e73;
+
+  --zy-500: #2997ff;
+  --zy-600: #0077ed;
+  --zy-700: #147ce5;
+  --zy-tint: rgba(41, 151, 255, 0.16);
+  --zy-mist: #8e9fb8;
+  --zy-mist-tint: rgba(142, 159, 184, 0.16);
+
+  --zyvor-orange-tint: rgba(255, 90, 21, 0.14);
+
+  --zy-ok: #30d158;
+  --zy-ok-tint: rgba(48, 209, 88, 0.14);
+  --zy-warn: #ff9f0a;
+  --zy-warn-tint: rgba(255, 159, 10, 0.14);
+  --zy-err: #ff453a;
+  --zy-err-tint: rgba(255, 69, 58, 0.14);
+  --zy-danger: #ff453a;
+
+  --zy-e1: 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 12px rgba(0, 0, 0, 0.45);
+  --zy-e2: 0 4px 24px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.06);
+  --zy-e3: 0 16px 48px rgba(0, 0, 0, 0.65), 0 2px 0 rgba(255, 255, 255, 0.04);
+
+  --gnav-bg: rgba(22, 22, 24, 0.82);
+  --gnav-border: rgba(255, 255, 255, 0.08);
+  --topbar-bg: rgba(22, 22, 24, 0.72);
+  --sidebar-bg: #161617;
+  --overlay-bg: rgba(0, 0, 0, 0.62);
+  --palette-bg: rgba(44, 44, 46, 0.92);
+  --featured-gradient: linear-gradient(
+    145deg,
+    #1c1c1e 0%,
+    rgba(41, 151, 255, 0.14) 42%,
+    #2c2c2e 100%
+  );
+  --card-border: rgba(255, 255, 255, 0.1);
+}

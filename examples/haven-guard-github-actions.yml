@@ -1,0 +1,30 @@
+# Example only: copy into .github/workflows after choosing your realm export path.
+name: Haven Guard
+
+on:
+  pull_request:
+    paths:
+      - 'identity/**.json'
+      - 'internal/posture/**'
+      - 'cmd/haven-audit/**'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Generate SARIF
+        run: go run ./cmd/haven-audit --input identity/realm.json --format sarif --fail-on none > haven-guard.sarif
+      - name: Upload Haven Guard SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: haven-guard.sarif
+      - name: Block high-risk identity changes
+        run: go run ./cmd/haven-audit --input identity/realm.json --fail-on high

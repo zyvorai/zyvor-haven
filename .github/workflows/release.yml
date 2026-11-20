@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (e.g. v0.1.0). Must already exist or will be created for the current SHA.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: ${{ github.repository_owner }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "$TAG" in
+            v*) ;;
+            *) echo "Tag must start with v (got: $TAG)"; exit 1 ;;
+          esac
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "console_image=${{ env.REGISTRY }}/${{ env.OWNER }}/haven-console" >> "$GITHUB_OUTPUT"
+          echo "controller_image=${{ env.REGISTRY }}/${{ env.OWNER }}/haven-controller" >> "$GITHUB_OUTPUT"
+          echo "chart_oci=${{ env.REGISTRY }}/${{ env.OWNER }}/charts/haven" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase owner (GHCR requires lowercase)
+        id: owner
+        run: echo "name=${OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push haven-console
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.console
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-console:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-console:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-console:latest
+          labels: |
+            org.opencontainers.image.title=haven-console
+            org.opencontainers.image.description=Haven identity console (API + embedded SPA)
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.licenses=LicenseRef-Zyvor-Production-1.0
+          provenance: true
+          sbom: true
+
+      - name: Build and push haven-controller
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.controller
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-controller:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-controller:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-controller:latest
+          labels: |
+            org.opencontainers.image.title=haven-controller
+            org.opencontainers.image.description=Haven IdentityPlane controller
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.licenses=LicenseRef-Zyvor-Production-1.0
+          provenance: true
+          sbom: true
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+
+      - name: Package and push Helm chart
+        run: |
+          OWNER_LC="${{ steps.owner.outputs.name }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          sed -i "s/^version: .*/version: ${VERSION}/" charts/haven/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${VERSION}\"/" charts/haven/Chart.yaml
+          sed -i "s|repository: ghcr.io/.*/haven-controller|repository: ghcr.io/${OWNER_LC}/haven-controller|" charts/haven/values.yaml
+          sed -i "s|repository: ghcr.io/.*/haven-console|repository: ghcr.io/${OWNER_LC}/haven-console|" charts/haven/values.yaml
+          sed -i "s|tag: \".*\"|tag: \"${VERSION}\"|" charts/haven/values.yaml
+          helm package charts/haven --destination /tmp
+          helm push "/tmp/haven-${VERSION}.tgz" "oci://ghcr.io/${OWNER_LC}/charts"
+
+      - name: Make GHCR packages public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER_LC="${{ steps.owner.outputs.name }}"
+          for pkg in haven-console haven-controller 'charts/haven'; do
+            encoded=$(printf %s "$pkg" | jq -sRr @uri)
+            echo "Setting $pkg public…"
+            gh api --method PUT "/user/packages/container/${encoded}/visibility" -f visibility=public \
+              || gh api --method PUT "/orgs/${OWNER_LC}/packages/container/${encoded}/visibility" -f visibility=public \
+              || echo "WARN: could not set visibility for $pkg (set public in GitHub UI → Packages)"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Haven ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          body: |
+            ## Images (multi-arch: linux/amd64, linux/arm64)
+
+            ```text
+            ghcr.io/${{ steps.owner.outputs.name }}/haven-console:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ steps.owner.outputs.name }}/haven-controller:${{ steps.meta.outputs.version }}
+            ```
+
+            Also tagged `:latest` and `:${{ steps.meta.outputs.tag }}`.
+
+            ## Helm
+
+            ```bash
+            helm install haven oci://ghcr.io/${{ steps.owner.outputs.name }}/charts/haven --version ${{ steps.meta.outputs.version }}
+            ```
+
+            Enable workloads:
+
+            ```bash
+            helm upgrade --install haven oci://ghcr.io/${{ steps.owner.outputs.name }}/charts/haven \
+              --version ${{ steps.meta.outputs.version }} \
+              --set controller.enabled=true \
+              --set console.enabled=true
+            ```
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ steps.meta.outputs.tag }}/CHANGELOG.md).
+          files: |
+            /tmp/haven-${{ steps.meta.outputs.version }}.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

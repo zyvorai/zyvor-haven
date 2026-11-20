@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# Copyright 2026 Zyvor AI Labs · https://zyvor.dev
+# SPDX-License-Identifier: LicenseRef-Zyvor-Production-1.0
+# haven — thin CLI over the compose path and IdentityPlane CRs.
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+haven — operate a Haven identity plane
+
+  haven deploy -f plane.yaml
+  haven status [name] [-n namespace]
+  haven open   [name] [-n namespace]
+  haven doctor [name] [-n namespace]
+  haven backup [name] [-n namespace] [--now]
+  haven admin  [name] [-n namespace]   print Keycloak bootstrap secret path
+
+Defaults: name=platform  namespace=identity
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+
+NS="identity"
+NAME="platform"
+FILE=""
+NOW=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -n|--namespace) NS="$2"; shift 2 ;;
+    -f|--file) FILE="$2"; shift 2 ;;
+    --now) NOW=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    -*)
+      echo "unknown flag: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      NAME="$1"
+      shift
+      ;;
+  esac
+done
+
+kc_admin_secret() {
+  # Official Keycloak Operator secret. Falls back to Haven's planned name.
+  if kubectl get secret "${NAME}-initial-admin" -n "$NS" >/dev/null 2>&1; then
+    echo "${NAME}-initial-admin"
+  elif kubectl get secret "${NAME}-bootstrap" -n "$NS" >/dev/null 2>&1; then
+    echo "${NAME}-bootstrap"
+  else
+    echo ""
+  fi
+}
+
+case "$cmd" in
+  deploy)
+    [[ -n "$FILE" ]] || { echo "usage: haven deploy -f plane.yaml" >&2; exit 2; }
+    kubectl apply -f "$FILE"
+    ;;
+  status)
+    echo "plane: ${NS}/${NAME}"
+    if kubectl get identityplane "$NAME" -n "$NS" >/dev/null 2>&1; then
+      kubectl get identityplane "$NAME" -n "$NS" -o wide
+      echo
+      echo "--- endpoints ---"
+      kubectl get identityplane "$NAME" -n "$NS" \
+        -o jsonpath='{range .status.endpoints}keycloak={.keycloak}{"\n"}console={.console}{"\n"}admin={.admin}{"\n"}{end}'
+      echo
+    else
+      echo "(no IdentityPlane CR — compose path only)"
+    fi
+    echo "--- keycloak ---"
+    kubectl get keycloak -n "$NS" 2>/dev/null || echo "(none)"
+    echo
+    echo "--- database ---"
+    kubectl get cluster.postgresql.cnpg.io -n "$NS" 2>/dev/null || echo "(none)"
+    echo
+    secret="$(kc_admin_secret)"
+    echo "--- admin secret ---"
+    if [[ -n "$secret" ]]; then
+      echo "  kubectl -n $NS get secret $secret -o jsonpath='{.data.username}' | base64 -d; echo"
+      echo "  kubectl -n $NS get secret $secret -o jsonpath='{.data.password}' | base64 -d; echo"
+    else
+      echo "  (not created yet — wait for Keycloak Operator bootstrap)"
+    fi
+    ;;
+  open)
+    host="$(kubectl get identityplane "$NAME" -n "$NS" -o jsonpath='{.spec.hostname}' 2>/dev/null || true)"
+    console="$(kubectl get identityplane "$NAME" -n "$NS" -o jsonpath='{.spec.consoleHostname}' 2>/dev/null || true)"
+    if [[ -z "$host" ]]; then
+      host="$(kubectl get ingress -n "$NS" -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || true)"
+    fi
+    echo "keycloak: http://${host:-auth.127.0.0.1.nip.io}"
+    echo "admin:    http://${host:-auth.127.0.0.1.nip.io}/admin"
+    echo "console:  http://${console:-haven.127.0.0.1.nip.io}"
+    ;;
+  doctor)
+    fail=0
+    echo "== CRDs =="
+    for c in \
+      identityplanes.identity.haven.dev \
+      clusters.postgresql.cnpg.io \
+      keycloaks.k8s.keycloak.org \
+      certificates.cert-manager.io
+    do
+      if kubectl get crd "$c" >/dev/null 2>&1; then
+        echo "  ok   $c"
+      else
+        echo "  MISS $c"
+        fail=1
+      fi
+    done
+    echo
+    echo "== operators =="
+    kubectl -n cnpg-system get deploy cnpg-controller-manager -o wide 2>/dev/null || { echo "  MISS cnpg-controller-manager"; fail=1; }
+    kubectl -n keycloak get deploy 2>/dev/null || echo "  (no deploy in ns keycloak)"
+    echo
+    echo "== objects in $NS =="
+    kubectl get identityplane,cluster.postgresql.cnpg.io,keycloak,ingress,certificate,secret -n "$NS" 2>/dev/null || true
+    echo
+    echo "== pods in $NS =="
+    kubectl get pods -n "$NS" -o wide 2>/dev/null || true
+    echo
+    if kubectl get cluster.postgresql.cnpg.io "${NAME}-db" -n "$NS" >/dev/null 2>&1; then
+      phase="$(kubectl get cluster.postgresql.cnpg.io "${NAME}-db" -n "$NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+      echo "cnpg phase: ${phase:-unknown}"
+    fi
+    exit "$fail"
+    ;;
+  admin)
+    secret="$(kc_admin_secret)"
+    [[ -n "$secret" ]] || { echo "admin secret not found in $NS" >&2; exit 1; }
+    echo -n "username: "
+    kubectl -n "$NS" get secret "$secret" -o jsonpath='{.data.username}' | base64 -d; echo
+    echo -n "password: "
+    kubectl -n "$NS" get secret "$secret" -o jsonpath='{.data.password}' | base64 -d; echo
+    ;;
+  backup)
+    if $NOW; then
+      ts="$(date +%Y%m%d%H%M%S)"
+      cat <<EOF | kubectl apply -f -
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: ${NAME}-db-${ts}
+  namespace: ${NS}
+spec:
+  cluster:
+    name: ${NAME}-db
+  method: volumeSnapshot
+EOF
+      echo "Requested volumeSnapshot backup ${NAME}-db-${ts}."
+      echo "If your StorageClass has no snapshotter, configure an ObjectStore and use method: plugin instead."
+    else
+      kubectl get backup,scheduledbackup -n "$NS" 2>/dev/null || echo "(no backups)"
+    fi
+    ;;
+  help|--help|-h)
+    usage
+    ;;
+  *)
+    echo "unknown command: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

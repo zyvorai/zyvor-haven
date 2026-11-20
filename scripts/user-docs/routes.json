@@ -1,0 +1,64 @@
+{
+  "routes": [
+    {
+      "label": "Landing",
+      "path": "/",
+      "category": "PUBLIC",
+      "legacy": false
+    },
+    {
+      "label": "Login",
+      "path": "/login",
+      "category": "AUTH",
+      "legacy": false
+    },
+    {
+      "label": "Command Deck",
+      "path": "/deck",
+      "category": "CONSOLE",
+      "legacy": false
+    },
+    {
+      "label": "Deploy wizard",
+      "path": "/deploy",
+      "category": "CONSOLE",
+      "legacy": false
+    },
+    {
+      "label": "Planes",
+      "path": "/planes",
+      "category": "CONSOLE",
+      "legacy": false
+    },
+    {
+      "label": "Atlas",
+      "path": "/atlas",
+      "category": "CONSOLE",
+      "legacy": false
+    },
+    {
+      "label": "Realm Studio",
+      "path": "/realms",
+      "category": "CONSOLE",
+      "legacy": false
+    },
+    {
+      "label": "Realm detail",
+      "path": "/realms/:realm",
+      "category": "CONSOLE",
+      "legacy": false
+    },
+    {
+      "label": "Clients",
+      "path": "/clients",
+      "category": "CONSOLE",
+      "legacy": false
+    },
+    {
+      "label": "Settings",
+      "path": "/settings",
+      "category": "CONSOLE",
+      "legacy": false
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+name: Make packages public
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  public:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make GHCR packages public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
+          for pkg in haven-console haven-controller 'charts/haven'; do
+            encoded=$(printf %s "$pkg" | jq -sRr @uri)
+            echo "Setting $pkg public…"
+            if gh api --method PUT "/user/packages/container/${encoded}/visibility" -f visibility=public; then
+              echo "OK user package $pkg"
+            elif gh api --method PUT "/orgs/${OWNER_LC}/packages/container/${encoded}/visibility" -f visibility=public; then
+              echo "OK org package $pkg"
+            else
+              echo "::warning::could not set visibility for $pkg"
+            fi
+          done

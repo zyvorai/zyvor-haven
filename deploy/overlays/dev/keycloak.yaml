@@ -1,0 +1,49 @@
+# Official Keycloak CR. Haven owns the object; the Keycloak Operator owns the pods.
+# v2beta1 is served from Keycloak Operator 26.6+; v2alpha1 remains valid.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: platform
+  namespace: identity
+  labels:
+    haven.identity/plane: platform
+    app.kubernetes.io/component: identity
+spec:
+  instances: 1
+  db:
+    vendor: postgres
+    host: platform-db-rw.identity.svc
+    database: keycloak
+    usernameSecret:
+      name: platform-keycloak-db
+      key: username
+    passwordSecret:
+      name: platform-keycloak-db
+      key: password
+    poolInitialSize: 8
+    poolMinSize: 8
+    poolMaxSize: 8
+  http:
+    httpEnabled: true
+  hostname:
+    hostname: auth.127.0.0.1.nip.io
+    strict: false
+  ingress:
+    enabled: false
+  proxy:
+    headers: xforwarded
+  features:
+    enabled:
+      - persistent-user-sessions
+  additionalOptions:
+    - name: metrics-enabled
+      value: "true"
+    - name: health-enabled
+      value: "true"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 768Mi
+    limits:
+      cpu: "2"
+      memory: 1536Mi

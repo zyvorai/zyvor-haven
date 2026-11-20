@@ -1,0 +1,152 @@
+{
+  "product": "Haven",
+  "surfaces": [
+    {
+      "path": "/",
+      "label": "Landing",
+      "category": "PUBLIC",
+      "nav": "Route `/` (marketing shell)",
+      "purpose": "Public product landing \u2014 sign in or jump to Command Deck when already authenticated.",
+      "operate": [
+        "Open `http://<host>:30742/`.",
+        "**Sign in** \u2192 `/login`, or **Open Command Deck** if you already have a session.",
+        "Read the Deploy Postgres + Keycloak story only as orientation \u2014 day-2 work lives under `/deck`.",
+        "**Empty / fail:** Page blank \u2192 console NodePort / ingress; not a substitute for Keycloak admin.",
+        "**Success:** You can reach Login or Deck without certificate/network surprises."
+      ]
+    },
+    {
+      "path": "/login",
+      "label": "Login",
+      "category": "AUTH",
+      "nav": "Unauthenticated \u2192 `/login`",
+      "purpose": "Sign in to the Haven identity console \u2014 lab demo, local console user, or Keycloak admin.",
+      "operate": [
+        "Open `http://<host>:30742/login`.",
+        "Lab: `demo` / `demo` when `HAVEN_LAB_LOGIN` is enabled.",
+        "Or Keycloak admin / `HAVEN_CONSOLE_USER`+`PASSWORD`.",
+        "**Sign in** \u2014 failures show an inline error.",
+        "**Empty / fail:** Wrong password \u2192 check `haven-keycloak-admin` secret; lab demo cannot change its own password.",
+        "**Success:** Redirect to Command Deck; sidebar shows Keycloak connected status."
+      ]
+    },
+    {
+      "path": "/deck",
+      "label": "Command Deck",
+      "category": "CONSOLE",
+      "nav": "Sidebar \u2192 Command Deck",
+      "purpose": "Home operations surface \u2014 Keycloak connection, IdentityPlane health cards, reconcile timeline.",
+      "operate": [
+        "Land on `/deck` after sign-in.",
+        "Read **Connected Keycloak** strip (URL, version, realm count).",
+        "Scan orbit cards: Keycloak, Phase, Postgres, backup, certificate, login RPS.",
+        "Follow **Reconcile Timeline** conditions (DatabaseReady, KeycloakReady, \u2026).",
+        "Quick links: Realm Studio, Clients, Deploy wizard, Settings.",
+        "If offline: **Connect Keycloak** / Settings \u2192 Test & connect.",
+        "**Empty / fail:** Not connected \u2192 Settings; external plane may show Ready with Postgres `external` \u2014 expected.",
+        "**Success:** Connected banner + Ready phase (or understood external mode)."
+      ]
+    },
+    {
+      "path": "/deploy",
+      "label": "Deploy wizard",
+      "category": "CONSOLE",
+      "nav": "Sidebar \u2192 Deploy wizard",
+      "purpose": "Spin up an identity plane \u2014 Postgres + Keycloak via Haven compose path.",
+      "operate": [
+        "Open `/deploy`.",
+        "Walk profile / capacity steps in the wizard.",
+        "**Review & Deploy \u2192** when ready; watch toast and Deck reconcile timeline.",
+        "Return to Planes / Deck to confirm Phase Ready.",
+        "**Empty / fail:** Deploy failed toast \u2192 operators/RBAC/storage; use external Keycloak via Settings instead.",
+        "**Success:** Plane appears Ready; Keycloak reachable from Settings."
+      ]
+    },
+    {
+      "path": "/planes",
+      "label": "Planes",
+      "category": "CONSOLE",
+      "nav": "Sidebar \u2192 Planes",
+      "purpose": "IdentityPlane instances \u2014 health, profile, and endpoints.",
+      "operate": [
+        "Open `/planes`.",
+        "**+ Deploy plane** or **Deploy wizard** when empty.",
+        "Open a plane card \u2192 endpoints / health; jump **Open Command Deck**.",
+        "**Empty / fail:** No planes \u2192 Deploy wizard or connect external Keycloak in Settings.",
+        "**Success:** Fleet card shows Ready with Keycloak/Postgres endpoints."
+      ]
+    },
+    {
+      "path": "/atlas",
+      "label": "Atlas",
+      "category": "CONSOLE",
+      "nav": "Sidebar \u2192 Atlas",
+      "purpose": "Traffic path to identity \u2014 Console \u2192 Ingress \u2192 Keycloak \u2192 Postgres.",
+      "operate": [
+        "Open `/atlas`.",
+        "Walk the path diagram; confirm each hop looks healthy.",
+        "Use this before debugging OIDC redirect or login failures.",
+        "**Empty / fail:** Broken hop \u2192 Settings connection or ingress NodePorts.",
+        "**Success:** Path matches your deploy (console 30742 \u2192 Keycloak 30180 typical)."
+      ]
+    },
+    {
+      "path": "/realms",
+      "label": "Realm Studio",
+      "category": "CONSOLE",
+      "nav": "Sidebar \u2192 Realm Studio",
+      "purpose": "Create and manage Keycloak realms as tenant boundaries.",
+      "operate": [
+        "Open `/realms`.",
+        "**+ Create realm** \u2192 name \u2192 Create.",
+        "Open a row \u2192 `/realms/:realm` for users/clients tabs.",
+        "Delete realm only with confirm (destructive).",
+        "**Empty / fail:** No realms \u2192 create one; Keycloak offline \u2192 Settings.",
+        "**Success:** Realm listed and openable in detail."
+      ]
+    },
+    {
+      "path": "/realms/:realm",
+      "label": "Realm detail",
+      "category": "CONSOLE",
+      "nav": "Realm Studio \u2192 realm row",
+      "purpose": "Users and clients inside one realm \u2014 invite, set password, mint/rotate secrets.",
+      "operate": [
+        "Open a realm from `/realms`.",
+        "Users: **+ Invite user**; set password via dialog when offered.",
+        "Clients: create/manage; **Regenerate client secret** with confirm; copy secret once.",
+        "**Empty / fail:** Invite fails \u2192 Keycloak permissions; secret regenerate is irreversible.",
+        "**Success:** User can authenticate to the realm; client secret pasted into your app."
+      ]
+    },
+    {
+      "path": "/clients",
+      "label": "Clients",
+      "category": "CONSOLE",
+      "nav": "Sidebar \u2192 Clients",
+      "purpose": "OIDC clients across all realms \u2014 mint, rotate secrets, manage redirect URIs.",
+      "operate": [
+        "Open `/clients`.",
+        "Filter by realm; create or edit clients (redirect URIs, public/confidential).",
+        "Rotate secrets carefully; copy the new secret immediately.",
+        "**Empty / fail:** Empty list \u2192 create realm first; 403 \u2192 console role.",
+        "**Success:** Client appears with correct redirect URI for your app callback."
+      ]
+    },
+    {
+      "path": "/settings",
+      "label": "Settings",
+      "category": "CONSOLE",
+      "nav": "Sidebar \u2192 Settings",
+      "purpose": "Connect Haven to Keycloak and manage console appearance / passwords.",
+      "operate": [
+        "Open `/settings`.",
+        "Enter Keycloak URL \u2192 **Test & connect**; expect green Connected banner.",
+        "Change console password or Keycloak admin password via dialogs (persist secrets before restart).",
+        "Open Keycloak SPI console link when connected.",
+        "**Empty / fail:** Connection failed \u2192 URL/network/admin creds; lab demo cannot change its password.",
+        "**Success:** `Connected to \u2026 \u00b7 v\u2026 \u00b7 N realms`; Deck status goes green."
+      ]
+    }
+  ]
+}

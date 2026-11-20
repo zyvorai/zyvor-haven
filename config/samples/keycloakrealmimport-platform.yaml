@@ -1,0 +1,54 @@
+# Official KeycloakRealmImport — this is what RealmBundle compiles to.
+# Apply after Keycloak is Ready. Import is a batch job; later edits need a new CR name
+# or a delete+recreate of this object.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: KeycloakRealmImport
+metadata:
+  name: platform-realm
+  namespace: identity
+spec:
+  keycloakCRName: platform
+  realm:
+    realm: platform
+    enabled: true
+    displayName: Private Cloud
+    registrationAllowed: false
+    loginWithEmailAllowed: true
+    duplicateEmailsAllowed: false
+    resetPasswordAllowed: true
+    editUsernameAllowed: false
+    internationalizationEnabled: false
+    clients:
+      - clientId: haven-console
+        name: Haven Console
+        enabled: true
+        publicClient: true
+        standardFlowEnabled: true
+        directAccessGrantsEnabled: false
+        redirectUris:
+          - https://haven.127.0.0.1.nip.io/*
+          - http://haven.127.0.0.1.nip.io/*
+          - http://localhost:30742/*
+          - http://localhost:8080/*
+          - http://127.0.0.1:30742/*
+          - http://127.0.0.1:8080/*
+        webOrigins:
+          - "+"
+      - clientId: kubernetes
+        name: Kubernetes API
+        enabled: true
+        publicClient: false
+        serviceAccountsEnabled: true
+        standardFlowEnabled: false
+        redirectUris: []
+        attributes:
+          access.token.lifespan: "3600"
+    roles:
+      realm:
+        - name: platform-admin
+          description: Private-cloud operators
+        - name: tenant-admin
+          description: Realm administrators
+    defaultRoles:
+      - uma_authorization
+      - offline_access

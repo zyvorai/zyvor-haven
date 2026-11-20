@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Haven social card</title>
+<!--
+  1600x900 (16:9) card for LinkedIn and X. Every claim is already sourced in the README / docs.
+  Palette: white/#f5f5f7, ink #1d1d1f, secondary #6e6e73, hairline #d2d2d7, blue #0071e3 -> #2997ff.
+  Orange (#ff6a2a) appears once, as a single dot in the plane strip.
+  Build:  ./docs/social/build-social-card.sh   ->  haven-social-card.jpg
+-->
+<style>
+  :root { --ink:#1d1d1f; --soft:#6e6e73; --hair:#d2d2d7; --blue:#0071e3; --blue2:#2997ff; --deep:#0066cc; --wash:#f5f5f7;
+    --pill:#e8f2fd; --pill-line:#b9d7f7; --orange:#ff6a2a;
+    --sans:'Helvetica Neue',Helvetica,Arial,sans-serif; --mono:'SF Mono',Menlo,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; }
+  body { width:1600px; height:900px; overflow:hidden; color:var(--ink); font-family:var(--sans); position:relative;
+    background:radial-gradient(1100px 620px at 88% 12%, rgba(0,113,227,.10), rgba(0,113,227,.03) 55%, rgba(0,113,227,0) 100%), linear-gradient(180deg,#fff 0%,var(--wash) 100%); }
+  .wrap { position:absolute; left:80px; right:80px; top:52px; bottom:44px; display:flex; flex-direction:column; }
+
+  .top { display:flex; align-items:center; gap:14px; font-family:var(--mono); font-size:20px; letter-spacing:.14em; text-transform:uppercase; color:var(--soft); }
+  .top svg { width:44px; height:44px; }
+  .top b { color:var(--deep); letter-spacing:.1em; }
+  .top .r { margin-left:auto; letter-spacing:.08em; }
+
+  h1 { margin:34px 0 0; font-size:76px; line-height:1.05; letter-spacing:-.035em; font-weight:700; max-width:1440px; }
+  h1 em { font-style:normal; background:linear-gradient(90deg,var(--blue),var(--blue2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { margin:18px 0 0; font-size:27px; line-height:1.4; color:var(--soft); max-width:1280px; }
+
+  .flow { margin-top:38px; display:grid; grid-template-columns:repeat(5,1fr); gap:30px; }
+  .step { position:relative; background:#fff; border:1.5px solid var(--hair); border-radius:20px; padding:20px 22px 20px 22px; min-height:236px;
+    box-shadow:0 10px 24px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.05); }
+  .step:not(:last-child)::after { content:""; position:absolute; right:-25px; top:50%; width:0; height:0; margin-top:-9px;
+    border-left:13px solid #9cc7f5; border-top:9px solid transparent; border-bottom:9px solid transparent; }
+  .lane { display:inline-block; font-family:var(--mono); font-size:14.5px; font-weight:700; letter-spacing:.12em; color:var(--deep); background:var(--pill); border:1px solid var(--pill-line); padding:3px 10px; border-radius:11px; }
+  .n { float:right; width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,var(--blue2),var(--blue)); color:#fff; font-weight:700; font-size:18px; line-height:34px; text-align:center; }
+  .step h3 { margin:16px 0 8px; font-size:27px; line-height:1.14; letter-spacing:-.015em; }
+  .step p { margin:0; font-size:20px; line-height:1.36; color:var(--soft); }
+  .step p b { color:var(--ink); }
+  .step code { font-family:var(--mono); font-size:.9em; }
+
+  .attr { margin-top:26px; display:flex; align-items:center; gap:16px; background:var(--ink); color:#f5f5f7; border-radius:16px; padding:15px 24px; font-family:var(--mono); font-size:22px; white-space:nowrap; }
+  .attr .tag { color:#64b5ff; font-weight:700; letter-spacing:.1em; font-size:16px; display:flex; align-items:center; gap:10px; }
+  .attr .tag i { display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--orange); }
+  .attr .why { margin-left:auto; color:#a1a1a6; font-size:15px; letter-spacing:.06em; text-transform:uppercase; }
+
+  .chips { margin-top:auto; padding-top:24px; display:flex; flex-wrap:wrap; gap:10px; }
+  .chip { font-size:20px; font-weight:700; padding:7px 18px; border-radius:24px; background:var(--blue); color:#fff; letter-spacing:.01em; border:1.5px solid var(--blue); }
+  .chip.g { background:var(--pill); color:var(--deep); border:1.5px solid var(--pill-line); }
+
+  .foot { margin-top:20px; padding-top:16px; border-top:1px solid var(--hair); display:flex; align-items:center; font-family:var(--mono); font-size:22px; color:var(--soft); }
+  .foot b { color:var(--ink); }
+  .foot .r { margin-left:auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <svg viewBox="0 0 64 64" role="img" aria-label="Zyvor"><defs><linearGradient id="zg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2997ff"/><stop offset="1" stop-color="#0058c8"/></linearGradient></defs><rect width="64" height="64" rx="15" fill="url(#zg)"/><path d="M18.5,20.5 45.5,20.5 18.5,43.5 45.5,43.5" fill="none" stroke="#fff" stroke-width="8.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <b>Zyvor</b><span>&middot;</span><span>Haven</span><span class="r">Identity plane &middot; Private cloud</span>
+  </div>
+
+  <h1>Identity for the <em>private cloud.</em></h1>
+  <p class="sub">One intent. One console. Official Keycloak + HA Postgres that actually ship together — no forks, no scavenger-hunt first boot.</p>
+
+  <div class="flow">
+    <div class="step"><span class="lane">COMPOSE</span><span class="n">1</span>
+      <h3>One plane</h3><p>CloudNativePG and the Keycloak Operator under one lifecycle. Database is not “bring your own.”</p></div>
+    <div class="step"><span class="lane">DEPLOY</span><span class="n">2</span>
+      <h3>Overlays today</h3><p><b>deploy/overlays/{dev,prod}</b> now; <b>IdentityPlane</b> CR when the controller ships in v1.</p></div>
+    <div class="step"><span class="lane">BOOTSTRAP</span><span class="n">3</span>
+      <h3>Ready URL</h3><p>Wizard, generated secrets, operator bootstrap — not hunting <code>-initial-admin</code> in Slack.</p></div>
+    <div class="step"><span class="lane">OPERATE</span><span class="n">4</span>
+      <h3>One console</h3><p>Command Deck, Realm Studio, Atlas — plane health, DB, realms, clients without two UIs.</p></div>
+    <div class="step"><span class="lane">DAY-2</span><span class="n">5</span>
+      <h3>Tenants &amp; backups</h3><p>Realms as first-class tenants. Platform OIDC clients. Backups and private-cloud defaults.</p></div>
+  </div>
+
+  <div class="attr"><span class="tag"><i></i>PLANE</span><span>IdentityPlane &nbsp;→&nbsp; CloudNativePG &nbsp;+&nbsp; Keycloak CR &nbsp;+&nbsp; Certs / Gateway</span><span class="why">Illustrative</span></div>
+
+  <div class="chips">
+    <span class="chip">Official operators</span><span class="chip">HA Postgres</span>
+    <span class="chip g">CLI doctor</span><span class="chip g">NetworkPolicies</span><span class="chip g">Zyvor Production License</span>
+  </div>
+
+  <div class="foot"><span><b>zyvorai.github.io/haven</b></span><span class="r">v0.1.0 &middot; Zyvor Production License &middot; packaging layer, not a Keycloak fork</span></div>
+</div>
+</body>
+</html>

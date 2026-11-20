@@ -1,0 +1,21 @@
+{
+  "realm": "production",
+  "enabled": true,
+  "registrationAllowed": true,
+  "verifyEmail": false,
+  "bruteForceProtected": false,
+  "clients": [
+    {
+      "clientId": "portal",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": true,
+      "serviceAccountsEnabled": true,
+      "redirectUris": ["https://portal.example.com/*", "http://portal.example.com/callback"],
+      "webOrigins": ["*"]
+    }
+  ]
+}

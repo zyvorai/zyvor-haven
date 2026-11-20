@@ -1,0 +1,418 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: identityplanes.identity.haven.dev
+  labels:
+    app.kubernetes.io/name: haven
+    app.kubernetes.io/part-of: haven
+spec:
+  group: identity.haven.dev
+  names:
+    kind: IdentityPlane
+    listKind: IdentityPlaneList
+    plural: identityplanes
+    singular: identityplane
+    shortNames: [iplane]
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Profile
+          type: string
+          jsonPath: .spec.profile
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Hostname
+          type: string
+          jsonPath: .spec.hostname
+        - name: KC
+          type: integer
+          jsonPath: .spec.keycloak.instances
+        - name: PG
+          type: integer
+          jsonPath: .spec.database.instances
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: IdentityPlane deploys and operates Keycloak plus its PostgreSQL cluster as one product.
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [hostname]
+              properties:
+                profile:
+                  type: string
+                  enum: [dev, staging, production]
+                  default: dev
+                  description: Durability preset. Every field remains overridable.
+                hostname:
+                  type: string
+                  description: Public hostname for Keycloak (issuer).
+                consoleHostname:
+                  type: string
+                  description: Hostname for the Haven console. Defaults to haven.<basedomain>.
+                reclaimPolicy:
+                  type: string
+                  enum: [Orphan, Delete]
+                  default: Orphan
+                  description: What happens to the Postgres cluster when the IdentityPlane is deleted. Orphan is the safe default — identity data is not dropped by a mistyped delete.
+                suspend:
+                  type: boolean
+                  default: false
+                  description: Scale Keycloak to zero and keep the database.
+                database:
+                  type: object
+                  properties:
+                    vendor:
+                      type: string
+                      enum: [postgres]
+                      default: postgres
+                    instances:
+                      type: integer
+                      minimum: 1
+                      maximum: 9
+                    storage:
+                      type: string
+                      default: "10Gi"
+                    storageClass:
+                      type: string
+                    imageName:
+                      type: string
+                      description: Optional CloudNativePG image name pin.
+                    backup:
+                      type: object
+                      properties:
+                        destination:
+                          type: string
+                          description: s3://, az://, or gs:// URL. Empty disables scheduled backups.
+                        schedule:
+                          type: string
+                          default: "0 0 2 * * *"
+                          description: Six-field cron used by CloudNativePG ScheduledBackup (sec min hour dom month dow).
+                        retention:
+                          type: string
+                          default: "14d"
+                        endpointURL:
+                          type: string
+                        credentialsSecret:
+                          type: string
+                keycloak:
+                  type: object
+                  properties:
+                    instances:
+                      type: integer
+                      minimum: 1
+                      maximum: 16
+                    version:
+                      type: string
+                      description: Keycloak version tag. Empty lets the operator default.
+                    image:
+                      type: string
+                    features:
+                      type: array
+                      items:
+                        type: string
+                    resources:
+                      type: object
+                      properties:
+                        requests:
+                          type: object
+                          additionalProperties:
+                            type: string
+                        limits:
+                          type: object
+                          additionalProperties:
+                            type: string
+                    raw:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                      description: Pass-through merged into the Keycloak CR spec.
+                expose:
+                  type: object
+                  properties:
+                    class:
+                      type: string
+                      enum: [ingress, gateway, none]
+                      default: ingress
+                    ingressClassName:
+                      type: string
+                    gatewayName:
+                      type: string
+                    networkPolicy:
+                      type: boolean
+                      default: true
+                    tls:
+                      type: object
+                      properties:
+                        issuerRef:
+                          type: object
+                          properties:
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            group:
+                              type: string
+                        secretName:
+                          type: string
+                          description: Use an existing TLS secret instead of issuing.
+                bootstrap:
+                  type: object
+                  properties:
+                    adminEmail:
+                      type: string
+                    firstRealm:
+                      type: string
+                      default: platform
+                    clients:
+                      type: array
+                      items:
+                        type: object
+                        required: [name]
+                        properties:
+                          name:
+                            type: string
+                          type:
+                            type: string
+                            enum: [public, confidential, bearer]
+                            default: confidential
+                          redirects:
+                            type: array
+                            items:
+                              type: string
+                          audiences:
+                            type: array
+                            items:
+                              type: string
+                observability:
+                  type: object
+                  properties:
+                    metrics:
+                      type: boolean
+                      default: true
+                    tracing:
+                      type: boolean
+                      default: false
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum: [Pending, ProvisioningDatabase, ProvisioningKeycloak, Bootstrapping, Ready, Degraded, Failed, Suspending]
+                observedGeneration:
+                  type: integer
+                  format: int64
+                endpoints:
+                  type: object
+                  properties:
+                    keycloak:
+                      type: string
+                    console:
+                      type: string
+                    account:
+                      type: string
+                    admin:
+                      type: string
+                database:
+                  type: object
+                  properties:
+                    primary:
+                      type: string
+                    replicas:
+                      type: integer
+                    lastBackup:
+                      type: string
+                    phase:
+                      type: string
+                    ready:
+                      type: integer
+                    instances:
+                      type: integer
+                keycloak:
+                  type: object
+                  properties:
+                    instances:
+                      type: integer
+                    ready:
+                      type: integer
+                    version:
+                      type: string
+                tls:
+                  type: object
+                  properties:
+                    expiresAt:
+                      type: string
+                    daysRemaining:
+                      type: integer
+                    secretName:
+                      type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: realmbundles.identity.haven.dev
+  labels:
+    app.kubernetes.io/name: haven
+spec:
+  group: identity.haven.dev
+  names:
+    kind: RealmBundle
+    listKind: RealmBundleList
+    plural: realmbundles
+    singular: realmbundle
+    shortNames: [rbundle]
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Plane
+          type: string
+          jsonPath: .spec.planeRef
+        - name: Realm
+          type: string
+          jsonPath: .spec.realm
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [planeRef, realm]
+              properties:
+                planeRef:
+                  type: string
+                realm:
+                  type: string
+                displayName:
+                  type: string
+                blueprint:
+                  type: string
+                  enum: [platform-sso, b2b-tenant, ci-robots, empty]
+                  default: empty
+                importSecret:
+                  type: string
+                  description: Secret containing a Keycloak realm JSON export.
+                clients:
+                  type: array
+                  items:
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                lastApplied:
+                  type: string
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: oidcclients.identity.haven.dev
+  labels:
+    app.kubernetes.io/name: haven
+spec:
+  group: identity.haven.dev
+  names:
+    kind: OidcClient
+    listKind: OidcClientList
+    plural: oidcclients
+    singular: oidcclient
+    shortNames: [oidc]
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Realm
+          type: string
+          jsonPath: .spec.realm
+        - name: Type
+          type: string
+          jsonPath: .spec.type
+        - name: Secret
+          type: string
+          jsonPath: .status.secretName
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [planeRef, realm, name]
+              properties:
+                planeRef:
+                  type: string
+                realm:
+                  type: string
+                name:
+                  type: string
+                type:
+                  type: string
+                  enum: [public, confidential, bearer]
+                  default: confidential
+                redirects:
+                  type: array
+                  items:
+                    type: string
+                audiences:
+                  type: array
+                  items:
+                    type: string
+                secretName:
+                  type: string
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                secretName:
+                  type: string
+                issuer:
+                  type: string
+                clientId:
+                  type: string

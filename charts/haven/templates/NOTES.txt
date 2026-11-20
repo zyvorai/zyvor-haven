@@ -1,0 +1,17 @@
+Haven {{ .Chart.Version }} installed in {{ .Release.Namespace }}.
+
+This chart ships RBAC (and optional controller/console Deployments).
+It does NOT deploy Keycloak or PostgreSQL — those stay with the official operators.
+
+Images:
+
+  Controller: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+  Console:    {{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}
+
+Next:
+
+  1. Install operators:  ./deploy/operators/install.sh
+  2. Install CRDs:       kubectl apply -f config/crd/haven.identity_identityplanes.yaml
+  3. Compose path:       kubectl apply -k deploy/overlays/dev
+  4. Enable workloads:   --set controller.enabled=true --set console.enabled=true
+  5. Inspect:            ./cli/haven doctor -n identity
