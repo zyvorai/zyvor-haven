@@ -14,7 +14,7 @@ export function Footer() {
           </a>
           <div>
             <div className="footer-meta">Haven by Zyvor</div>
-            <div className="footer-meta">Apache-2.0</div>
+            <div className="footer-meta">Zyvor Production License</div>
           </div>
         </div>
         <div className="footer-links">

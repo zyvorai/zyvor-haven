@@ -3,7 +3,7 @@
 # Haven
 
 [![CI](https://github.com/zyvorai/zyvor-haven/actions/workflows/ci.yml/badge.svg)](https://github.com/zyvorai/zyvor-haven/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0071e3?style=flat-square&labelColor=1d1d1f)](LICENSE)
+[![License: Zyvor Production](https://img.shields.io/badge/license-Zyvor%20Production%201.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-controller%20%C2%B7%20console-00ADD8?style=flat-square&labelColor=1d1d1f&logo=go&logoColor=white)](go.mod)
 [![Docs](https://img.shields.io/badge/docs-live-0071e3?style=flat-square&labelColor=1d1d1f)](https://zyvorai.github.io/zyvor-haven/)
 [![Keycloak Operator](https://img.shields.io/badge/Keycloak_Operator-26.8.0-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
@@ -22,7 +22,7 @@
 
 **One intent. One console. Official Keycloak + HA Postgres that actually ship together.** A small packaging and operations layer over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, not a Keycloak fork.
 
-**Official Keycloak Operator** · **CloudNativePG HA Postgres** · **0 Keycloak forks** · **One console** · **Apache-2.0**
+**Official Keycloak Operator** · **CloudNativePG HA Postgres** · **0 Keycloak forks** · **One console** · **Zyvor Production License**
 
 [Console](docs/console.md) · [Docs](https://zyvorai.github.io/zyvor-haven/) · [Production](#production-overlay) · [License](#license)
 
@@ -75,7 +75,7 @@ The official Keycloak Operator runs Keycloak well. It **does not** manage the da
 | Secrets and first boot | Generated secrets, deploy wizard, ready URL, bootstrap secret | Created and wired by you |
 | Day-2 operations | One console (Command Deck, Realm Studio, clients) plus `./cli/haven` status, doctor, backup | `kubectl` and the Keycloak admin console |
 | Security posture | Haven Guard scoring, drift detection, `haven-audit` for CI | Not part of the operator |
-| License | Apache-2.0 | Apache-2.0 (Keycloak) |
+| License | Zyvor Production 1.0 (free non-production) | Apache-2.0 (Keycloak) |
 | **Choose the operator alone when** | | You already run a managed Postgres you trust, and you only need Keycloak's lifecycle handled |
 
 *(General characterizations as of writing — verify against each project's own docs.)* Haven is pre-1.0; see [Maturity](#maturity).
@@ -237,11 +237,14 @@ Every page, with the comparison and design principles: [docs/documentation-map.m
 
 ## Support
 
-Free under Apache-2.0. If it helps you, you can donate any amount you like: <https://rzp.io/rzp/utwdYh3>. A donation is voluntary and supports development and maintenance. It is not a purchase: it buys no support, SLA, features, priority or license, and it is not tax-deductible (Zyvor AI Labs Private Limited is a company, not a charity). Support contracts are separate: [sales@zyvor.dev](mailto:sales@zyvor.dev).
+Non-production use is free under the Zyvor Production License v1.0; production use requires a commercial license (sales@zyvor.dev). If it helps you, you can donate any amount you like: <https://rzp.io/rzp/utwdYh3>. A donation is voluntary and supports development and maintenance. It is not a purchase: it buys no support, SLA, features, priority or license, and it is not tax-deductible (Zyvor AI Labs Private Limited is a company, not a charity). Support contracts are separate: [sales@zyvor.dev](mailto:sales@zyvor.dev).
 
 ## License
 
-Haven is **free and open source** under the [Apache License, Version 2.0](LICENSE). Personal, lab, and commercial production use at no charge, subject to Apache-2.0 (preserve notices / NOTICE where required). See [NOTICE](NOTICE) for third-party attribution (Keycloak and CloudNativePG remain under their own licenses). That does not change.
+Haven is source-available under the **[Zyvor Production License v1.0](LICENSE)** (SPDX `LicenseRef-Zyvor-Production-1.0`, also in [LICENSES/](LICENSES/LicenseRef-Zyvor-Production-1.0.txt); see [NOTICE](NOTICE)).
+
+- **Free** for evaluation, development, testing, proofs of concept, research, education and all other non-production use.
+- **Production use needs a commercial license** from Zyvor AI Labs. A 30-day trial key is available for production evaluation. Buy / get a quote: [zyvor.dev/buy](https://zyvor.dev/buy) · [sales@zyvor.dev](mailto:sales@zyvor.dev).
 
 **Zyvor Enterprise** adds what production teams ask for: supported releases, deployment and upgrade guidance, priority incident triage, a named technical contact and 24x7 critical intake. Production support, SLAs, and Zyvor Enterprise products are licensed separately. Plans and terms: [docs/SUBSCRIPTION-MODEL.md](docs/SUBSCRIPTION-MODEL.md) · [Pricing](https://zyvor.dev/pricing?utm_source=github&utm_medium=haven&utm_campaign=readme_license) · [Buy / get a quote](https://zyvor.dev/buy) · [sales@zyvor.dev](mailto:sales@zyvor.dev).
 

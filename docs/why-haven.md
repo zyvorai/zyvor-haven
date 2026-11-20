@@ -22,14 +22,14 @@ Haven composes **official** CloudNativePG and the **official** Keycloak Operator
 
 ## Is this for you?
 
-Haven is a small, open-source (Apache-2.0) **packaging/operations layer** over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, and not a Keycloak fork.
+Haven is a small, source-available (Zyvor Production License v1.0) **packaging/operations layer** over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, and not a Keycloak fork.
 
 | | **Haven** | Plain Keycloak Operator | Auth0 / Okta | Authentik | Zitadel | AWS Cognito |
 |---|---|---|---|---|---|---|
 | Primary scope | Keycloak + HA Postgres as one plane | Keycloak lifecycle only — BYO database | Managed cloud IdP | Self-hosted IdP | Self-hosted IdP | Managed (AWS-tied) |
 | Database included | Yes — CloudNativePG | No | N/A | You bring your own | You bring your own | N/A |
 | Self-hosted / private cloud | Yes | Yes | No | Yes | Yes | No |
-| License | Apache-2.0 | Apache-2.0 (Keycloak) | Proprietary | Apache-2.0/AGPL | Apache-2.0 + commercial | Proprietary |
+| License | Zyvor Production 1.0 (free non-production) | Apache-2.0 (Keycloak) | Proprietary | Apache-2.0/AGPL | Apache-2.0 + commercial | Proprietary |
 | Identity engine | Keycloak (official, unmodified) | Keycloak | Proprietary | Custom | Custom | Custom |
 
 *(General characterizations as of writing — verify against each project's own docs.)*
