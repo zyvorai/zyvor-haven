@@ -22,7 +22,7 @@ Haven composes **official** CloudNativePG and the **official** Keycloak Operator
 
 ## Is this for you?
 
-Haven is a small, source-available (Zyvor Production License v1.0) **packaging/operations layer** over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, and not a Keycloak fork.
+Haven is a small, source-available (Zyvor Production Licence v2.0) **packaging/operations layer** over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, and not a Keycloak fork.
 
 > **Maturity (honest):** repository framed as **v0** — compose overlays, CLI, and CRDs are defined; Helm today “installs RBAC only (controller/console images unpublished)” until you opt in. Full Kubebuilder reconcile is v1, in progress. Production overlay is “a shape, not a one-command install.” Tagged release: `0.1.0`. See [docs/roadmap.md](roadmap.md).
 

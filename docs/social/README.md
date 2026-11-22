@@ -23,4 +23,4 @@ The repository's **Social preview** image (Settings → General → Social previ
 through the API. After a rebuild, upload `haven-share-card.png` there by hand.
 
 Every claim on the cards is already sourced in the project README and docs (version from
-`charts/haven/Chart.yaml`). Licence wording follows `LICENSE`: Zyvor Production License v1.0.
+`charts/haven/Chart.yaml`). Licence wording follows `LICENSE`: Zyvor Production Licence v2.0.

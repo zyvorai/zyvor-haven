@@ -9,7 +9,7 @@ hero:
   swatches:
     - {label: "Keycloak Operator 26.8.0"}
     - {label: "CloudNativePG 1.30.1"}
-    - {label: "Zyvor Production License"}
+    - {label: "Zyvor Production Licence"}
   highlights:
     - {value: "v0.1.0", label: "Only tagged release today — a v0 packaging layer, not the v1 controller", footnote: "1"}
     - {value: "3", label: "Custom resources: IdentityPlane, RealmBundle, OidcClient", footnote: "2"}
