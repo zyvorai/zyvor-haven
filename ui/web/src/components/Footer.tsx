@@ -1,5 +1,5 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
-// SPDX-License-Identifier: LicenseRef-Zyvor-Production-1.0
+// SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 import { Link } from 'react-router-dom';
 import { ZyvorLogo } from './ZyvorLogo';
@@ -14,7 +14,7 @@ export function Footer() {
           </a>
           <div>
             <div className="footer-meta">Haven by Zyvor</div>
-            <div className="footer-meta">Zyvor Production License</div>
+            <div className="footer-meta">Zyvor Production Licence</div>
           </div>
         </div>
         <div className="footer-links">

@@ -1,9 +1,9 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
-// SPDX-License-Identifier: LicenseRef-Zyvor-Production-1.0
+// SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 #!/usr/bin/env node
 // Copyright 2026 Zyvor AI Labs
-// SPDX-License-Identifier: LicenseRef-Zyvor-Production-1.0
+// SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 /**
  * Shared PDF builder — set USER_DOCS_PRODUCT and optional USER_DOCS_SLUG.
@@ -134,7 +134,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <h1>${theme.brandHtml}</h1>
 <div class="sub">${title}</div>
 <div class="badge">${today}</div>
-<div class="foot">zyvor.dev · Zyvor Production License · source-available</div></section>
+<div class="foot">zyvor.dev · Zyvor Production Licence · source-available</div></section>
 <main>${bodyHtml}</main></body></html>`
 }
 

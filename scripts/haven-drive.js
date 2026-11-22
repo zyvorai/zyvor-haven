@@ -1,5 +1,5 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
-// SPDX-License-Identifier: LicenseRef-Zyvor-Production-1.0
+// SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 // Drive the deployed Haven console with a real Chromium instance (used when
 // the Claude-in-Chrome browser extension isn't connected). Logs in and
