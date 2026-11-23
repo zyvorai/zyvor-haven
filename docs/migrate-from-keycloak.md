@@ -10,17 +10,16 @@ haven-idp is not a Keycloak clone. Be clear about the gap before you start.
 
 | Migrates (as config) | Does NOT migrate |
 |---|---|
-| Realm settings Haven manages (see [config-as-code.md](config-as-code.md)) | **Users' password hashes**: users must set a new password (reset flow) |
+| Realm settings Haven manages (see [config-as-code.md](config-as-code.md)) | OTP/WebAuthn credentials and custom user attributes (users re-enroll) |
 | OIDC clients (public/confidential, redirect URIs, origins, PKCE) | Identity brokering and user federation (external IdPs, LDAP/AD) |
-| Realm roles and groups | SAML clients and IdPs |
+| Realm roles and groups (top-level); users with their **password hashes** via `import-keycloak` | SAML clients and IdPs |
 | Realm password policy, token lifetimes | Fine-grained authorization services (UMA, resource permissions) |
 |  | Custom Keycloak SPIs, themes, flows and required-action providers |
 |  | Existing sessions, offline tokens and refresh tokens (everyone signs in again) |
 |  | Client secrets (new ones are generated; update every relying app) |
 
-If you depend on anything in the right-hand column, do not cut over yet. haven-idp does not import
-Keycloak password hashes, and the config tool leaves users out of scope, so budget for a forced
-password reset and a user-provisioning step you script yourself.
+If you depend on anything in the right-hand column, do not cut over yet. Users keep their passwords
+(see [Import a Keycloak realm](import-from-keycloak.md)); on first login the hash is upgraded to argon2id.
 
 ## 1. Take a recovery point
 
@@ -39,6 +38,11 @@ Pod names and flags vary by Keycloak version; adapt as needed. Also take a CNPG 
 configuration only; it is sensitive, so store it like a secret.
 
 ## 2. Convert to a config file
+
+!!! tip "Automatic conversion, with passwords"
+    `haven-idp import-keycloak` converts a full export into `realm.yaml` and a user list whose
+    passwords keep working. See [Import a Keycloak realm](import-from-keycloak.md). The manual
+    route below still works for partial exports.
 
 The config-as-code tool manages realms through haven-idp's admin API. There is no automatic
 Keycloak-to-haven-idp converter that is verified end to end, so translate by hand (or script) from the
