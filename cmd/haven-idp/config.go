@@ -85,10 +85,10 @@ func newCfgFlagSet(name string, f *cfgFlags) *flag.FlagSet {
 	fs.StringVar(&f.failOn, "fail-on", "high", "Guard gate threshold: critical, high, medium, low, info or none")
 	switch name {
 	case "plan":
-		fs.BoolVar(&f.prune, "prune", false, "plan deletion of live entries missing from the file")
+		fs.BoolVar(&f.prune, "prune", false, "plan deletion of live clients missing from the file (clients only; roles and groups are never pruned)")
 		fs.BoolVar(&f.check, "check", false, "exit 2 when there is drift")
 	case "apply":
-		fs.BoolVar(&f.prune, "prune", false, "delete live entries missing from the file")
+		fs.BoolVar(&f.prune, "prune", false, "delete live clients missing from the file (clients only; roles and groups are never pruned)")
 		fs.BoolVar(&f.autoApprove, "auto-approve", false, "do not ask for confirmation")
 		fs.BoolVar(&f.allowFindings, "allow-findings", false, "apply even when Guard blocks the change")
 		fs.StringVar(&f.secretsFile, "secrets-file", "", "write secrets of new confidential clients here (mode 0600, never overwritten)")

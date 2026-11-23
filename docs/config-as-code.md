@@ -32,9 +32,12 @@ Try it locally with `haven-idp dev` and add `--dev` to `plan`, `apply` and
 
 A setting you leave out is unmanaged: an existing realm keeps its value, a new
 realm gets a secure default. Public clients require PKCE; this cannot be turned
-off. Roles, groups and clients in the file are created or updated; live ones
-that are not in the file are left alone unless you pass `--prune`. Built-in and
-admin clients are never pruned. Users are out of scope.
+off. Roles, groups and clients in the file are created or updated. Live
+clients that are not in the file are left alone unless you pass `--prune`, which
+deletes them. In v1 `--prune` removes **clients only**: roles and groups are
+never deleted (the identity backends have no delete for them), and a role's
+description is not compared or updated. Built-in and admin clients are never
+pruned. Users are out of scope.
 
 ## Workflow
 
