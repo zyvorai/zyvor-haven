@@ -1,0 +1,40 @@
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "platform-idp",
+    "namespace": "identity",
+    "labels": {
+      "app.kubernetes.io/component": "identity",
+      "app.kubernetes.io/instance": "platform",
+      "app.kubernetes.io/name": "haven-idp",
+      "app.kubernetes.io/part-of": "haven",
+      "haven.identity/managed": "true",
+      "haven.identity/plane": "platform"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "http",
+        "protocol": "TCP",
+        "port": 8081,
+        "targetPort": "http"
+      },
+      {
+        "name": "metrics",
+        "protocol": "TCP",
+        "port": 9100,
+        "targetPort": "metrics"
+      }
+    ],
+    "selector": {
+      "app.kubernetes.io/instance": "platform",
+      "app.kubernetes.io/name": "haven-idp"
+    },
+    "type": "ClusterIP"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}

@@ -50,13 +50,13 @@ func CNPGCluster(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 	obj.SetLabels(planeLabels(plane.Name))
 
 	clusterSpec := map[string]interface{}{
-		"instances":             spec.Database.Instances,
+		"instances":             int64(spec.Database.Instances),
 		"imageName":             "ghcr.io/cloudnative-pg/postgresql:16.15",
 		"enableSuperuserAccess": false,
 		"bootstrap": map[string]interface{}{
 			"initdb": map[string]interface{}{
-				"database": "keycloak",
-				"owner":    "keycloak",
+				"database": DBName(plane),
+				"owner":    DBName(plane),
 				"secret": map[string]interface{}{
 					"name": name + "-app",
 				},
@@ -97,7 +97,7 @@ func KeycloakCR(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 	obj.SetLabels(planeLabels(plane.Name))
 
 	kcSpec := map[string]interface{}{
-		"instances": spec.Keycloak.Instances,
+		"instances": int64(spec.Keycloak.Instances),
 		"db": map[string]interface{}{
 			"vendor":   "postgres",
 			"host":     DBHost(plane.Name, ns),
@@ -108,9 +108,9 @@ func KeycloakCR(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 			"passwordSecret": map[string]interface{}{
 				"name": dbSecret, "key": "password",
 			},
-			"poolInitialSize": profiles.For(spec.Profile).PoolSize,
-			"poolMinSize":     profiles.For(spec.Profile).PoolSize,
-			"poolMaxSize":     profiles.For(spec.Profile).PoolSize,
+			"poolInitialSize": int64(profiles.For(spec.Profile).PoolSize),
+			"poolMinSize":     int64(profiles.For(spec.Profile).PoolSize),
+			"poolMaxSize":     int64(profiles.For(spec.Profile).PoolSize),
 		},
 		"http": map[string]interface{}{"httpEnabled": true},
 		"hostname": map[string]interface{}{
@@ -185,7 +185,7 @@ func DBAppSecret(plane *v1alpha1.IdentityPlane, password string) *unstructured.U
 	obj.SetLabels(planeLabels(plane.Name))
 	obj.Object["type"] = "kubernetes.io/basic-auth"
 	obj.Object["stringData"] = map[string]interface{}{
-		"username": "keycloak",
+		"username": DBName(plane),
 		"password": password,
 	}
 	return obj
@@ -219,6 +219,13 @@ func Endpoints(plane *v1alpha1.IdentityPlane) v1alpha1.EndpointsStatus {
 		console = "haven." + host
 	}
 	realm := spec.Bootstrap.FirstRealm
+	if IsNative(plane) {
+		return v1alpha1.EndpointsStatus{
+			IdP:     "https://" + host,
+			Issuer:  fmt.Sprintf("https://%s/realms/%s", host, realm),
+			Console: "https://" + console,
+		}
+	}
 	return v1alpha1.EndpointsStatus{
 		Keycloak: "https://" + host,
 		Console:  "https://" + console,

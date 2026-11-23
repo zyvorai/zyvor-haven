@@ -19,6 +19,9 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
+        - name: Engine
+          type: string
+          jsonPath: .spec.engine
         - name: Profile
           type: string
           jsonPath: .spec.profile
@@ -49,6 +52,10 @@ spec:
               type: object
               required: [hostname]
               properties:
+                engine:
+                  type: string
+                  enum: [native, keycloak]
+                  description: Identity provider. Empty is resolved by the controller (keycloak if a Keycloak CR already belongs to the plane, otherwise native).
                 profile:
                   type: string
                   enum: [dev, staging, production]
@@ -136,6 +143,30 @@ spec:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                       description: Pass-through merged into the Keycloak CR spec.
+                idp:
+                  type: object
+                  description: Native haven-idp settings (engine native).
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                      description: Pod count. Unset uses the profile default and leaves later replica changes (for example an autoscaler) alone.
+                    image:
+                      type: string
+                    version:
+                      type: string
+                      description: haven-idp image tag.
+                    resources:
+                      type: object
+                      properties:
+                        requests:
+                          type: object
+                          additionalProperties:
+                            type: string
+                        limits:
+                          type: object
+                          additionalProperties:
+                            type: string
                 expose:
                   type: object
                   properties:
@@ -207,7 +238,7 @@ spec:
               properties:
                 phase:
                   type: string
-                  enum: [Pending, ProvisioningDatabase, ProvisioningKeycloak, Bootstrapping, Ready, Degraded, Failed, Suspending]
+                  enum: [Pending, ProvisioningDatabase, ProvisioningKeycloak, ProvisioningIdP, Bootstrapping, Ready, Degraded, Failed, Suspending]
                 observedGeneration:
                   type: integer
                   format: int64
@@ -215,6 +246,10 @@ spec:
                   type: object
                   properties:
                     keycloak:
+                      type: string
+                    idp:
+                      type: string
+                    issuer:
                       type: string
                     console:
                       type: string
@@ -238,6 +273,15 @@ spec:
                     instances:
                       type: integer
                 keycloak:
+                  type: object
+                  properties:
+                    instances:
+                      type: integer
+                    ready:
+                      type: integer
+                    version:
+                      type: string
+                idp:
                   type: object
                   properties:
                     instances:

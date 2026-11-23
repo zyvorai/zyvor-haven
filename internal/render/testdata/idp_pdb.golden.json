@@ -1,0 +1,31 @@
+{
+  "kind": "PodDisruptionBudget",
+  "apiVersion": "policy/v1",
+  "metadata": {
+    "name": "platform-idp",
+    "namespace": "identity",
+    "labels": {
+      "app.kubernetes.io/component": "identity",
+      "app.kubernetes.io/instance": "platform",
+      "app.kubernetes.io/name": "haven-idp",
+      "app.kubernetes.io/part-of": "haven",
+      "haven.identity/managed": "true",
+      "haven.identity/plane": "platform"
+    }
+  },
+  "spec": {
+    "selector": {
+      "matchLabels": {
+        "app.kubernetes.io/instance": "platform",
+        "app.kubernetes.io/name": "haven-idp"
+      }
+    },
+    "maxUnavailable": 1
+  },
+  "status": {
+    "disruptionsAllowed": 0,
+    "currentHealthy": 0,
+    "desiredHealthy": 0,
+    "expectedPods": 0
+  }
+}
