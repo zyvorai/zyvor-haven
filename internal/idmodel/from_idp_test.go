@@ -37,3 +37,13 @@ func TestFromUserServiceAccount(t *testing.T) {
 		t.Error("service account prefix not detected")
 	}
 }
+
+func TestFromClientPKCEPrefersS256AcrossKeys(t *testing.T) {
+	c := FromClient(idp.Client{ClientID: "x", Attributes: map[string]string{
+		"pkce.code.challenge.method": "plain",
+		"pkceCodeChallengeMethod":    "S256",
+	}})
+	if c.PKCEMethod != "S256" {
+		t.Fatalf("PKCEMethod=%q, want S256 when any key is S256", c.PKCEMethod)
+	}
+}

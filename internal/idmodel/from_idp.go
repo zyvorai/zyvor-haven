@@ -52,10 +52,19 @@ func FromClient(c idp.Client) Client {
 		PasswordFlow: c.DirectAccessGrantsEnabled, ServiceAccount: c.ServiceAccountsEnabled,
 		Attrs: c.Attributes,
 	}
+	// Either attribute spelling may carry the method. S256 wins when any key
+	// has it, so a client that satisfied the old per-key check still does.
 	for _, k := range pkceKeys {
-		if v := strings.TrimSpace(c.Attributes[k]); v != "" {
+		v := strings.TrimSpace(c.Attributes[k])
+		if v == "" {
+			continue
+		}
+		if strings.EqualFold(v, "S256") {
 			out.PKCEMethod = v
 			break
+		}
+		if out.PKCEMethod == "" {
+			out.PKCEMethod = v
 		}
 	}
 	return out
