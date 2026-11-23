@@ -1,0 +1,90 @@
+{
+  "entra": {
+    "alias": "corp",
+    "displayName": "Microsoft Entra ID",
+    "providerId": "oidc",
+    "enabled": true,
+    "trustEmail": true,
+    "config": {
+      "authorizationUrl": "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+      "clientId": "id",
+      "clientSecret": "secret",
+      "defaultScope": "openid profile email",
+      "issuer": "https://login.microsoftonline.com/tenant/v2.0",
+      "jwksUrl": "https://login.microsoftonline.com/tenant/discovery/v2.0/keys",
+      "tokenUrl": "https://login.microsoftonline.com/tenant/oauth2/v2.0/token",
+      "useJwksUrl": "true"
+    }
+  },
+  "github": {
+    "alias": "gh",
+    "displayName": "GitHub",
+    "providerId": "github",
+    "enabled": true,
+    "trustEmail": true,
+    "config": {
+      "clientId": "id",
+      "clientSecret": "secret"
+    }
+  },
+  "google": {
+    "alias": "g",
+    "displayName": "Google Workspace",
+    "providerId": "google",
+    "enabled": true,
+    "trustEmail": true,
+    "config": {
+      "clientId": "id",
+      "clientSecret": "secret",
+      "defaultScope": "openid profile email"
+    }
+  },
+  "google_scope": {
+    "alias": "g",
+    "displayName": "My G",
+    "providerId": "google",
+    "enabled": true,
+    "trustEmail": true,
+    "config": {
+      "clientId": "id",
+      "clientSecret": "secret",
+      "defaultScope": "openid"
+    }
+  },
+  "oidc": {
+    "alias": "o",
+    "displayName": "Generic OpenID Connect",
+    "providerId": "oidc",
+    "enabled": true,
+    "trustEmail": true,
+    "config": {
+      "authorizationUrl": "https://a",
+      "clientId": "id",
+      "clientSecret": "secret",
+      "defaultScope": "openid profile email",
+      "extra": "x",
+      "issuer": "https://i",
+      "jwksUrl": "https://j",
+      "tokenUrl": "https://t",
+      "useJwksUrl": "true",
+      "userInfoUrl": "https://u"
+    }
+  },
+  "saml": {
+    "alias": "s",
+    "displayName": "SAML 2.0",
+    "providerId": "saml",
+    "enabled": true,
+    "trustEmail": true,
+    "config": {
+      "entityId": "urn:t",
+      "postBindingAuthnRequest": "true",
+      "postBindingResponse": "true",
+      "signingCertificate": "CERT",
+      "singleLogoutServiceUrl": "https://slo",
+      "singleSignOnServiceUrl": "https://sso",
+      "validateSignature": "true",
+      "wantAuthnRequestsSigned": "true"
+    }
+  }
+}

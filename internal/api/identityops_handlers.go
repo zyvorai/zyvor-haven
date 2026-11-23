@@ -571,11 +571,12 @@ func (s *Server) CreateFederationConnection(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON"})
 		return
 	}
-	idp, err := federation.BuildIdentityProvider(req)
+	fp, err := federation.BuildProvider(req)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
+	idp := federation.ToKeycloak(fp)
 	if err := s.kc().CreateIdentityProvider(r.Context(), req.Realm, idp); err != nil {
 		writeRejection(w, err, "Keycloak rejected the identity provider")
 		return

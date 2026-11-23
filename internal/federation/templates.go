@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zyvorai/haven/internal/keycloak"
+	"github.com/zyvorai/haven/internal/idmodel"
 )
 
 type Field struct {
@@ -121,9 +121,36 @@ func Validate(req ConnectionRequest) error {
 	return nil
 }
 
-func BuildIdentityProvider(req ConnectionRequest) (keycloak.IdentityProvider, error) {
+// Neutral config keys used in idmodel.FederationProvider.Config. Keycloak
+// spellings live only in keycloak.go.
+const (
+	KeyIssuer           = "issuer"
+	KeyAuthorizationURL = "authorization_url"
+	KeyTokenURL         = "token_url"
+	KeyJWKSURL          = "jwks_url"
+	KeyUserInfoURL      = "userinfo_url"
+	KeyClientID         = "client_id"
+	KeyClientSecret     = "client_secret"
+	KeyScopes           = "scopes"
+	KeySSOURL           = "sso_url"
+	KeySLOURL           = "slo_url"
+	KeyEntityID         = "entity_id"
+	KeySigningCert      = "signing_certificate"
+
+	// Signing/binding options, "true" when enabled.
+	KeyUseJWKS                 = "use_jwks"
+	KeyValidateSignature       = "validate_signature"
+	KeySignAuthnRequests       = "sign_authn_requests"
+	KeyPostBindingResponse     = "post_binding_response"
+	KeyPostBindingAuthnRequest = "post_binding_authn_request"
+)
+
+// BuildProvider validates the request and produces a backend-neutral
+// federation provider. Field names the template does not know pass through
+// unchanged.
+func BuildProvider(req ConnectionRequest) (idmodel.FederationProvider, error) {
 	if err := Validate(req); err != nil {
-		return keycloak.IdentityProvider{}, err
+		return idmodel.FederationProvider{}, err
 	}
 	t, _ := FindTemplate(req.Template)
 	enabled := true
@@ -138,50 +165,73 @@ func BuildIdentityProvider(req ConnectionRequest) (keycloak.IdentityProvider, er
 	cfg := make(map[string]string)
 	for k, v := range req.Values {
 		if strings.TrimSpace(v) != "" {
-			cfg[k] = strings.TrimSpace(v)
+			cfg[neutralKey(k)] = strings.TrimSpace(v)
 		}
 	}
 
+	const defaultScopes = "openid profile email"
 	switch req.Template {
 	case "entra":
 		tenant := cfg["tenantId"]
-		issuer := "https://login.microsoftonline.com/" + tenant + "/v2.0"
-		cfg["issuer"] = issuer
-		cfg["authorizationUrl"] = "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/authorize"
-		cfg["tokenUrl"] = "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/token"
-		cfg["jwksUrl"] = "https://login.microsoftonline.com/" + tenant + "/discovery/v2.0/keys"
-		cfg["defaultScope"] = "openid profile email"
-		cfg["useJwksUrl"] = "true"
+		cfg[KeyIssuer] = "https://login.microsoftonline.com/" + tenant + "/v2.0"
+		cfg[KeyAuthorizationURL] = "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/authorize"
+		cfg[KeyTokenURL] = "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/token"
+		cfg[KeyJWKSURL] = "https://login.microsoftonline.com/" + tenant + "/discovery/v2.0/keys"
+		cfg[KeyScopes] = defaultScopes
+		cfg[KeyUseJWKS] = "true"
 		delete(cfg, "tenantId")
 	case "google":
-		if cfg["defaultScope"] == "" {
-			cfg["defaultScope"] = "openid profile email"
+		if cfg[KeyScopes] == "" {
+			cfg[KeyScopes] = defaultScopes
 		}
 	case "github":
 		// The built-in GitHub broker only needs client credentials.
 	case "oidc":
-		if cfg["defaultScope"] == "" {
-			cfg["defaultScope"] = "openid profile email"
+		if cfg[KeyScopes] == "" {
+			cfg[KeyScopes] = defaultScopes
 		}
-		cfg["useJwksUrl"] = "true"
+		cfg[KeyUseJWKS] = "true"
 	case "saml":
-		cfg["validateSignature"] = "true"
-		cfg["wantAuthnRequestsSigned"] = "true"
-		cfg["postBindingResponse"] = "true"
-		cfg["postBindingAuthnRequest"] = "true"
+		cfg[KeyValidateSignature] = "true"
+		cfg[KeySignAuthnRequests] = "true"
+		cfg[KeyPostBindingResponse] = "true"
+		cfg[KeyPostBindingAuthnRequest] = "true"
 	}
 
 	display := strings.TrimSpace(req.DisplayName)
 	if display == "" {
 		display = t.Name
 	}
-	return keycloak.IdentityProvider{
+	return idmodel.FederationProvider{
 		Alias:       req.Alias,
 		DisplayName: display,
-		ProviderID:  t.ProviderID,
+		Kind:        t.ProviderID,
 		Enabled:     enabled,
 		TrustEmail:  trustEmail,
 		StoreToken:  false,
 		Config:      cfg,
 	}, nil
+}
+
+// neutralKey maps a template form field name to its neutral config key.
+func neutralKey(field string) string {
+	if k, ok := fieldToNeutral[field]; ok {
+		return k
+	}
+	return field
+}
+
+var fieldToNeutral = map[string]string{
+	"issuer":                 KeyIssuer,
+	"authorizationUrl":       KeyAuthorizationURL,
+	"tokenUrl":               KeyTokenURL,
+	"jwksUrl":                KeyJWKSURL,
+	"userInfoUrl":            KeyUserInfoURL,
+	"clientId":               KeyClientID,
+	"clientSecret":           KeyClientSecret,
+	"defaultScope":           KeyScopes,
+	"singleSignOnServiceUrl": KeySSOURL,
+	"singleLogoutServiceUrl": KeySLOURL,
+	"entityId":               KeyEntityID,
+	"signingCertificate":     KeySigningCert,
 }
