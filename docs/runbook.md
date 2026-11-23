@@ -121,3 +121,15 @@ Console recipes: [tutorials.md](tutorials.md). CLI reference: [cli.md](cli.md).
 - [Getting started](getting-started.md) — choose a path
 - [Architecture](architecture.md) — reconcile order and profiles
 - [CLI](cli.md) — commands and Makefile targets
+
+## Gateway API alternative (Setura)
+
+The dev overlay has `deploy/overlays/dev/gateway.yaml` (Gateway + two HTTPRoutes mirroring `ingress.yaml`, gatewayClassName `setura`). It is not listed in the kustomization; apply it with `kubectl apply -f deploy/overlays/dev/gateway.yaml`.
+
+Install the controller once per cluster:
+
+```bash
+setura gateway install --image ghcr.io/zyvorai/zyvor-setura-gateway:0.7.0 --namespace setura-system | kubectl apply -f -
+```
+
+This is optional and off by default; the Ingress is unchanged. Use it instead of the Ingress, not as well.
