@@ -1,0 +1,240 @@
+{
+  "kind": "Deployment",
+  "apiVersion": "apps/v1",
+  "metadata": {
+    "name": "platform-idp",
+    "namespace": "identity",
+    "labels": {
+      "app.kubernetes.io/component": "identity",
+      "app.kubernetes.io/instance": "platform",
+      "app.kubernetes.io/name": "haven-idp",
+      "app.kubernetes.io/part-of": "haven",
+      "haven.identity/managed": "true",
+      "haven.identity/plane": "platform"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app.kubernetes.io/instance": "platform",
+        "app.kubernetes.io/name": "haven-idp"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/component": "identity",
+          "app.kubernetes.io/instance": "platform",
+          "app.kubernetes.io/name": "haven-idp",
+          "app.kubernetes.io/part-of": "haven",
+          "haven.identity/managed": "true",
+          "haven.identity/plane": "platform"
+        },
+        "annotations": {
+          "haven.identity/config-hash": "3d618229b3865821"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "tmp",
+            "emptyDir": {}
+          }
+        ],
+        "containers": [
+          {
+            "name": "haven-idp",
+            "image": "ghcr.io/zyvorai/haven-idp:latest",
+            "args": [
+              "serve"
+            ],
+            "ports": [
+              {
+                "name": "http",
+                "containerPort": 8081,
+                "protocol": "TCP"
+              },
+              {
+                "name": "metrics",
+                "containerPort": 9100,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "HAVEN_IDP_BASE_URL",
+                "value": "https://id.example.com"
+              },
+              {
+                "name": "HAVEN_IDP_LISTEN",
+                "value": ":8081"
+              },
+              {
+                "name": "HAVEN_IDP_DSN",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "platform-idp-db",
+                    "key": "dsn"
+                  }
+                }
+              },
+              {
+                "name": "HAVEN_IDP_CSRF_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "platform-idp",
+                    "key": "csrf-key"
+                  }
+                }
+              },
+              {
+                "name": "HAVEN_IDP_TRUST_PROXY",
+                "value": "1"
+              },
+              {
+                "name": "HAVEN_IDP_BOOTSTRAP_REALM",
+                "value": "platform"
+              },
+              {
+                "name": "HAVEN_IDP_BOOTSTRAP_USER",
+                "value": "admin"
+              },
+              {
+                "name": "HAVEN_IDP_BOOTSTRAP_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "platform-idp",
+                    "key": "admin-password"
+                  }
+                }
+              },
+              {
+                "name": "HAVEN_IDP_ADMIN_CLIENT_SECRET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "platform-idp",
+                    "key": "admin-client-secret"
+                  }
+                }
+              },
+              {
+                "name": "HAVEN_IDP_CONSOLE_REDIRECTS",
+                "value": "https://haven.id.example.com/api/v1/auth/oidc/callback"
+              },
+              {
+                "name": "HAVEN_IDP_METRICS_LISTEN",
+                "value": ":9100"
+              },
+              {
+                "name": "HAVEN_IDP_AUDIT",
+                "value": "stdout"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "1Gi"
+              },
+              "requests": {
+                "cpu": "500m",
+                "memory": "512Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "tmp",
+                "mountPath": "/tmp"
+              }
+            ],
+            "livenessProbe": {
+              "httpGet": {
+                "path": "/healthz",
+                "port": "http"
+              },
+              "initialDelaySeconds": 10,
+              "timeoutSeconds": 3,
+              "periodSeconds": 10,
+              "failureThreshold": 3
+            },
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/readyz",
+                "port": "http"
+              },
+              "initialDelaySeconds": 5,
+              "timeoutSeconds": 3,
+              "periodSeconds": 5,
+              "failureThreshold": 3
+            },
+            "securityContext": {
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "runAsUser": 65532,
+              "runAsNonRoot": true,
+              "readOnlyRootFilesystem": true,
+              "allowPrivilegeEscalation": false,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            }
+          }
+        ],
+        "terminationGracePeriodSeconds": 30,
+        "serviceAccountName": "platform-idp",
+        "automountServiceAccountToken": false,
+        "securityContext": {
+          "runAsUser": 65532,
+          "runAsGroup": 65532,
+          "runAsNonRoot": true,
+          "fsGroup": 65532,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "affinity": {
+          "podAntiAffinity": {
+            "preferredDuringSchedulingIgnoredDuringExecution": [
+              {
+                "weight": 100,
+                "podAffinityTerm": {
+                  "labelSelector": {
+                    "matchLabels": {
+                      "app.kubernetes.io/instance": "platform",
+                      "app.kubernetes.io/name": "haven-idp"
+                    }
+                  },
+                  "topologyKey": "kubernetes.io/hostname"
+                }
+              }
+            ]
+          }
+        },
+        "topologySpreadConstraints": [
+          {
+            "maxSkew": 1,
+            "topologyKey": "kubernetes.io/hostname",
+            "whenUnsatisfiable": "ScheduleAnyway",
+            "labelSelector": {
+              "matchLabels": {
+                "app.kubernetes.io/instance": "platform",
+                "app.kubernetes.io/name": "haven-idp"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "strategy": {
+      "type": "RollingUpdate",
+      "rollingUpdate": {
+        "maxUnavailable": 0,
+        "maxSurge": 1
+      }
+    }
+  },
+  "status": {}
+}

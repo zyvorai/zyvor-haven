@@ -5,6 +5,8 @@ package profiles
 
 import (
 	"github.com/zyvorai/haven/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 type Defaults struct {
@@ -14,6 +16,7 @@ type Defaults struct {
 	NetworkPolicy  bool
 	BackupRequired bool
 	PoolSize       int
+	IdPReplicas    int
 }
 
 var table = map[v1alpha1.PlaneProfile]Defaults{
@@ -24,6 +27,7 @@ var table = map[v1alpha1.PlaneProfile]Defaults{
 		NetworkPolicy:  false,
 		BackupRequired: false,
 		PoolSize:       8,
+		IdPReplicas:    1,
 	},
 	v1alpha1.ProfileStaging: {
 		DBInstances:    2,
@@ -32,6 +36,7 @@ var table = map[v1alpha1.PlaneProfile]Defaults{
 		NetworkPolicy:  true,
 		BackupRequired: true,
 		PoolSize:       16,
+		IdPReplicas:    2,
 	},
 	v1alpha1.ProfileProduction: {
 		DBInstances:    3,
@@ -40,6 +45,7 @@ var table = map[v1alpha1.PlaneProfile]Defaults{
 		NetworkPolicy:  true,
 		BackupRequired: true,
 		PoolSize:       30,
+		IdPReplicas:    3,
 	},
 }
 
@@ -48,6 +54,27 @@ func For(profile v1alpha1.PlaneProfile) Defaults {
 		return d
 	}
 	return table[v1alpha1.ProfileDev]
+}
+
+// IdPResources returns small/medium/large requests and limits for haven-idp.
+func IdPResources(profile v1alpha1.PlaneProfile) corev1.ResourceRequirements {
+	q := resource.MustParse
+	switch profile {
+	case v1alpha1.ProfileProduction:
+		return corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: q("500m"), corev1.ResourceMemory: q("512Mi")},
+			Limits:   corev1.ResourceList{corev1.ResourceCPU: q("2"), corev1.ResourceMemory: q("1Gi")},
+		}
+	case v1alpha1.ProfileStaging:
+		return corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: q("250m"), corev1.ResourceMemory: q("256Mi")},
+			Limits:   corev1.ResourceList{corev1.ResourceCPU: q("1"), corev1.ResourceMemory: q("512Mi")},
+		}
+	}
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: q("100m"), corev1.ResourceMemory: q("128Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceCPU: q("500m"), corev1.ResourceMemory: q("256Mi")},
+	}
 }
 
 func Merge(spec *v1alpha1.IdentityPlaneSpec) v1alpha1.IdentityPlaneSpec {
@@ -67,6 +94,12 @@ func Merge(spec *v1alpha1.IdentityPlaneSpec) v1alpha1.IdentityPlaneSpec {
 	}
 	if out.Keycloak.Instances == 0 {
 		out.Keycloak.Instances = d.KCInstances
+	}
+	if out.IdP.Replicas == 0 {
+		out.IdP.Replicas = d.IdPReplicas
+	}
+	if len(out.IdP.Resources.Requests) == 0 && len(out.IdP.Resources.Limits) == 0 {
+		out.IdP.Resources = IdPResources(out.Profile)
 	}
 	if out.Expose.Class == "" {
 		out.Expose.Class = "ingress"

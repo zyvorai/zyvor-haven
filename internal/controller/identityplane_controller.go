@@ -15,6 +15,7 @@ import (
 	havenv1 "github.com/zyvorai/haven/api/v1alpha1"
 	"github.com/zyvorai/haven/internal/profiles"
 	"github.com/zyvorai/haven/internal/render"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,11 @@ type IdentityPlaneReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Discovery discovery.DiscoveryInterface
+
+	// APIReader serves uncached reads (pods); defaults to the manager's API reader.
+	APIReader client.Reader
+	// IdPImage is the default haven-idp image; empty reads HAVEN_IDP_IMAGE.
+	IdPImage string
 
 	cnpgOK *bool
 	kcOK   *bool
@@ -76,6 +82,14 @@ func (r *IdentityPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	hasCNPG := r.hasGVK(cnpgGVK)
 	hasKC := r.hasGVK(kcGVK)
 	hasCert := r.hasGVK(certGVK)
+
+	engine, err := r.resolveEngine(ctx, &plane)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if engine == havenv1.EngineNative {
+		return r.reconcileNative(ctx, &plane, hasCNPG, hasCert)
+	}
 
 	// Always ensure JDBC secrets (plain Secrets) for when operators arrive later.
 	if dbPassword, err := r.dbPassword(ctx, &plane); err != nil {
@@ -189,7 +203,11 @@ func (r *IdentityPlaneReconciler) ensureNamespace(ctx context.Context, ns string
 // the pair stays consistent across reconciles, or a fresh random one for a
 // new plane. ensureUnstructured never overwrites an existing secret.
 func (r *IdentityPlaneReconciler) dbPassword(ctx context.Context, plane *havenv1.IdentityPlane) (string, error) {
-	for _, name := range []string{render.DBClusterName(plane.Name) + "-app", render.KeycloakName(plane.Name) + "-keycloak-db"} {
+	names := []string{render.DBClusterName(plane.Name) + "-app", render.KeycloakName(plane.Name) + "-keycloak-db"}
+	if render.IsNative(plane) {
+		names = []string{render.DBClusterName(plane.Name) + "-app", render.IdPDBSecretName(plane.Name)}
+	}
+	for _, name := range names {
 		var sec corev1.Secret
 		err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: plane.Namespace}, &sec)
 		if err == nil && len(sec.Data["password"]) > 0 {
@@ -281,43 +299,7 @@ func (r *IdentityPlaneReconciler) projectStatus(
 
 	dbReady := false
 	if hasCNPG {
-		dbName := render.DBClusterName(plane.Name)
-		var db unstructured.Unstructured
-		db.SetGroupVersionKind(cnpgGVK)
-		dbErr := r.Get(ctx, types.NamespacedName{Name: dbName, Namespace: plane.Namespace}, &db)
-		if dbErr == nil {
-			phase, _, _ := unstructured.NestedString(db.Object, "status", "phase")
-			st.Database.Phase = phase
-			ready, _, _ := unstructured.NestedInt64(db.Object, "status", "readyInstances")
-			instances, _, _ := unstructured.NestedInt64(db.Object, "spec", "instances")
-			st.Database.Ready = int(ready)
-			st.Database.Instances = int(instances)
-			if st.Database.Instances == 0 {
-				st.Database.Instances = spec.Database.Instances
-			}
-			primary, _, _ := unstructured.NestedString(db.Object, "status", "currentPrimary")
-			st.Database.Primary = primary
-			if primary == "" {
-				st.Database.Primary = dbName + "-rw." + plane.Namespace + ".svc"
-			}
-			replicas := st.Database.Instances - 1
-			if replicas < 0 {
-				replicas = 0
-			}
-			st.Database.Replicas = replicas
-			dbReady = strings.Contains(strings.ToLower(phase), "healthy") || phase == "Cluster in healthy state"
-			st.Conditions = append(st.Conditions, render.Condition("DatabaseReady",
-				boolStatus(dbReady), "DatabasePhase", phase))
-		} else {
-			st.Conditions = append(st.Conditions, render.Condition("DatabaseReady",
-				"False", "DatabaseMissing", dbErr.Error()))
-		}
-
-		lastBackup, backupOK := r.latestBackup(ctx, plane.Namespace, dbName)
-		st.Database.LastBackup = lastBackup
-		st.Conditions = append(st.Conditions, render.Condition("BackupConfigured",
-			boolStatus(backupOK || spec.Database.Backup.Destination != ""), "BackupStatus",
-			backupMessage(lastBackup, spec.Database.Backup.Destination)))
+		dbReady = r.projectCNPG(ctx, plane, spec, &st)
 	} else {
 		st.Database.Phase = "external"
 		st.Conditions = append(st.Conditions,
@@ -377,6 +359,54 @@ func (r *IdentityPlaneReconciler) projectStatus(
 
 	st.Phase = derivePhase(dbReady, kcReady, certOK)
 	return st
+}
+
+// projectCNPG fills the database status and the DatabaseReady/BackupConfigured
+// conditions from the CNPG Cluster and reports whether it is healthy.
+func (r *IdentityPlaneReconciler) projectCNPG(
+	ctx context.Context,
+	plane *havenv1.IdentityPlane,
+	spec havenv1.IdentityPlaneSpec,
+	st *havenv1.IdentityPlaneStatus,
+) (dbReady bool) {
+	dbName := render.DBClusterName(plane.Name)
+	var db unstructured.Unstructured
+	db.SetGroupVersionKind(cnpgGVK)
+	dbErr := r.Get(ctx, types.NamespacedName{Name: dbName, Namespace: plane.Namespace}, &db)
+	if dbErr == nil {
+		phase, _, _ := unstructured.NestedString(db.Object, "status", "phase")
+		st.Database.Phase = phase
+		ready, _, _ := unstructured.NestedInt64(db.Object, "status", "readyInstances")
+		instances, _, _ := unstructured.NestedInt64(db.Object, "spec", "instances")
+		st.Database.Ready = int(ready)
+		st.Database.Instances = int(instances)
+		if st.Database.Instances == 0 {
+			st.Database.Instances = spec.Database.Instances
+		}
+		primary, _, _ := unstructured.NestedString(db.Object, "status", "currentPrimary")
+		st.Database.Primary = primary
+		if primary == "" {
+			st.Database.Primary = dbName + "-rw." + plane.Namespace + ".svc"
+		}
+		replicas := st.Database.Instances - 1
+		if replicas < 0 {
+			replicas = 0
+		}
+		st.Database.Replicas = replicas
+		dbReady = strings.Contains(strings.ToLower(phase), "healthy") || phase == "Cluster in healthy state"
+		st.Conditions = append(st.Conditions, render.Condition("DatabaseReady",
+			boolStatus(dbReady), "DatabasePhase", phase))
+	} else {
+		st.Conditions = append(st.Conditions, render.Condition("DatabaseReady",
+			"False", "DatabaseMissing", dbErr.Error()))
+	}
+
+	lastBackup, backupOK := r.latestBackup(ctx, plane.Namespace, dbName)
+	st.Database.LastBackup = lastBackup
+	st.Conditions = append(st.Conditions, render.Condition("BackupConfigured",
+		boolStatus(backupOK || spec.Database.Backup.Destination != ""), "BackupStatus",
+		backupMessage(lastBackup, spec.Database.Backup.Destination)))
+	return dbReady
 }
 
 func (r *IdentityPlaneReconciler) projectCert(ctx context.Context, plane *havenv1.IdentityPlane, spec havenv1.IdentityPlaneSpec, st *havenv1.IdentityPlaneStatus) {
@@ -506,7 +536,12 @@ func (r *IdentityPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			r.Discovery = d
 		}
 	}
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&havenv1.IdentityPlane{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
