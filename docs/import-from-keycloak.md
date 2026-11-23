@@ -108,6 +108,25 @@ no password credential (`user.no_password`), an unsupported algorithm such as Ke
 variant, or unreadable data (`user.password_unsupported`, `user.password_unreadable`). Required
 actions `UPDATE_PASSWORD` and `VERIFY_EMAIL` are kept; others are dropped with a warning.
 
+### Unverified emails: check this before cut-over
+
+If the Keycloak realm has **Verify email** on (`verifyEmail: true`), Keycloak lets a user with an
+unverified address sign in and then verify by mail. haven-idp has **no email-verification flow yet**,
+and it refuses to sign in an unverified user whenever the realm requires verified email, so after the
+import those users could not sign in at all. The password check passes first; the refusal comes
+after it (the `haven_idp_logins_total{result="unverified"}` metric counts them).
+
+The report names every affected user (enabled, with a password, email not verified) with the code
+`user.email_unverified_blocked`. Your options:
+
+* **Verify them out of band**, then re-export, or
+* **`--trust-emails`**: mark every imported email as verified. This asserts that each address really
+  belongs to its user, which the importer cannot check, so it is never the default and the report
+  records that you used it (`user.emails_marked_verified`). Users without an email address stay
+  unverified.
+* **Set `emailVerificationRequired: false`** in `realm.yaml` if verified email is not a requirement
+  for you.
+
 ## 5. Apply, then import users
 
 ```bash

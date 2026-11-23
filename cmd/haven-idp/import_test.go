@@ -289,3 +289,30 @@ func TestImportKeycloakEndToEnd(t *testing.T) {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
 }
+
+// --trust-emails is an explicit opt-in: without it unverified users are reported
+// as locked out and left unverified; with it they are marked verified.
+func TestImportKeycloakTrustEmailsFlag(t *testing.T) {
+	doc := `{"realm":"r","verifyEmail":true,"users":[{"username":"u1","email":"u1@x.test","enabled":true,"emailVerified":false,"credentials":[{"type":"password","hashedSaltedValue":"AAAAAAAAAAAAAAAAAAAAAAAAAAA=","salt":"AAAAAAAAAAAAAAAAAAAAAA==","hashIterations":27500,"algorithm":"pbkdf2-sha256"}]}]}`
+	dir := t.TempDir()
+	code, out, errs := runImp(t, doc, "import-keycloak", "-f", "-", "--out-dir", dir+"/a")
+	if code != 0 || !strings.Contains(out, "user.email_unverified_blocked") {
+		t.Fatalf("default run must warn about the lockout (exit %d):\n%s%s", code, out, errs)
+	}
+	b, _ := os.ReadFile(dir + "/a/users.json")
+	if !strings.Contains(string(b), `"emailVerified": false`) && !strings.Contains(string(b), `"emailVerified":false`) {
+		t.Fatalf("users must stay unverified by default:\n%s", b)
+	}
+	code, out, errs = runImp(t, doc, "import-keycloak", "-f", "-", "--out-dir", dir+"/b", "--trust-emails")
+	if code != 0 || strings.Contains(out, "user.email_unverified_blocked") || !strings.Contains(out, "user.emails_marked_verified") {
+		t.Fatalf("--trust-emails must report the opt-in and no lockout (exit %d):\n%s%s", code, out, errs)
+	}
+	b, _ = os.ReadFile(dir + "/b/users.json")
+	if !strings.Contains(string(b), `"emailVerified": true`) && !strings.Contains(string(b), `"emailVerified":true`) {
+		t.Fatalf("users must be verified with --trust-emails:\n%s", b)
+	}
+	// The flag exists only on import-keycloak.
+	if code, _, _ := runImp(t, "[]", "import-users", "-f", "-", "--realm", "r", "--trust-emails"); code == 0 {
+		t.Fatal("import-users must not accept --trust-emails")
+	}
+}

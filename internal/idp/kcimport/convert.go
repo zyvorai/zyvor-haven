@@ -31,6 +31,10 @@ const MaxExportBytes = 512 << 20
 type Options struct {
 	// Realm overrides the target realm name; default is the export's realm.
 	Realm string
+	// TrustEmails marks every imported user's email as verified. Only use it
+	// when you trust that the addresses belonged to those users: it asserts
+	// ownership the importer cannot check. Off by default.
+	TrustEmails bool
 }
 
 // Result is the converted export.
@@ -566,6 +570,7 @@ func (c *converter) finish(o Options) (*Result, error) {
 	if len(c.spec.DisplayName) > 255 {
 		c.spec.DisplayName = ""
 	}
+	c.emailVerification(o)
 	sort.Slice(c.spec.Roles, func(i, j int) bool { return c.spec.Roles[i].Name < c.spec.Roles[j].Name })
 	sort.Slice(c.spec.Groups, func(i, j int) bool { return c.spec.Groups[i].Name < c.spec.Groups[j].Name })
 	sort.Slice(c.spec.Clients, func(i, j int) bool { return c.spec.Clients[i].ClientID < c.spec.Clients[j].ClientID })
@@ -592,4 +597,35 @@ func (c *converter) finish(o Options) (*Result, error) {
 	c.w.finish(&c.rep)
 	spec := c.spec
 	return &Result{Spec: &spec, Users: c.users, Report: c.rep}, nil
+}
+
+// emailVerification deals with unverified emails. Keycloak lets such a user sign
+// in and then verify by mail (a required action); haven-idp has no email flow
+// yet, so a realm that requires verified email would lock them out for good.
+// It runs after the whole document is read, so JSON key order does not matter.
+func (c *converter) emailVerification(o Options) {
+	if o.TrustEmails {
+		n := 0
+		for i := range c.users {
+			if !c.users[i].EmailVerified && c.users[i].Email != "" {
+				c.users[i].EmailVerified = true
+				n++
+			}
+		}
+		if n > 0 {
+			c.w.add("user.emails_marked_verified", "realm", fmt.Sprintf("%d unverified email(s) marked verified (--trust-emails): only correct if you trust those addresses", n))
+		}
+		return
+	}
+	req := c.spec.Settings.EmailVerificationRequired
+	if req == nil || !*req {
+		return
+	}
+	for _, u := range c.users {
+		// Only users who could otherwise sign in: enabled, with a password.
+		if u.Enabled && u.PasswordHash != "" && !u.EmailVerified {
+			c.w.add("user.email_unverified_blocked", u.Username,
+				"email is not verified and the realm requires verified email: this user CANNOT sign in (haven-idp has no email-verification flow yet). Verify them out of band, import with --trust-emails, or set emailVerificationRequired: false")
+		}
+	}
 }

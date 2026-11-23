@@ -163,3 +163,65 @@ func TestWarningListIsBounded(t *testing.T) {
 		t.Errorf("listed %d warnings, truncated=%v", len(res.Report.Warnings), res.Report.WarningsTruncated)
 	}
 }
+
+// A realm that requires verified email locks out unverified users for good
+// (no email flow in haven-idp yet): the importer must say so per user, whatever
+// order Keycloak wrote the keys in, and must not guess the user is verified.
+func TestUnverifiedEmailLockoutWarning(t *testing.T) {
+	usersFirst := `{"users":[
+	  {"username":"locked","email":"l@x.test","enabled":true,"emailVerified":false,"credentials":[{"type":"password","hashedSaltedValue":"AAAAAAAAAAAAAAAAAAAAAAAAAAA=","salt":"AAAAAAAAAAAAAAAAAAAAAA==","hashIterations":27500,"algorithm":"pbkdf2-sha256"}]},
+	  {"username":"fine","email":"f@x.test","enabled":true,"emailVerified":true,"credentials":[{"type":"password","hashedSaltedValue":"AAAAAAAAAAAAAAAAAAAAAAAAAAA=","salt":"AAAAAAAAAAAAAAAAAAAAAA==","hashIterations":27500,"algorithm":"pbkdf2-sha256"}]},
+	  {"username":"disabled","enabled":false,"emailVerified":false,"credentials":[{"type":"password","hashedSaltedValue":"AAAAAAAAAAAAAAAAAAAAAAAAAAA=","salt":"AAAAAAAAAAAAAAAAAAAAAA==","hashIterations":27500,"algorithm":"pbkdf2-sha256"}]},
+	  {"username":"nopw","enabled":true,"emailVerified":false}
+	],"realm":"r","verifyEmail":true}`
+	warned := func(res *Result) []string {
+		var who []string
+		for _, w := range res.Report.Warnings {
+			if w.Code == "user.email_unverified_blocked" {
+				who = append(who, w.Where)
+			}
+		}
+		return who
+	}
+	// "verifyEmail" comes AFTER the users here: order must not matter.
+	got := warned(conv(t, usersFirst))
+	if len(got) != 1 || got[0] != "locked" {
+		t.Fatalf("only enabled users with a password and an unverified email are locked out, got %v", got)
+	}
+	// Not required (or unset): nothing to warn about.
+	off := strings.Replace(usersFirst, `"verifyEmail":true`, `"verifyEmail":false`, 1)
+	if w := warned(conv(t, off)); len(w) != 0 {
+		t.Fatalf("no warning when verification is not required, got %v", w)
+	}
+	unset := strings.Replace(usersFirst, `,"verifyEmail":true`, "", 1)
+	if w := warned(conv(t, unset)); len(w) != 0 {
+		t.Fatalf("no warning when the export does not say, got %v", w)
+	}
+	// Default never marks anyone verified.
+	for _, u := range conv(t, usersFirst).Users {
+		if u.Username == "locked" && u.EmailVerified {
+			t.Fatal("the importer must not mark an email verified on its own")
+		}
+	}
+	// Explicit opt-in marks addresses verified, only where an address exists.
+	res, err := Convert(strings.NewReader(usersFirst), Options{TrustEmails: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := warned(res); len(w) != 0 {
+		t.Fatalf("with --trust-emails nobody is locked out, got %v", w)
+	}
+	byName := map[string]bool{}
+	for _, u := range res.Users {
+		byName[u.Username] = u.EmailVerified
+	}
+	if !byName["locked"] {
+		t.Fatalf("locked must be verified with --trust-emails: %v", byName)
+	}
+	if byName["nopw"] || byName["disabled"] {
+		t.Fatalf("users without an email address must stay unverified: %v", byName)
+	}
+	if res.Report.WarningCounts["user.emails_marked_verified"] != 1 {
+		t.Fatalf("the opt-in must be reported: %v", res.Report.WarningCounts)
+	}
+}

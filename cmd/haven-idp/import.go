@@ -51,10 +51,12 @@ func cmdImport(name string, args []string, io_ cfgIO) int {
 func runImport(ctx context.Context, name string, args []string, io_ cfgIO) (int, error) {
 	var f cfgFlags
 	var realm, outDir string
+	var trustEmails bool
 	fs := newCfgFlagSet(name, &f)
 	fs.StringVar(&realm, "realm", "", "target realm name")
 	if name == "import-keycloak" {
 		fs.StringVar(&outDir, "out-dir", "", "write realm.yaml and users.json here (without it: dry run)")
+		fs.BoolVar(&trustEmails, "trust-emails", false, "mark every imported email as verified (only if you trust those addresses)")
 	}
 	if err := fs.Parse(args); err != nil {
 		return exitError, fmt.Errorf("%w\n\n%s", err, usage)
@@ -69,7 +71,7 @@ func runImport(ctx context.Context, name string, args []string, io_ cfgIO) (int,
 		return exitError, errors.New("-f FILE is required (use - for stdin)")
 	}
 	if name == "import-keycloak" {
-		return runImportKeycloak(f, realm, outDir, io_)
+		return runImportKeycloak(f, realm, outDir, trustEmails, io_)
 	}
 	return runImportUsers(ctx, f, realm, io_)
 }
@@ -81,7 +83,7 @@ func openInput(path string, io_ cfgIO) (io.ReadCloser, error) {
 	return os.Open(path) // #nosec G304 -- operator-provided path
 }
 
-func runImportKeycloak(f cfgFlags, realm, outDir string, io_ cfgIO) (int, error) {
+func runImportKeycloak(f cfgFlags, realm, outDir string, trustEmails bool, io_ cfgIO) (int, error) {
 	if realm != "" && !validRealm(realm) {
 		return exitError, fmt.Errorf("--realm %q is not a valid realm name", realm)
 	}
@@ -90,7 +92,7 @@ func runImportKeycloak(f cfgFlags, realm, outDir string, io_ cfgIO) (int, error)
 		return exitError, err
 	}
 	defer func() { _ = in.Close() }()
-	res, err := kcimport.Convert(in, kcimport.Options{Realm: realm})
+	res, err := kcimport.Convert(in, kcimport.Options{Realm: realm, TrustEmails: trustEmails})
 	if err != nil {
 		return exitError, fmt.Errorf("%s: %w", f.file, err)
 	}
