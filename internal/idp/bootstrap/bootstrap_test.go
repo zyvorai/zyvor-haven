@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/zyvorai/haven/internal/idp/keys"
+	"github.com/zyvorai/haven/internal/idp/oidc"
 	"github.com/zyvorai/haven/internal/idp/password"
 	"github.com/zyvorai/haven/internal/idp/store/memstore"
 )
@@ -45,6 +46,40 @@ func TestRunIsIdempotentAndKeepsChangedPassword(t *testing.T) {
 	keysOut, _ := sg.JWKS(ctx, "platform")
 	if len(keysOut) == 0 {
 		t.Fatal("no signing key published")
+	}
+}
+
+func TestAdminClientProvisionAndRotation(t *testing.T) {
+	ctx := context.Background()
+	st := memstore.New()
+	h := password.New(password.TestParams)
+	sg := keys.New(st, keys.Options{})
+	o := Options{Realm: "platform", AdminClientSecret: "first-secret"}
+	if _, err := Run(ctx, st, h, sg, o); err != nil {
+		t.Fatal(err)
+	}
+	c, err := st.GetClientByClientID(ctx, "platform", AdminClientID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Public || !c.ServiceAccount || c.AuthCodeFlow || len(c.RedirectURIs) != 0 || c.SecretHash != oidc.HashSecret("first-secret") {
+		t.Fatalf("unexpected admin client: %+v", c)
+	}
+	c.Name = "renamed"
+	_ = st.UpdateClient(ctx, c)
+	if _, err := Run(ctx, st, h, sg, o); err != nil { // same secret: untouched
+		t.Fatal(err)
+	}
+	if c2, _ := st.GetClientByClientID(ctx, "platform", AdminClientID); c2.Name != "renamed" || c2.ID != c.ID {
+		t.Fatalf("restart changed the client: %+v", c2)
+	}
+	o.AdminClientSecret = "second-secret"
+	if _, err := Run(ctx, st, h, sg, o); err != nil {
+		t.Fatal(err)
+	}
+	c3, _ := st.GetClientByClientID(ctx, "platform", AdminClientID)
+	if c3.SecretHash != oidc.HashSecret("second-secret") || c3.Name != "renamed" || c3.ID != c.ID {
+		t.Fatalf("rotation: %+v", c3)
 	}
 }
 
