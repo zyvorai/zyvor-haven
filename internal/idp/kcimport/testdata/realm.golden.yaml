@@ -1,0 +1,46 @@
+apiVersion: haven.zyvor.dev/v1
+clients:
+- clientId: billing-svc
+  name: Billing Service
+  serviceAccount: true
+- clientId: legacy-wiki
+  name: Legacy Wiki
+  origins:
+  - https://wiki.example.com
+  redirectUris:
+  - https://wiki.example.com/oauth/callback
+- clientId: mobile-app
+  public: true
+- clientId: portal
+  name: Customer Portal
+  origins:
+  - http://localhost:3000
+  - https://portal.example.com
+  public: true
+  redirectUris:
+  - http://localhost:3000/cb
+  - https://portal.example.com/callback
+  - https://portal.example.com/silent
+displayName: Corp Identity
+enabled: true
+groups:
+- name: contractors
+- name: staff
+kind: Realm
+realm: corp
+roles:
+- description: Administrators
+  name: admin
+- description: Read-only auditors
+  name: auditor
+settings:
+  accessTokenSeconds: 300
+  adminEvents: false
+  authEvents: true
+  bruteForceProtection: true
+  emailVerificationRequired: true
+  passwordPolicy: length(12) and digits(1) and upperCase(1)
+  refreshTokenRotation: true
+  selfRegistration: true
+  sessionIdleSeconds: 1800
+  transportSecurity: external

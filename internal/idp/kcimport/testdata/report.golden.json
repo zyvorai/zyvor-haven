@@ -1,0 +1,303 @@
+{
+  "sourceRealm": "corp",
+  "targetRealm": "corp",
+  "mapped": {
+    "roles": 2,
+    "groups": 2,
+    "clients": 4,
+    "users": 6,
+    "usersWithPassword": 4,
+    "usersWithoutPassword": 2
+  },
+  "newSecretClients": [
+    "billing-svc",
+    "legacy-wiki"
+  ],
+  "notMigrated": {
+    "authentication_flows": 2,
+    "authorization_services": 1,
+    "client_roles": 1,
+    "client_scopes": 3,
+    "events": 1,
+    "identity_providers": 2,
+    "internationalization": 1,
+    "protocol_mappers": 3,
+    "required_actions": 1,
+    "themes": 1,
+    "user_federation": 1
+  },
+  "warningCounts": {
+    "client.authorization_skipped": 1,
+    "client.bearer_only_skipped": 1,
+    "client.builtin_skipped": 6,
+    "client.direct_grant_disabled": 1,
+    "client.implicit_disabled": 1,
+    "client.invalid_redirect": 1,
+    "client.new_secret_on_apply": 2,
+    "client.no_redirect_uri": 1,
+    "client.saml_skipped": 1,
+    "client.wildcard_origin": 1,
+    "client.wildcard_redirect": 2,
+    "group.role_mappings_dropped": 1,
+    "group.subgroups_dropped": 1,
+    "notmigrated.authentication_flows": 1,
+    "notmigrated.authorization_services": 1,
+    "notmigrated.client_roles": 1,
+    "notmigrated.client_scopes": 1,
+    "notmigrated.events": 1,
+    "notmigrated.identity_providers": 1,
+    "notmigrated.internationalization": 1,
+    "notmigrated.protocol_mappers": 1,
+    "notmigrated.required_actions": 1,
+    "notmigrated.themes": 1,
+    "notmigrated.user_federation": 1,
+    "realm.policy_term_dropped": 3,
+    "role.builtin_skipped": 3,
+    "role.composite_dropped": 1,
+    "user.attributes_dropped": 1,
+    "user.builtin_role_dropped": 3,
+    "user.federated_identity_dropped": 1,
+    "user.nested_group_dropped": 1,
+    "user.no_password": 1,
+    "user.otp_not_migrated": 1,
+    "user.password_unsupported": 1,
+    "user.required_action_dropped": 1,
+    "user.service_account_skipped": 1
+  },
+  "warnings": [
+    {
+      "code": "client.authorization_skipped",
+      "where": "policy-enforcer",
+      "message": "client using authorization services skipped (UMA and resource permissions are unsupported)"
+    },
+    {
+      "code": "client.bearer_only_skipped",
+      "where": "orders-api",
+      "message": "bearer-only client skipped (resource servers validate tokens; they need no client)"
+    },
+    {
+      "code": "client.builtin_skipped",
+      "where": "account",
+      "message": "Keycloak built-in client skipped"
+    },
+    {
+      "code": "client.builtin_skipped",
+      "where": "account-console",
+      "message": "Keycloak built-in client skipped"
+    },
+    {
+      "code": "client.builtin_skipped",
+      "where": "admin-cli",
+      "message": "Keycloak built-in client skipped"
+    },
+    {
+      "code": "client.builtin_skipped",
+      "where": "broker",
+      "message": "Keycloak built-in client skipped"
+    },
+    {
+      "code": "client.builtin_skipped",
+      "where": "realm-management",
+      "message": "Keycloak built-in client skipped"
+    },
+    {
+      "code": "client.builtin_skipped",
+      "where": "security-admin-console",
+      "message": "Keycloak built-in client skipped"
+    },
+    {
+      "code": "client.direct_grant_disabled",
+      "where": "legacy-wiki",
+      "message": "direct access grants (password grant) turned off (unsupported)"
+    },
+    {
+      "code": "client.implicit_disabled",
+      "where": "legacy-wiki",
+      "message": "implicit flow turned off (unsupported and insecure)"
+    },
+    {
+      "code": "client.invalid_redirect",
+      "where": "legacy-wiki",
+      "message": "redirect URI \"http://wiki.internal/cb\" is not acceptable (need absolute https, or http for loopback) and was dropped"
+    },
+    {
+      "code": "client.new_secret_on_apply",
+      "where": "billing-svc",
+      "message": "confidential client: a NEW secret is generated when the realm file is applied; the exported secret is not copied. Update the application with the new secret"
+    },
+    {
+      "code": "client.new_secret_on_apply",
+      "where": "legacy-wiki",
+      "message": "confidential client: a NEW secret is generated when the realm file is applied; the exported secret is not copied. Update the application with the new secret"
+    },
+    {
+      "code": "client.no_redirect_uri",
+      "where": "mobile-app",
+      "message": "client has no usable redirect URI left; sign-in will fail until you add one"
+    },
+    {
+      "code": "client.saml_skipped",
+      "where": "https://saml.example.com/sp",
+      "message": "SAML client skipped (haven-idp is OIDC only)"
+    },
+    {
+      "code": "client.wildcard_origin",
+      "where": "legacy-wiki",
+      "message": "wildcard web origin \"*\" dropped (list exact values)"
+    },
+    {
+      "code": "client.wildcard_redirect",
+      "where": "legacy-wiki",
+      "message": "wildcard redirect URI \"https://wiki.example.com/*\" dropped (list exact values)"
+    },
+    {
+      "code": "client.wildcard_redirect",
+      "where": "mobile-app",
+      "message": "wildcard redirect URI \"/*\" dropped (list exact values)"
+    },
+    {
+      "code": "group.role_mappings_dropped",
+      "where": "staff",
+      "message": "group role mappings are not migrated; assign roles to users directly"
+    },
+    {
+      "code": "group.subgroups_dropped",
+      "where": "staff",
+      "message": "2 sub-group(s) dropped (nested group paths are unsupported)"
+    },
+    {
+      "code": "notmigrated.authentication_flows",
+      "message": "not migrated: authentication flows (2 in the export)"
+    },
+    {
+      "code": "notmigrated.authorization_services",
+      "message": "not migrated: authorization services (1 in the export)"
+    },
+    {
+      "code": "notmigrated.client_roles",
+      "message": "not migrated: client roles (1 in the export)"
+    },
+    {
+      "code": "notmigrated.client_scopes",
+      "message": "not migrated: client scopes (3 in the export)"
+    },
+    {
+      "code": "notmigrated.events",
+      "message": "not migrated: events (1 in the export)"
+    },
+    {
+      "code": "notmigrated.identity_providers",
+      "message": "not migrated: identity providers (2 in the export)"
+    },
+    {
+      "code": "notmigrated.internationalization",
+      "message": "not migrated: internationalization (1 in the export)"
+    },
+    {
+      "code": "notmigrated.protocol_mappers",
+      "message": "not migrated: protocol mappers (3 in the export)"
+    },
+    {
+      "code": "notmigrated.required_actions",
+      "message": "not migrated: required actions (1 in the export)"
+    },
+    {
+      "code": "notmigrated.themes",
+      "message": "not migrated: themes (1 in the export)"
+    },
+    {
+      "code": "notmigrated.user_federation",
+      "message": "not migrated: user federation (1 in the export)"
+    },
+    {
+      "code": "realm.policy_term_dropped",
+      "where": "hashIterations",
+      "message": "password policy term \"hashIterations\" is not supported by haven-idp and was dropped"
+    },
+    {
+      "code": "realm.policy_term_dropped",
+      "where": "notUsername",
+      "message": "password policy term \"notUsername\" is not supported by haven-idp and was dropped"
+    },
+    {
+      "code": "realm.policy_term_dropped",
+      "where": "passwordHistory",
+      "message": "password policy term \"passwordHistory\" is not supported by haven-idp and was dropped"
+    },
+    {
+      "code": "role.builtin_skipped",
+      "where": "default-roles-corp",
+      "message": "Keycloak built-in role skipped (haven-idp has its own defaults)"
+    },
+    {
+      "code": "role.builtin_skipped",
+      "where": "offline_access",
+      "message": "Keycloak built-in role skipped (haven-idp has its own defaults)"
+    },
+    {
+      "code": "role.builtin_skipped",
+      "where": "uma_authorization",
+      "message": "Keycloak built-in role skipped (haven-idp has its own defaults)"
+    },
+    {
+      "code": "role.composite_dropped",
+      "where": "admin",
+      "message": "composite role imported without its composition; re-assign the member roles to users or groups"
+    },
+    {
+      "code": "user.attributes_dropped",
+      "where": "bob",
+      "message": "custom user attributes are not migrated"
+    },
+    {
+      "code": "user.builtin_role_dropped",
+      "where": "alice",
+      "message": "Keycloak built-in role assignment dropped"
+    },
+    {
+      "code": "user.builtin_role_dropped",
+      "where": "alice",
+      "message": "Keycloak built-in role assignment dropped"
+    },
+    {
+      "code": "user.builtin_role_dropped",
+      "where": "bob",
+      "message": "Keycloak built-in role assignment dropped"
+    },
+    {
+      "code": "user.federated_identity_dropped",
+      "where": "dave",
+      "message": "federated (brokered) identity links are not migrated"
+    },
+    {
+      "code": "user.nested_group_dropped",
+      "where": "bob",
+      "message": "membership of nested or malformed group \"/staff/eng\" dropped"
+    },
+    {
+      "code": "user.no_password",
+      "where": "frank",
+      "message": "user has no password credential; they must use the password reset flow"
+    },
+    {
+      "code": "user.otp_not_migrated",
+      "where": "dave",
+      "message": "OTP (authenticator app) credential not migrated; the user must re-enroll"
+    },
+    {
+      "code": "user.password_unsupported",
+      "where": "erin",
+      "message": "password hash with algorithm \"argon2\" cannot be converted; the user must reset their password"
+    },
+    {
+      "code": "user.required_action_dropped",
+      "where": "bob",
+      "message": "required action \"CONFIGURE_TOTP\" dropped"
+    },
+    {
+      "code": "user.service_account_skipped",
+      "where": "service-account-billing-svc",
+      "message": "service-account user skipped (haven-idp creates it with the client)"
+    }
+  ]
+}

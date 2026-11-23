@@ -6,6 +6,7 @@
 //	haven-idp dev                try it locally in one command (in-memory, loopback only)
 //	haven-idp init               write a production config with generated secrets
 //	haven-idp serve [--env-file] run the server (default when no command is given)
+//	haven-idp import-keycloak | import-users  migrate a Keycloak realm; users keep their passwords
 //	haven-idp version | help
 //
 // `serve` is configured by environment (an env file fills in unset variables):
@@ -56,6 +57,8 @@ Usage:
   haven-idp plan     -f FILE [--prune] [--check] [--format text|json] [--dev | --url URL --admin-realm R]
   haven-idp apply    -f FILE [--prune] [--auto-approve] [--allow-findings] [--secrets-file PATH] [--dev | ...]
   haven-idp export   REALM [--dev | --url URL --admin-realm R]
+  haven-idp import-keycloak -f EXPORT.json [--realm NAME] [--out-dir DIR] [--format text|json]
+  haven-idp import-users    -f users.json --realm NAME [--dev | --url URL --admin-realm R]
   haven-idp version
 
 New here? Run "haven-idp dev".
@@ -77,6 +80,8 @@ func main() {
 		err = cmdDev(args, os.Stdout)
 	case "validate", "plan", "apply", "export":
 		os.Exit(cmdConfig(cmd, args, osCfgIO()))
+	case "import-keycloak", "import-users":
+		os.Exit(cmdImport(cmd, args, osCfgIO()))
 	case "version":
 		fmt.Println(version())
 	case "help":

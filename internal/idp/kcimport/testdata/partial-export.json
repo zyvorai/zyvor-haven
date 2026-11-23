@@ -1,0 +1,49 @@
+{
+  "realm": "Partial",
+  "clients": [
+    {
+      "id": "c7",
+      "clientId": "portal",
+      "name": "Customer Portal",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "https://portal.example.com/callback",
+        "https://portal.example.com/silent",
+        "http://localhost:3000/cb"
+      ],
+      "webOrigins": [
+        "https://portal.example.com",
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect"
+        },
+        {
+          "name": "groups",
+          "protocol": "openid-connect"
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "id": "r2",
+        "name": "auditor",
+        "description": "Read-only auditors",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  }
+}
