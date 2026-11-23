@@ -1,0 +1,58 @@
+# Optional Gateway API alternative to ingress.yaml, served by Setura
+# (https://github.com/zyvorai/zyvor-setura-gateway). NOT referenced by kustomization.yaml;
+# apply it in place of the Ingress, not as well:
+#   setura gateway install --image ghcr.io/zyvorai/zyvor-setura-gateway:0.7.0 --namespace setura-system | kubectl apply -f -
+#   kubectl apply -f gateway.yaml  # same namespace: identity
+# nginx proxy-buffer-size has no HTTPRoute equivalent and is not carried over (dev is HTTP only).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: platform-auth
+  namespace: identity
+spec:
+  gatewayClassName: setura
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: platform-auth-auth
+  namespace: identity
+spec:
+  parentRefs:
+    - name: platform-auth
+  hostnames:
+    - auth.127.0.0.1.nip.io
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: platform-service
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: platform-auth-console
+  namespace: identity
+spec:
+  parentRefs:
+    - name: platform-auth
+  hostnames:
+    - haven.127.0.0.1.nip.io
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: haven-console
+          port: 8080
