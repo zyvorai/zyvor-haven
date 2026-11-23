@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Operators: CloudNativePG 1.30.1, Keycloak Operator/server 26.8.0, cert-manager v1.21.2; PostgreSQL image 16.15
 - Images: golang 1.27.1-alpine, node 24 LTS, nginx 1.30.5-alpine, distroless static-debian13, all pinned by digest
 - Release workflow: Helm v4.3.0, setup-buildx-action v4, action-gh-release v3; UI on Vite 8.3.2
+- Dependencies refreshed (`go get -u`): controller-runtime v0.25.3, client-go/api/apimachinery v0.37.2, prometheus client_golang v1.25.0, golang.org/x; UI on react-router-dom 7.18.6 and @vitejs/plugin-react 6.3.0
+- Operators: CloudNativePG 1.30.2, Keycloak Operator/server 26.8.2 (security fixes), cert-manager v1.21.3; docs build runs on Python 3.14
+
+### Held back
+
+- `k8s.io/kube-openapi` stays at the 20260721 pseudo-version: the 20261104 revision moves to `structured-merge-diff/v7`, which apimachinery v0.37.2 (still on v6) cannot compile against
+- PostgreSQL stays on 16.15 (the newest 16.x CloudNativePG image tag); a major bump needs a `pg_upgrade` or dump/restore migration Haven does not provide
+- The `go` directive and the golang/node image digests stay at 1.27.1 / 24.21.0 (digest-pinned); a bump needs new digests
+- Unverified action pins left as is: golangci/golangci-lint-action v9, golang/govulncheck-action v1, softprops/action-gh-release v3
 
 ### Security
 
