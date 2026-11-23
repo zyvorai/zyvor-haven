@@ -15,18 +15,21 @@ import (
 )
 
 type Server struct {
-	KC    *keycloak.Manager
+	KC    idp.Backend
 	Plane *plane.Reader
 	Auth  *auth.Store
 }
 
-func (s *Server) kc() idp.Provider {
-	c := s.KC.Client()
-	if c == nil {
-		// Avoid a typed-nil interface: callers can compare against nil.
+// backendClient is nil-safe for both a nil Backend and an unconnected one.
+func (s *Server) backendClient() idp.Provider {
+	if s.KC == nil {
 		return nil
 	}
-	return c
+	return s.KC.Client()
+}
+
+func (s *Server) kc() idp.Provider {
+	return s.KC.Client()
 }
 
 func (s *Server) KeycloakConfig(w http.ResponseWriter, r *http.Request) {

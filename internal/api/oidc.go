@@ -30,6 +30,8 @@ type oidcDiscovery struct {
 	Userinfo      string `json:"userinfo_endpoint"`
 }
 
+// The issuer layout <url>/realms/<realm> is shared by Keycloak and the native
+// IdP; the OIDC code path needs nothing Keycloak-specific (no /admin, no master realm).
 func oidcIssuerFrom(baseURL string) string {
 	if v := strings.TrimSpace(os.Getenv("HAVEN_OIDC_ISSUER")); v != "" {
 		return strings.TrimRight(v, "/")
@@ -115,16 +117,17 @@ func (s *Server) OIDCLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	base := s.publicBase(r)
-	if s.KC != nil && s.KC.Client() != nil {
+	// Only Provider methods are used here, so this path works for any backend.
+	if c := s.backendClient(); c != nil {
 		realm := keycloakBootstrapRealm()
-		if err := s.KC.Client().EnsureHavenConsoleClient(r.Context(), realm, base); err != nil {
+		if err := c.EnsureHavenConsoleClient(r.Context(), realm, base); err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{
 				"error": "OIDC client setup failed: " + err.Error() + " — reconnect Keycloak in Settings",
 			})
 			return
 		}
 		if auth.LabDemoEnabled() {
-			_ = s.KC.Client().EnsureUserPassword(r.Context(), realm, "demo", "demo")
+			_ = c.EnsureUserPassword(r.Context(), realm, "demo", "demo")
 		}
 	}
 

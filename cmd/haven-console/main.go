@@ -6,16 +6,20 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/zyvorai/haven/internal/api"
 	"github.com/zyvorai/haven/internal/auth"
+	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/plane"
 )
@@ -29,9 +33,9 @@ func main() {
 		addr = ":8080"
 	}
 
-	kc, err := keycloak.NewManagerFromEnv()
+	kc, err := newBackend()
 	if err != nil {
-		log.Fatalf("keycloak client: %v", err)
+		log.Fatalf("identity backend: %v", err)
 	}
 
 	pr, err := plane.NewReaderFromEnv()
@@ -41,7 +45,13 @@ func main() {
 
 	if realm := os.Getenv("HAVEN_BOOTSTRAP_REALM"); realm != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		if err := kc.Client().BootstrapRealm(ctx, realm); err != nil {
+		var err error
+		if c := kc.Client(); c == nil {
+			err = errors.New("identity backend not connected")
+		} else {
+			err = c.BootstrapRealm(ctx, realm)
+		}
+		if err != nil {
 			// #nosec G706 -- realm is operator config from the environment, quoted with %q
 			log.Printf("bootstrap realm %q: %v", realm, err)
 		} else {
@@ -83,6 +93,34 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+}
+
+// newBackend selects the identity backend via HAVEN_IDP_BACKEND
+// ("keycloak" default, or "native").
+func newBackend() (idp.Backend, error) {
+	switch b := strings.ToLower(strings.TrimSpace(os.Getenv("HAVEN_IDP_BACKEND"))); b {
+	case "", "keycloak":
+		return keycloak.NewManagerFromEnv()
+	case "native":
+		return newNativeBackend()
+	default:
+		return nil, fmt.Errorf("unknown HAVEN_IDP_BACKEND %q (want keycloak or native)", b)
+	}
+}
+
+// secretFromEnv reads NAME, or the file named by NAME_FILE.
+func secretFromEnv(name string) (string, error) {
+	if v := os.Getenv(name); v != "" {
+		return v, nil
+	}
+	if f := os.Getenv(name + "_FILE"); f != "" {
+		b, err := os.ReadFile(f) // #nosec G304 G703 -- operator-supplied secret path
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	return "", nil
 }
 
 func spaHandler(dist fs.FS, next http.Handler) http.Handler {

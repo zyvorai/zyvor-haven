@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/zyvorai/haven/internal/auth"
-	"github.com/zyvorai/haven/internal/keycloak"
+	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/plane"
 )
 
-func NewRouter(kc *keycloak.Manager, pr *plane.Reader, sessions *auth.Store) http.Handler {
+func NewRouter(kc idp.Backend, pr *plane.Reader, sessions *auth.Store) http.Handler {
 	s := &Server{KC: kc, Plane: pr, Auth: sessions}
 	mux := http.NewServeMux()
 
