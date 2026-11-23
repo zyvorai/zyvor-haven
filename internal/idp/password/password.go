@@ -7,7 +7,6 @@ package password
 
 import (
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"strconv"
@@ -67,67 +66,6 @@ func (h *Hasher) Hash(pw string) (string, error) {
 	key := argon2.IDKey([]byte(pw), salt, h.p.Time, h.p.Memory, h.p.Threads, h.p.KeyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, h.p.Memory, h.p.Time, h.p.Threads, enc.EncodeToString(salt), enc.EncodeToString(key)), nil
-}
-
-const (
-	maxMemory  = 1 << 18 // 256 MiB in KiB; refuse hostile hashes
-	maxTime    = 64
-	maxThreads = 64
-)
-
-// Verify checks pw against a PHC string. needsRehash is true when the stored
-// parameters differ from the hasher's current ones. Malformed input returns
-// (false, false).
-func (h *Hasher) Verify(pw, encoded string) (bool, bool) {
-	parts := strings.Split(encoded, "$")
-	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" || !strings.HasPrefix(parts[2], "v=") {
-		return false, false
-	}
-	ver, err := strconv.Atoi(parts[2][2:])
-	if err != nil || ver != argon2.Version {
-		return false, false
-	}
-	var m, t uint64
-	var p uint64
-	kv := strings.Split(parts[3], ",")
-	if len(kv) != 3 {
-		return false, false
-	}
-	for i, want := range []string{"m=", "t=", "p="} {
-		if !strings.HasPrefix(kv[i], want) {
-			return false, false
-		}
-		v, err := strconv.ParseUint(kv[i][2:], 10, 32)
-		if err != nil {
-			return false, false
-		}
-		switch i {
-		case 0:
-			m = v
-		case 1:
-			t = v
-		case 2:
-			p = v
-		}
-	}
-	if m == 0 || t == 0 || p == 0 || m > maxMemory || t > maxTime || p > maxThreads || m < 8*p {
-		return false, false
-	}
-	salt, err := enc.DecodeString(parts[4])
-	if err != nil || len(salt) == 0 {
-		return false, false
-	}
-	want, err := enc.DecodeString(parts[5])
-	if err != nil || len(want) < 4 || len(want) > 1024 {
-		return false, false
-	}
-	got := argon2.IDKey([]byte(pw), salt, uint32(t), uint32(m), uint8(p), uint32(len(want)))
-	if subtle.ConstantTimeCompare(got, want) != 1 {
-		return false, false
-	}
-	rehash := uint32(m) != h.p.Memory || uint32(t) != h.p.Time || uint8(p) != h.p.Threads ||
-		len(salt) != h.p.SaltLen || uint32(len(want)) != h.p.KeyLen
-	return true, rehash
 }
 
 // CheckPolicy validates pw against a realm policy such as
