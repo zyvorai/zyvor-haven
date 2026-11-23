@@ -1,0 +1,21 @@
+# Deliberately weak: `haven-idp validate -f examples/config/realm-risky.yaml`
+# shows what Haven Guard would flag (and `apply` would refuse).
+apiVersion: haven.zyvor.dev/v1
+kind: Realm
+realm: legacy
+settings:
+  selfRegistration: true
+  emailVerificationRequired: false
+  transportSecurity: none        # HAVEN014 (high)
+  passwordPolicy: ""             # HAVEN015
+  accessTokenSeconds: 7200       # HAVEN017
+  sessionIdleSeconds: 172800     # HAVEN018
+  authEvents: false              # HAVEN019
+  adminEvents: false             # HAVEN020
+  refreshTokenRotation: false    # HAVEN021
+  bruteForceProtection: false    # HAVEN012
+clients:
+  - clientId: spa
+    public: true
+    redirectUris:
+      - https://spa.legacy.example/callback

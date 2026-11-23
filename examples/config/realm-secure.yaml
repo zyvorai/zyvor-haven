@@ -1,0 +1,31 @@
+apiVersion: haven.zyvor.dev/v1
+kind: Realm
+realm: acme
+displayName: Acme
+settings:
+  selfRegistration: false
+  bruteForceProtection: true
+  transportSecurity: external
+  passwordPolicy: length(12) and digits(1)
+  accessTokenSeconds: 300
+  sessionIdleSeconds: 1800
+  authEvents: true
+  adminEvents: true
+  refreshTokenRotation: true
+roles:
+  - name: admin
+    description: Administrators
+  - name: viewer
+groups:
+  - name: staff
+clients:
+  - clientId: web
+    name: Web app
+    public: true            # PKCE is required by default for public clients
+    redirectUris:
+      - https://app.acme.example/callback
+    origins:
+      - https://app.acme.example
+  - clientId: billing-worker
+    name: Billing worker
+    serviceAccount: true    # confidential; its secret goes to --secrets-file

@@ -47,6 +47,10 @@ Usage:
   haven-idp dev     [--port 8081] [--realm demo] [--redirect URL]... [--open]
   haven-idp init    [--dir .] [--base-url URL] [--realm platform] [--user admin] [--memory] [--force] [--print]
   haven-idp serve   [--env-file haven-idp.env]
+  haven-idp validate -f FILE [--fail-on high]
+  haven-idp plan     -f FILE [--prune] [--check] [--format text|json] [--dev | --url URL --admin-realm R]
+  haven-idp apply    -f FILE [--prune] [--auto-approve] [--allow-findings] [--secrets-file PATH] [--dev | ...]
+  haven-idp export   REALM [--dev | --url URL --admin-realm R]
   haven-idp version
 
 New here? Run "haven-idp dev".
@@ -66,6 +70,8 @@ func main() {
 		err = cmdInit(args, os.Stdout)
 	case "dev":
 		err = cmdDev(args, os.Stdout)
+	case "validate", "plan", "apply", "export":
+		os.Exit(cmdConfig(cmd, args, osCfgIO()))
 	case "version":
 		fmt.Println(version())
 	case "help":
