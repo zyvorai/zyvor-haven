@@ -12,6 +12,7 @@ rules:
   - apiGroups: [postgresql.cnpg.io]
     resources: [clusters, scheduledbackups, backups]
     verbs: [get, list, watch, create, update, patch, delete]
+  # DEPRECATED: only needed while a plane still runs the Keycloak engine (migration period).
   - apiGroups: [k8s.keycloak.org]
     resources: [keycloaks, keycloakrealmimports]
     verbs: [get, list, watch, create, update, patch, delete]
@@ -24,8 +25,24 @@ rules:
   - apiGroups: [gateway.networking.k8s.io]
     resources: [httproutes]
     verbs: [get, list, watch, create, update, patch, delete]
+  # haven-idp workload objects (<plane>-idp), see internal/render/IDP_CONTRACT.md.
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [""]
-    resources: [secrets, configmaps, services, namespaces]
+    resources: [services, serviceaccounts]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # Secrets are generated once and never overwritten or removed by the controller:
+  # create/get/update/patch only, deliberately NO delete (deleting would rotate credentials).
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch, create, update, patch]
+  # configmaps: CNPG CA bundle (<plane>-db-ca) and rendered config (pre-existing rule).
+  - apiGroups: [""]
+    resources: [configmaps, namespaces]
     verbs: [get, list, watch, create, update, patch]
   - apiGroups: [""]
     resources: [events]

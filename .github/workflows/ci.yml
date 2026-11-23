@@ -54,6 +54,13 @@ jobs:
       - name: Test
         run: go test -race ./...
 
+      - name: Build haven-idp (static, both image arches)
+        # Mirrors Dockerfile.idp; catches cgo or platform-specific breakage without a docker build.
+        run: |
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /dev/null ./cmd/haven-idp
+          done
+
   ui:
     name: UI
     runs-on: ubuntu-latest

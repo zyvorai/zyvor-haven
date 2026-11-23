@@ -1,0 +1,16 @@
+{{- if and .Values.observability.serviceMonitor .Values.idp.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.plane.name }}-idp
+  labels:
+    {{- include "haven.idpLabels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "haven.idpSelector" . | nindent 6 }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.idp.serviceMonitor.interval }}
+{{- end }}

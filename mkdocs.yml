@@ -82,6 +82,8 @@ nav:
       - CLI: cli.md
       - Production overlay: production-overlay.md
       - Install with Helm: install-helm.md
+      - Deploy haven-idp (native): deploy-native.md
+      - Migrate from Keycloak: migrate-from-keycloak.md
       - Backups: backups.md
   - Design:
       - Architecture: architecture.md

@@ -1,0 +1,10 @@
+# Copied from ../dev/namespace.yaml: kustomize refuses files outside the overlay directory
+# (the old `../dev/namespace.yaml` reference failed `kubectl apply -k`).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: identity
+  labels:
+    haven.identity/managed: "true"
+    app.kubernetes.io/part-of: haven
+    pod-security.kubernetes.io/enforce: restricted

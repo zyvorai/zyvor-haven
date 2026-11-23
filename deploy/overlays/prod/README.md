@@ -4,17 +4,19 @@
 
 This overlay is a **shape**, not a one-command install. It will not become Ready until you supply three things the compose path cannot invent:
 
-1. **Database password** — run `./hack/gen-prod-secrets.sh` (or External Secrets). The committed value is `REPLACE_ME_BEFORE_APPLY`.
+1. **Secrets** — run `./hack/gen-prod-secrets.sh` (or External Secrets) before applying. It creates `platform-db-app`, `platform-idp-db` (username, password, dsn) and `platform-idp` (csrf-key, admin-password, admin-client-secret); it never overwrites and never prints values. The overlay commits no secrets, so applying it cannot clobber real ones.
 2. **TLS secret `platform-tls`** — see `tls.yaml.example`. Apply after a ClusterIssuer exists.
-3. **CNPG CA ConfigMap `platform-db-ca`** — run `./hack/sync-cnpg-ca.sh` after the Cluster is healthy. Required because Keycloak sets `db-tls-mode: verify-server`.
+3. **CNPG CA ConfigMap `platform-db-ca`** — only for the deprecated Keycloak engine (`keycloak.yaml`, no longer referenced). haven-idp uses `sslmode=require`.
+
+The NetworkPolicy `platform-idp` assumes the gateway namespace is labelled `app.kubernetes.io/name: gateway`, Prometheus runs in `monitoring` and an OTLP collector in `observability`; adjust to your cluster.
 
 ## Apply order
 
 ```bash
-./hack/gen-prod-secrets.sh            # writes /tmp secrets; apply them
+./hack/gen-prod-secrets.sh            # creates the three secrets in the cluster
 kubectl apply -k deploy/overlays/prod
 kubectl -n identity wait cluster/platform-db --for=condition=Ready --timeout=600s
-./hack/sync-cnpg-ca.sh
+kubectl -n identity rollout status deployment/platform-idp
 kubectl apply -f deploy/overlays/prod/tls.yaml.example   # after editing issuer
 ```
 

@@ -13,7 +13,8 @@ haven — operate a Haven identity plane
   haven open   [name] [-n namespace]
   haven doctor [name] [-n namespace]
   haven backup [name] [-n namespace] [--now]
-  haven admin  [name] [-n namespace]   print Keycloak bootstrap secret path
+  haven admin  [name] [-n namespace] [--show-secret]
+                                       how to read the admin password (value only with --show-secret)
 
 Defaults: name=platform  namespace=identity
 EOF
@@ -26,12 +27,14 @@ NS="identity"
 NAME="platform"
 FILE=""
 NOW=false
+SHOW_SECRET=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--namespace) NS="$2"; shift 2 ;;
     -f|--file) FILE="$2"; shift 2 ;;
     --now) NOW=true; shift ;;
+    --show-secret) SHOW_SECRET=true; shift ;;
     -h|--help) usage; exit 0 ;;
     -*)
       echo "unknown flag: $1" >&2
@@ -45,8 +48,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Native engine (haven-idp) names per internal/render/IDP_CONTRACT.md.
+idp_secret() { echo "${NAME}-idp"; }
+is_native() {
+  kubectl get deployment "${NAME}-idp" -n "$NS" >/dev/null 2>&1 \
+    || kubectl get secret "${NAME}-idp" -n "$NS" >/dev/null 2>&1
+}
+
+# issuer = <base URL>/realms/<first realm>; dev planes are HTTP, everything else HTTPS.
+plane_issuer() {
+  local host realm profile scheme=https
+  host="$(kubectl get identityplane "$NAME" -n "$NS" -o jsonpath='{.spec.hostname}' 2>/dev/null || true)"
+  realm="$(kubectl get identityplane "$NAME" -n "$NS" -o jsonpath='{.spec.bootstrap.firstRealm}' 2>/dev/null || true)"
+  profile="$(kubectl get identityplane "$NAME" -n "$NS" -o jsonpath='{.spec.profile}' 2>/dev/null || true)"
+  [[ "$profile" == dev ]] && scheme=http
+  [[ -n "$host" ]] && echo "${scheme}://${host}/realms/${realm:-platform}"
+  return 0
+}
+
 kc_admin_secret() {
-  # Official Keycloak Operator secret. Falls back to Haven's planned name.
+  # DEPRECATED Keycloak engine: official operator secret. Falls back to Haven's planned name.
   if kubectl get secret "${NAME}-initial-admin" -n "$NS" >/dev/null 2>&1; then
     echo "${NAME}-initial-admin"
   elif kubectl get secret "${NAME}-bootstrap" -n "$NS" >/dev/null 2>&1; then
@@ -73,15 +94,30 @@ case "$cmd" in
     else
       echo "(no IdentityPlane CR — compose path only)"
     fi
-    echo "--- keycloak ---"
-    kubectl get keycloak -n "$NS" 2>/dev/null || echo "(none)"
+    if is_native; then
+      echo "--- haven-idp ---"
+      kubectl get deployment,service,pdb -n "$NS" -l app.kubernetes.io/name=haven-idp 2>/dev/null || echo "(none)"
+      issuer="$(plane_issuer)"
+      [[ -z "$issuer" ]] || echo "issuer: $issuer"
+    else
+      echo "--- keycloak (deprecated engine) ---"
+      kubectl get keycloak -n "$NS" 2>/dev/null || echo "(none)"
+    fi
     echo
     echo "--- database ---"
     kubectl get cluster.postgresql.cnpg.io -n "$NS" 2>/dev/null || echo "(none)"
     echo
-    secret="$(kc_admin_secret)"
     echo "--- admin secret ---"
-    if [[ -n "$secret" ]]; then
+    secret=""
+    if is_native; then
+      echo "  kubectl -n $NS get secret $(idp_secret) -o jsonpath='{.data.admin-password}' | base64 -d; echo"
+      echo "  (or: haven admin $NAME -n $NS)"
+    else
+      secret="$(kc_admin_secret)"
+    fi
+    if is_native; then
+      :
+    elif [[ -n "$secret" ]]; then
       echo "  kubectl -n $NS get secret $secret -o jsonpath='{.data.username}' | base64 -d; echo"
       echo "  kubectl -n $NS get secret $secret -o jsonpath='{.data.password}' | base64 -d; echo"
     else
@@ -94,8 +130,13 @@ case "$cmd" in
     if [[ -z "$host" ]]; then
       host="$(kubectl get ingress -n "$NS" -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || true)"
     fi
-    echo "keycloak: http://${host:-auth.127.0.0.1.nip.io}"
-    echo "admin:    http://${host:-auth.127.0.0.1.nip.io}/admin"
+    if is_native; then
+      echo "issuer:   $(plane_issuer)"
+      echo "account:  $(plane_issuer)/account"
+    else
+      echo "keycloak: http://${host:-auth.127.0.0.1.nip.io}   (deprecated engine)"
+      echo "admin:    http://${host:-auth.127.0.0.1.nip.io}/admin"
+    fi
     echo "console:  http://${console:-haven.127.0.0.1.nip.io}"
     ;;
   doctor)
@@ -104,7 +145,6 @@ case "$cmd" in
     for c in \
       identityplanes.identity.haven.dev \
       clusters.postgresql.cnpg.io \
-      keycloaks.k8s.keycloak.org \
       certificates.cert-manager.io
     do
       if kubectl get crd "$c" >/dev/null 2>&1; then
@@ -115,12 +155,39 @@ case "$cmd" in
       fi
     done
     echo
+    echo "== identity provider =="
+    if kubectl get identityplane "$NAME" -n "$NS" >/dev/null 2>&1; then
+      ready="$(kubectl get identityplane "$NAME" -n "$NS" -o jsonpath='{.status.conditions[?(@.type=="IdentityProviderReady")].status}' 2>/dev/null || true)"
+      case "$ready" in
+        True)
+          echo "  ok   IdentityProviderReady=True"
+          issuer="$(plane_issuer)"
+          [[ -z "$issuer" ]] || echo "  issuer: $issuer"
+          ;;
+        False)
+          echo "  FAIL IdentityProviderReady=False"
+          fail=1
+          ;;
+        *)
+          if is_native; then
+            echo "  ??   IdentityProviderReady not reported yet (is the controller running?)"
+            fail=1
+          else
+            echo "  (no IdentityProviderReady condition: Keycloak engine or controller not running)"
+          fi
+          ;;
+      esac
+    else
+      echo "  (no IdentityPlane CR in $NS)"
+    fi
+    echo
     echo "== operators =="
     kubectl -n cnpg-system get deploy cnpg-controller-manager -o wide 2>/dev/null || { echo "  MISS cnpg-controller-manager"; fail=1; }
-    kubectl -n keycloak get deploy 2>/dev/null || echo "  (no deploy in ns keycloak)"
+    # The Keycloak operator is optional and deprecated; only shown when installed.
+    kubectl -n keycloak get deploy 2>/dev/null || true
     echo
     echo "== objects in $NS =="
-    kubectl get identityplane,cluster.postgresql.cnpg.io,keycloak,ingress,certificate,secret -n "$NS" 2>/dev/null || true
+    kubectl get identityplane,cluster.postgresql.cnpg.io,deployment,keycloak,ingress,certificate,secret -n "$NS" 2>/dev/null || true
     echo
     echo "== pods in $NS =="
     kubectl get pods -n "$NS" -o wide 2>/dev/null || true
@@ -132,12 +199,32 @@ case "$cmd" in
     exit "$fail"
     ;;
   admin)
-    secret="$(kc_admin_secret)"
-    [[ -n "$secret" ]] || { echo "admin secret not found in $NS" >&2; exit 1; }
-    echo -n "username: "
-    kubectl -n "$NS" get secret "$secret" -o jsonpath='{.data.username}' | base64 -d; echo
-    echo -n "password: "
-    kubectl -n "$NS" get secret "$secret" -o jsonpath='{.data.password}' | base64 -d; echo
+    if is_native; then
+      secret="$(idp_secret)"
+      echo "admin user: admin"
+      echo "Read the admin password with:"
+      echo "  kubectl -n $NS get secret $secret -o jsonpath='{.data.admin-password}' | base64 -d; echo"
+      if $SHOW_SECRET; then
+        echo -n "password: "
+        kubectl -n "$NS" get secret "$secret" -o jsonpath='{.data.admin-password}' | base64 -d; echo
+      else
+        echo "(not printed; pass --show-secret to print it)"
+      fi
+    else
+      secret="$(kc_admin_secret)"
+      [[ -n "$secret" ]] || { echo "admin secret not found in $NS" >&2; exit 1; }
+      echo "Keycloak engine (deprecated). Read the credentials with:"
+      echo "  kubectl -n $NS get secret $secret -o jsonpath='{.data.username}' | base64 -d; echo"
+      echo "  kubectl -n $NS get secret $secret -o jsonpath='{.data.password}' | base64 -d; echo"
+      if $SHOW_SECRET; then
+        echo -n "username: "
+        kubectl -n "$NS" get secret "$secret" -o jsonpath='{.data.username}' | base64 -d; echo
+        echo -n "password: "
+        kubectl -n "$NS" get secret "$secret" -o jsonpath='{.data.password}' | base64 -d; echo
+      else
+        echo "(not printed; pass --show-secret to print them)"
+      fi
+    fi
     ;;
   backup)
     if $NOW; then

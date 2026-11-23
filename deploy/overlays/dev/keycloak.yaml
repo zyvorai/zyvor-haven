@@ -1,3 +1,6 @@
+# DEPRECATED, NOT referenced by kustomization.yaml. Keycloak is replaced by haven-idp (idp.yaml).
+# Kept in the tree only for migration (docs/migrate-from-keycloak.md). It expects a CNPG database
+# `keycloak` and Secret platform-keycloak-db, neither of which this overlay creates any more.
 # Official Keycloak CR. Haven owns the object; the Keycloak Operator owns the pods.
 # v2beta1 is served from Keycloak Operator 26.6+; v2alpha1 remains valid.
 apiVersion: k8s.keycloak.org/v2beta1

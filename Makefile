@@ -1,6 +1,6 @@
 # Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 # SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
-.PHONY: crds operators dev prod doctor wait secrets-prod realm-import ui-install ui-dev ui-build console-build console-test console-run controller-build controller-deploy docs-install docs-serve docs-build image-console image-controller images
+.PHONY: crds operators dev prod doctor wait secrets-prod realm-import ui-install ui-dev ui-build console-build console-test console-run controller-build controller-deploy docs-install docs-serve docs-build image-console image-controller image-idp images idp-build idp-dev
 
 IMAGE_REGISTRY ?= ghcr.io/zyvorai
 VERSION ?= 0.1.0
@@ -40,6 +40,7 @@ samples-dev:
 samples-prod:
 	kubectl apply -f config/samples/identityplane-prod.yaml
 
+# Legacy (Keycloak engine only).
 realm-import:
 	kubectl apply -f config/samples/keycloakrealmimport-platform.yaml
 
@@ -86,4 +87,13 @@ image-console:
 image-controller:
 	$(DOCKER) build -f Dockerfile.controller -t $(IMAGE_REGISTRY)/haven-controller:$(VERSION) .
 
-images: image-console image-controller
+image-idp:
+	$(DOCKER) build -f Dockerfile.idp -t $(IMAGE_REGISTRY)/haven-idp:$(VERSION) .
+
+images: image-console image-controller image-idp
+
+idp-build:
+	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o bin/haven-idp ./cmd/haven-idp
+
+idp-dev:
+	go run ./cmd/haven-idp dev

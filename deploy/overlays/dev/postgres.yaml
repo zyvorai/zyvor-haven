@@ -13,8 +13,8 @@ spec:
   enableSuperuserAccess: false
   bootstrap:
     initdb:
-      database: keycloak
-      owner: keycloak
+      database: haven_idp
+      owner: haven_idp
       secret:
         name: platform-db-app
   storage:
@@ -24,28 +24,18 @@ spec:
       max_connections: "100"
       shared_buffers: "256MB"
 ---
-# Dev-only static password. Prod overlay does not commit a reusable password.
+# Dev-only static password (matches platform-idp-db in idp.yaml). Prod overlay does not commit a reusable password.
 apiVersion: v1
 kind: Secret
 metadata:
   name: platform-db-app
   namespace: identity
+  annotations:
+    haven.identity/dev-placeholder: "true"
   labels:
     cnpg.io/reload: "true"
     haven.identity/plane: platform
 type: kubernetes.io/basic-auth
 stringData:
-  username: keycloak
-  password: change-me-dev-only
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: platform-keycloak-db
-  namespace: identity
-  labels:
-    haven.identity/plane: platform
-type: Opaque
-stringData:
-  username: keycloak
-  password: change-me-dev-only
+  username: haven_idp
+  password: CHANGE_ME_DEV_ONLY

@@ -1,0 +1,13 @@
+# Keep the build context small; each Dockerfile COPYs only what it needs.
+.git
+.github
+.claude
+bin
+.venv-docs
+site
+docs
+examples
+ui/web/node_modules
+ui/web/dist
+**/*.test
+**/*.out

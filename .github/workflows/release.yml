@@ -46,6 +46,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "console_image=${{ env.REGISTRY }}/${{ env.OWNER }}/haven-console" >> "$GITHUB_OUTPUT"
           echo "controller_image=${{ env.REGISTRY }}/${{ env.OWNER }}/haven-controller" >> "$GITHUB_OUTPUT"
+          echo "idp_image=${{ env.REGISTRY }}/${{ env.OWNER }}/haven-idp" >> "$GITHUB_OUTPUT"
           echo "chart_oci=${{ env.REGISTRY }}/${{ env.OWNER }}/charts/haven" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
@@ -110,6 +111,26 @@ jobs:
           provenance: true
           sbom: true
 
+      - name: Build and push haven-idp
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.idp
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-idp:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-idp:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.name }}/haven-idp:latest
+          labels: |
+            org.opencontainers.image.title=haven-idp
+            org.opencontainers.image.description=Haven native OIDC identity server
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.licenses=LicenseRef-Zyvor-Production-1.0
+          provenance: true
+          sbom: true
+
       - name: Set up Helm
         uses: azure/setup-helm@v5
         with:
@@ -123,6 +144,7 @@ jobs:
           sed -i "s/^appVersion: .*/appVersion: \"${VERSION}\"/" charts/haven/Chart.yaml
           sed -i "s|repository: ghcr.io/.*/haven-controller|repository: ghcr.io/${OWNER_LC}/haven-controller|" charts/haven/values.yaml
           sed -i "s|repository: ghcr.io/.*/haven-console|repository: ghcr.io/${OWNER_LC}/haven-console|" charts/haven/values.yaml
+          sed -i "s|repository: ghcr.io/.*/haven-idp|repository: ghcr.io/${OWNER_LC}/haven-idp|" charts/haven/values.yaml
           sed -i "s|tag: \".*\"|tag: \"${VERSION}\"|" charts/haven/values.yaml
           helm package charts/haven --destination /tmp
           helm push "/tmp/haven-${VERSION}.tgz" "oci://ghcr.io/${OWNER_LC}/charts"
@@ -132,7 +154,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OWNER_LC="${{ steps.owner.outputs.name }}"
-          for pkg in haven-console haven-controller 'charts/haven'; do
+          for pkg in haven-console haven-controller haven-idp 'charts/haven'; do
             encoded=$(printf %s "$pkg" | jq -sRr @uri)
             echo "Setting $pkg public…"
             gh api --method PUT "/user/packages/container/${encoded}/visibility" -f visibility=public \
@@ -152,6 +174,7 @@ jobs:
             ```text
             ghcr.io/${{ steps.owner.outputs.name }}/haven-console:${{ steps.meta.outputs.version }}
             ghcr.io/${{ steps.owner.outputs.name }}/haven-controller:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ steps.owner.outputs.name }}/haven-idp:${{ steps.meta.outputs.version }}
             ```
 
             Also tagged `:latest` and `:${{ steps.meta.outputs.tag }}`.

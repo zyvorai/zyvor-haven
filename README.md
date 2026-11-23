@@ -136,7 +136,7 @@ cd zyvor-haven
 # 1. Operators (once per cluster)
 ./deploy/operators/install.sh
 
-# 2. Postgres + Keycloak
+# 2. Postgres + haven-idp (native identity server; Keycloak is deprecated)
 make dev
 make wait
 make doctor
@@ -145,11 +145,11 @@ make admin
 
 | | |
 |---|---|
-| Keycloak Admin | `http://auth.127.0.0.1.nip.io/admin` |
-| Bootstrap secret | `platform-initial-admin` in namespace `identity` |
-| First realm | `make realm-import` (optional) |
+| Issuer | `http://auth.127.0.0.1.nip.io/realms/platform` |
+| Admin password | `make admin` prints the `kubectl` command to read secret `platform-idp` (key `admin-password`) |
+| Keycloak (deprecated) | `INSTALL_KEYCLOAK_OPERATOR=1`, see [docs/migrate-from-keycloak.md](docs/migrate-from-keycloak.md) |
 
-Requirements: a Kubernetes cluster you can install operators into; pinned versions of CloudNativePG, the Keycloak Operator and cert-manager are in [`versions.env`](versions.env). Remote lab console and the local UI: [docs/quick-start.md](docs/quick-start.md). First deploy in depth: [docs/getting-started.md](docs/getting-started.md).
+Requirements: a Kubernetes cluster you can install operators into; pinned versions of CloudNativePG and cert-manager (and the legacy Keycloak Operator) are in [`versions.env`](versions.env). Remote lab console and the local UI: [docs/quick-start.md](docs/quick-start.md). First deploy in depth: [docs/getting-started.md](docs/getting-started.md). Native engine on your own cluster: [docs/deploy-native.md](docs/deploy-native.md).
 
 <a id="install-with-helm"></a>
 
@@ -161,7 +161,7 @@ helm install haven oci://ghcr.io/zyvorai/charts/haven --version 0.1.0 \
   --set console.enabled=true
 ```
 
-Images: `ghcr.io/zyvorai/haven-console:0.1.0` · `ghcr.io/zyvorai/haven-controller:0.1.0`. Controller and console default to `enabled: false`; chart installs RBAC by default. Details: [docs/install-helm.md](docs/install-helm.md).
+Images: `ghcr.io/zyvorai/haven-console:0.1.0` · `ghcr.io/zyvorai/haven-controller:0.1.0` · `ghcr.io/zyvorai/haven-idp:0.1.0`. Controller and console default to `enabled: false`; chart installs RBAC by default. Details: [docs/install-helm.md](docs/install-helm.md).
 
 <a id="production-overlay"></a>
 
@@ -170,7 +170,7 @@ Images: `ghcr.io/zyvorai/haven-console:0.1.0` · `ghcr.io/zyvorai/haven-controll
 `deploy/overlays/prod` is a shape, not a one-liner. Read [docs/production-overlay.md](docs/production-overlay.md) before apply:
 
 1. `./hack/gen-prod-secrets.sh` — do not use the placeholder password
-2. Wait for CNPG, then `./hack/sync-cnpg-ca.sh` (Keycloak verifies DB TLS)
+2. Wait for CNPG, then `./hack/sync-cnpg-ca.sh` (only for the deprecated Keycloak engine, which verifies DB TLS)
 3. Issue `platform-tls` from your ClusterIssuer
 4. Configure backups separately ([docs/backups.md](docs/backups.md))
 

@@ -1,0 +1,149 @@
+{{- /*
+  haven-idp run by the chart itself. Off by default: the controller normally renders
+  these same objects from an IdentityPlane (spec.engine: native). Names, labels, env,
+  probes and security context follow internal/render/IDP_CONTRACT.md.
+*/ -}}
+{{- if .Values.idp.enabled }}
+{{- $idp := printf "%s-idp" .Values.plane.name }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $idp }}
+  labels:
+    {{- include "haven.idpLabels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $idp }}
+  labels:
+    {{- include "haven.idpLabels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "haven.idpSelector" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+    - name: metrics
+      port: 9100
+      targetPort: metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $idp }}
+  labels:
+    {{- include "haven.idpLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.idp.replicas }}
+  selector:
+    matchLabels:
+      {{- include "haven.idpSelector" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "haven.idpLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $idp }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if gt (int .Values.idp.replicas) 1 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "haven.idpSelector" . | nindent 14 }}
+      {{- end }}
+      containers:
+        - name: haven-idp
+          image: "{{ .Values.idp.image.repository }}:{{ .Values.idp.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["serve"]
+          ports:
+            - name: http
+              containerPort: 8081
+            - name: metrics
+              containerPort: 9100
+          env:
+            - name: HAVEN_IDP_BASE_URL
+              value: {{ required "idp.baseUrl is required when idp.enabled=true" .Values.idp.baseUrl | quote }}
+            - name: HAVEN_IDP_LISTEN
+              value: ":8081"
+            - name: HAVEN_IDP_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $idp }}-db
+                  key: dsn
+            - name: HAVEN_IDP_CSRF_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $idp }}
+                  key: csrf-key
+            - name: HAVEN_IDP_TRUST_PROXY
+              value: "1"
+            - name: HAVEN_IDP_BOOTSTRAP_REALM
+              value: {{ .Values.idp.bootstrapRealm | quote }}
+            - name: HAVEN_IDP_BOOTSTRAP_USER
+              value: admin
+            - name: HAVEN_IDP_BOOTSTRAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $idp }}
+                  key: admin-password
+            - name: HAVEN_IDP_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $idp }}
+                  key: admin-client-secret
+            {{- with .Values.idp.consoleRedirects }}
+            - name: HAVEN_IDP_CONSOLE_REDIRECTS
+              value: {{ . | quote }}
+            {{- end }}
+            - name: HAVEN_IDP_METRICS_LISTEN
+              value: ":9100"
+            - name: HAVEN_IDP_AUDIT
+              value: stdout
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            {{- toYaml .Values.idp.resources | nindent 12 }}
+{{- if gt (int .Values.idp.replicas) 1 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $idp }}
+  labels:
+    {{- include "haven.idpLabels" . | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "haven.idpSelector" . | nindent 6 }}
+{{- end }}
+{{- end }}

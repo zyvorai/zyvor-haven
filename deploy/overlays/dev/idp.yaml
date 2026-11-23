@@ -1,0 +1,179 @@
+# haven-idp for the dev compose path. Follows internal/render/IDP_CONTRACT.md (plane: platform).
+# The controller renders the same objects from an IdentityPlane with spec.engine: native;
+# apply this overlay OR the IdentityPlane, not both.
+#
+# DEV ONLY: every CHANGE_ME value below is a public placeholder. Never reuse it outside a throwaway
+# cluster. For anything real use deploy/overlays/prod and hack/gen-prod-secrets.sh.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: platform-idp
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: haven-idp
+    app.kubernetes.io/instance: platform
+    app.kubernetes.io/part-of: haven
+    app.kubernetes.io/component: identity
+    haven.identity/managed: "true"
+    haven.identity/plane: platform
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-idp
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: haven-idp
+    app.kubernetes.io/instance: platform
+    app.kubernetes.io/part-of: haven
+    app.kubernetes.io/component: identity
+    haven.identity/managed: "true"
+    haven.identity/plane: platform
+  annotations:
+    haven.identity/dev-placeholder: "true"
+type: Opaque
+stringData:
+  csrf-key: CHANGE_ME_DEV_ONLY_csrf_key_0123456789abcdef
+  admin-password: CHANGE_ME_DEV_ONLY
+  admin-client-secret: CHANGE_ME_DEV_ONLY_admin_client_secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-idp-db
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: haven-idp
+    app.kubernetes.io/instance: platform
+    app.kubernetes.io/part-of: haven
+    app.kubernetes.io/component: identity
+    haven.identity/managed: "true"
+    haven.identity/plane: platform
+  annotations:
+    haven.identity/dev-placeholder: "true"
+type: Opaque
+stringData:
+  username: haven_idp
+  password: CHANGE_ME_DEV_ONLY
+  dsn: postgres://haven_idp:CHANGE_ME_DEV_ONLY@platform-db-rw.identity.svc:5432/haven_idp?sslmode=require
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-idp
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: haven-idp
+    app.kubernetes.io/instance: platform
+    app.kubernetes.io/part-of: haven
+    app.kubernetes.io/component: identity
+    haven.identity/managed: "true"
+    haven.identity/plane: platform
+spec:
+  selector:
+    app.kubernetes.io/name: haven-idp
+    app.kubernetes.io/instance: platform
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+    - name: metrics
+      port: 9100
+      targetPort: metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-idp
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: haven-idp
+    app.kubernetes.io/instance: platform
+    app.kubernetes.io/part-of: haven
+    app.kubernetes.io/component: identity
+    haven.identity/managed: "true"
+    haven.identity/plane: platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: haven-idp
+      app.kubernetes.io/instance: platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: haven-idp
+        app.kubernetes.io/instance: platform
+        app.kubernetes.io/part-of: haven
+        app.kubernetes.io/component: identity
+        haven.identity/managed: "true"
+        haven.identity/plane: platform
+    spec:
+      serviceAccountName: platform-idp
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: haven-idp
+          image: ghcr.io/zyvorai/haven-idp:0.1.0
+          args: ["serve"]
+          ports:
+            - name: http
+              containerPort: 8081
+            - name: metrics
+              containerPort: 9100
+          env:
+            - name: HAVEN_IDP_BASE_URL
+              value: http://auth.127.0.0.1.nip.io   # dev is HTTP only
+            - name: HAVEN_IDP_LISTEN
+              value: ":8081"
+            - name: HAVEN_IDP_DSN
+              valueFrom:
+                secretKeyRef: {name: platform-idp-db, key: dsn}
+            - name: HAVEN_IDP_CSRF_KEY
+              valueFrom:
+                secretKeyRef: {name: platform-idp, key: csrf-key}
+            - name: HAVEN_IDP_TRUST_PROXY
+              value: "1"
+            - name: HAVEN_IDP_BOOTSTRAP_REALM
+              value: platform
+            - name: HAVEN_IDP_BOOTSTRAP_USER
+              value: admin
+            - name: HAVEN_IDP_BOOTSTRAP_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: platform-idp, key: admin-password}
+            - name: HAVEN_IDP_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef: {name: platform-idp, key: admin-client-secret}
+            - name: HAVEN_IDP_CONSOLE_REDIRECTS
+              value: http://haven.127.0.0.1.nip.io/api/v1/auth/oidc/callback
+            - name: HAVEN_IDP_METRICS_LISTEN
+              value: ":9100"
+            - name: HAVEN_IDP_AUDIT
+              value: stdout
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

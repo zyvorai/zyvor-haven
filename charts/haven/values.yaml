@@ -1,6 +1,7 @@
-# Haven chart — controller + console.
-# Database and Keycloak are NOT subcharts. They are created from IdentityPlane CRs
-# so official operators stay in charge of reconciliation.
+# Haven chart — controller + console (+ optionally haven-idp).
+# Database and the identity server are NOT subcharts. They are created from IdentityPlane CRs
+# (spec.engine: native -> haven-idp, the default; keycloak -> deprecated) so the controller
+# and the CNPG operator stay in charge of reconciliation.
 
 image:
   repository: ghcr.io/zyvorai/haven-controller
@@ -27,6 +28,42 @@ console:
     accessModes:
       - ReadWriteOnce
   clientSecretRotationDays: 90
+
+# Which identity backend the console talks to. See internal/render/IDP_CONTRACT.md.
+identity:
+  backend: native            # native | keycloak (keycloak is deprecated, kept for migration)
+  # Base URL the console uses to reach the identity server inside the cluster.
+  # Empty = http://<plane.name>-idp.<plane.namespace>.svc:8081 (native) or
+  #         http://<plane.name>-service.<plane.namespace>.svc:8080 (keycloak).
+  url: ""
+  adminRealm: platform       # realm whose tokens may call the admin API (native)
+  # Secret holding the admin client secret; created by the controller (never by this chart).
+  # Empty name = <plane.name>-idp.
+  adminClientSecretRef:
+    name: ""
+    key: admin-client-secret
+
+# haven-idp run directly by the chart. Leave disabled when the controller manages it
+# from an IdentityPlane (the normal path). Requires Secrets <plane.name>-idp
+# (csrf-key, admin-password, admin-client-secret) and <plane.name>-idp-db (dsn) to exist.
+idp:
+  enabled: false
+  baseUrl: ""                # public https URL, e.g. https://auth.example.com (required when enabled)
+  consoleRedirects: ""       # e.g. https://haven.example.com/api/v1/auth/oidc/callback
+  bootstrapRealm: platform
+  image:
+    repository: ghcr.io/zyvorai/haven-idp
+    tag: "0.1.0"
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  serviceMonitor:
+    interval: 30s
 
 controller:
   enabled: false
@@ -62,4 +99,5 @@ plane:
   consoleHostname: haven.127.0.0.1.nip.io
 
 observability:
+  # ServiceMonitor for the idp `metrics` port (needs the Prometheus Operator CRDs and idp.enabled).
   serviceMonitor: false

@@ -12,7 +12,11 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app: keycloak
+              app.kubernetes.io/name: haven-idp
+        # DEPRECATED legacy Keycloak engine; re-add only while migrating:
+        # - podSelector:
+        #     matchLabels:
+        #       app: keycloak
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: haven
@@ -20,16 +24,19 @@ spec:
         - protocol: TCP
           port: 5432
 ---
+# haven-idp, per internal/render/IDP_CONTRACT.md: ingress from the gateway namespace and the
+# console on 8081, from monitoring on 9100; egress to DNS, the CNPG cluster, and the OTLP collector.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: platform-keycloak
+  name: platform-idp
   namespace: identity
 spec:
   podSelector:
     matchLabels:
-      app: keycloak
-  policyTypes: [Ingress]
+      app.kubernetes.io/name: haven-idp
+      app.kubernetes.io/instance: platform
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         - namespaceSelector:
@@ -38,10 +45,42 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: haven
+              app.kubernetes.io/component: console
       ports:
         - protocol: TCP
-          port: 8443
+          port: 8081
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
         - protocol: TCP
-          port: 8080
+          port: 9100
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
         - protocol: TCP
-          port: 9000
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: platform-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    # OTLP/HTTP collector, only needed when tracing is enabled (OTEL_EXPORTER_OTLP_ENDPOINT).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - protocol: TCP
+          port: 4318

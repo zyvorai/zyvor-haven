@@ -1,0 +1,19 @@
+# Copyright 2026 Zyvor AI Labs · https://zyvor.dev
+# SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
+# haven-idp: Haven's own OIDC identity server. Static binary, distroless nonroot.
+# Migrations and the dev UI are embedded in the binary (go:embed under internal/idp).
+FROM golang:1.27.1-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS gobuild
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/haven-idp/ cmd/haven-idp/
+COPY internal/ internal/
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/haven-idp ./cmd/haven-idp
+
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
+COPY --from=gobuild /out/haven-idp /haven-idp
+# 8081 http (OIDC, login, admin API, /healthz, /readyz); 9100 Prometheus /metrics
+EXPOSE 8081 9100
+USER nonroot:nonroot
+ENTRYPOINT ["/haven-idp"]
+CMD ["serve"]

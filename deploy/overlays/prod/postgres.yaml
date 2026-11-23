@@ -10,8 +10,8 @@ spec:
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:
-      database: keycloak
-      owner: keycloak
+      database: haven_idp
+      owner: haven_idp
       secret:
         name: platform-db-app
   storage:
@@ -36,27 +36,9 @@ spec:
 # (legacy) or a CNPG-I ObjectStore plugin is configured.
 # See deploy/overlays/prod/backup/README.md
 ---
-# Placeholder only. Replace before apply:
-#   ./hack/gen-prod-secrets.sh
-# or ExternalSecrets / Sealed Secrets.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: platform-db-app
-  namespace: identity
-  labels:
-    cnpg.io/reload: "true"
-type: kubernetes.io/basic-auth
-stringData:
-  username: keycloak
-  password: REPLACE_ME_BEFORE_APPLY
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: platform-keycloak-db
-  namespace: identity
-type: Opaque
-stringData:
-  username: keycloak
-  password: REPLACE_ME_BEFORE_APPLY
+# Secrets are NOT committed here. Applying this overlay must never overwrite real credentials with
+# placeholders. Create these before `kubectl apply -k` with ./hack/gen-prod-secrets.sh
+# (or External Secrets / Sealed Secrets):
+#   platform-db-app   (basic-auth: username haven_idp, password)  CNPG bootstrap secret
+#   platform-idp-db   (username, password, dsn)                   read by haven-idp
+#   platform-idp      (csrf-key, admin-password, admin-client-secret)
