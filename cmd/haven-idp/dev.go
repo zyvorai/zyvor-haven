@@ -112,6 +112,7 @@ func cmdDev(args []string, out io.Writer) error {
 		Listen:            fmt.Sprintf("127.0.0.1:%d", *port), // loopback only: this server is for development
 		BaseURL:           base,
 		Memory:            true,
+		MetricsOnMain:     true,
 		CSRFKey:           creds.CSRFKey,
 		BootstrapRealm:    *realm,
 		BootstrapUser:     *user,
@@ -159,7 +160,8 @@ func printDevBanner(w io.Writer, base, issuer, realm, user string, c devCreds, r
 	}
 	p("  Test user    %s / %s\n", user, c.Password)
 	p("  Test client  %s (public, PKCE S256)  redirect: %s\n", devAppClient, strings.Join(redirects, ", "))
-	p("  Admin API    %s/admin/v1   (client haven-admin)\n\n", base)
+	p("  Admin API    %s/admin/v1   (client haven-admin)\n", base)
+	p("  Metrics      %s/metrics   (Prometheus)\n\n", base)
 	p("Use it from an app:\n")
 	p("  OIDC_ISSUER=%s OIDC_CLIENT_ID=%s\n\n", issuer, devAppClient)
 	p("Use it from the Haven console:\n")
