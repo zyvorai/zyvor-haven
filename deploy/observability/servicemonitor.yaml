@@ -1,0 +1,22 @@
+# prometheus-operator ServiceMonitor for haven-idp. The Service must expose a
+# port named "metrics" (the HAVEN_IDP_METRICS_LISTEN listener). Adjust the
+# selector labels and the release label your Prometheus instance selects on.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: haven-idp
+  labels:
+    app.kubernetes.io/name: haven-idp
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: haven-idp
+  namespaceSelector:
+    matchNames:
+      - haven
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
