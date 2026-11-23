@@ -14,7 +14,7 @@ hero:
     - {value: "v0.1.0", label: "Only tagged release today — a v0 packaging layer, not the v1 controller", footnote: "1"}
     - {value: "3", label: "Custom resources: IdentityPlane, RealmBundle, OidcClient", footnote: "2"}
     - {value: "10", label: "Reconciliation steps from namespace to a Ready plane", footnote: "2"}
-    - {value: "13", label: "Deterministic security rules Haven Guard checks (HAVEN001–013)", footnote: "3"}
+    - {value: "21", label: "Deterministic security rules Haven Guard checks (HAVEN001–021)", footnote: "3"}
     - {value: "5", label: "CLI commands: deploy, status, doctor, admin, backup", footnote: "4"}
   hub_bands:
     - {icon: "❓", title: "FAQ", description: "Decide whether Haven fits my use case.", href: "faq.md"}
@@ -25,7 +25,7 @@ hero:
 footnotes:
   - {marker: "1", text: "The README states only one tagged release exists, 0.1.0, and frames this repository as v0 — the Helm chart installs RBAC only today; the full Kubebuilder reconcile loop is v1, in progress.", href: "https://github.com/zyvorai/zyvor-haven#readme", href_label: "See the README."}
   - {marker: "2", text: "IdentityPlane, RealmBundle, and OidcClient are the three CRDs; the controller applies them across a 10-step reconciliation order from namespace/NetworkPolicy creation through marking the plane Ready.", href: "architecture.md", href_label: "See Architecture."}
-  - {marker: "3", text: "Haven Guard's rule table lists HAVEN001 through HAVEN013 across critical/high/medium/low severity.", href: "security-posture.md", href_label: "See Security posture."}
+  - {marker: "3", text: "Haven Guard's rule table lists HAVEN001 through HAVEN021 across critical/high/medium/low severity.", href: "security-posture.md", href_label: "See Security posture."}
   - {marker: "4", text: "The CLI (./cli/haven) and Makefile targets cover deploy, status, doctor, admin, and backup.", href: "cli.md", href_label: "See CLI."}
 ---
 

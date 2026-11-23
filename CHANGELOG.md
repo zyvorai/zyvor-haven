@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Time Machine: immutable per-realm recovery points with drift diff (clients, users, roles, groups, IdPs, access bindings) and safe restore into a new realm
 - Credential Center: confidential-client secret inventory, rotation with overlap detection, and explicit retirement, never exposing the previous secret
 - Federation Hub: guided onboarding templates for Microsoft Entra ID, Google Workspace, GitHub, generic OIDC, and SAML 2.0, with secret/certificate redaction on every response
+- Haven Guard realm hardening rules HAVEN014-021 (TLS requirement, password policy, token and session lifetimes, user and admin events, refresh-token rotation); settings a source omits produce no finding and the baseline fingerprint is unchanged
+- Policy as code: `haven-audit --policy` evaluates declarative organisation rules (JSON, RE2 patterns, size caps, credential-bearing paths rejected) and merges them into text, JSON and SARIF output
+- Access Review: privileged/stale account report, break-glass coverage check and recertification campaigns (`/api/v1/access-review`, `haven-audit access-review`, console page); decisions are recorded, Keycloak is never changed
+- `haven-audit diff`: secret-redacting, field-level comparison of two realm exports for GitOps review
+- docs/RESEARCH.md: identity-platform research and ranked ideas
 - Optional persistent console volume (`console.persistence`) for durable Time Machine history, restricted to `console.replicas=1`
 - CI now runs gofmt, golangci-lint, govulncheck and gosec, and tests with `-race`
 
@@ -31,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PostgreSQL stays on 16.15 (the newest 16.x CloudNativePG image tag); a major bump needs a `pg_upgrade` or dump/restore migration Haven does not provide
 - The `go` directive and the golang/node image digests stay at 1.27.1 / 24.21.0 (digest-pinned); a bump needs new digests
 - Unverified action pins left as is: golangci/golangci-lint-action v9, golang/govulncheck-action v1, softprops/action-gh-release v3
+
+### Fixed
+
+- Console API request bodies are capped at 4 MiB (handlers decoded JSON straight from the request body without a limit)
+- Time Machine and Access Review capture return an error instead of dereferencing a nil client when Keycloak is not connected
+- `haven-audit` caps input files and stdin at 64 MiB
 
 ### Security
 

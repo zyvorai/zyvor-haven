@@ -20,6 +20,7 @@ The Haven console is a Go API (`haven-console`) with an embedded React UI. It op
 | `/realms` | Realm Studio — tenants, users, clients, IdPs, events |
 | `/clients` | Cross-realm OIDC clients |
 | `/deploy` | Deploy wizard (intent / profile) |
+| `/access-review` | Access Review: privileged and stale accounts, break-glass check, recertification campaigns ([details](access-review.md)) |
 | `/settings` | Keycloak connection, theme, password changes |
 
 Console routes (except `/` and `/login`) require a Bearer session. Unauthenticated API calls return `401`.

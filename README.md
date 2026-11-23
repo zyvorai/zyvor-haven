@@ -38,6 +38,10 @@ On `main`, not yet in a tagged release (see [CHANGELOG.md](CHANGELOG.md)):
 | **Time Machine** | Immutable per-realm recovery points with drift diff (clients, users, roles, groups, IdPs, access bindings) and safe restore into a new realm |
 | **Credential Center** | Confidential-client secret inventory, rotation with overlap detection, and explicit retirement, never exposing the previous secret |
 | **Federation Hub** | Guided onboarding for Microsoft Entra ID, Google Workspace, GitHub, generic OIDC and SAML 2.0, with secret/certificate redaction on every response |
+| **Realm hardening rules** | Guard grows from 13 to 21 rules (HAVEN014-021): TLS requirement, password policy, token and session lifetimes, event recording and refresh-token rotation |
+| **Policy as code** | `haven-audit --policy` evaluates your own declarative rules (no code execution, bounded input, credential paths refused) next to the built-in ones |
+| **Access Review** | Privileged and stale account report, break-glass coverage check and recertification campaigns with an append-only decision ledger, via API, `haven-audit access-review` and a console page |
+| **Realm diff** | `haven-audit diff` compares two realm exports field by field with credential values redacted |
 | **Console persistence** | Optional persistent console volume (`console.persistence`) for durable Time Machine history, restricted to `console.replicas=1` |
 
 <a id="why-haven"></a>
