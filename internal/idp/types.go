@@ -146,3 +146,32 @@ type APIError struct {
 	Keycloak json.RawMessage `json:"keycloak,omitempty"`
 	Status   int             `json:"status,omitempty"`
 }
+
+// ImportUser is a user carried over from another identity system. PasswordHash
+// is an already-hashed credential in one of the encodings accepted by
+// password.ValidateEncoded (a plaintext password is never accepted here).
+type ImportUser struct {
+	Username        string   `json:"username"`
+	Email           string   `json:"email,omitempty"`
+	FirstName       string   `json:"firstName,omitempty"`
+	LastName        string   `json:"lastName,omitempty"`
+	Enabled         bool     `json:"enabled"`
+	EmailVerified   bool     `json:"emailVerified"`
+	RequiredActions []string `json:"requiredActions,omitempty"`
+	PasswordHash    string   `json:"passwordHash,omitempty"`
+	Roles           []string `json:"roles,omitempty"`  // realm role names
+	Groups          []string `json:"groups,omitempty"` // group paths, e.g. "/staff"
+}
+
+// ImportError is one user that could not be imported.
+type ImportError struct {
+	Username string `json:"username"`
+	Reason   string `json:"reason"` // never contains hashes or passwords
+}
+
+// ImportResult summarizes an import. Existing users are skipped, not changed.
+type ImportResult struct {
+	Created int           `json:"created"`
+	Skipped int           `json:"skipped"` // already existed
+	Errors  []ImportError `json:"errors,omitempty"`
+}

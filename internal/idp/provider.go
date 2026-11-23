@@ -75,3 +75,10 @@ type Provider interface {
 type SecretCreator interface {
 	CreateClientWithSecret(ctx context.Context, realm string, cl Client) (id, secret string, err error)
 }
+
+// UserImporter is implemented by providers that can bulk-import users with
+// pre-hashed passwords (the native IdP). It is optional: Keycloak users are
+// migrated by import-keycloak into a native realm, not the other way round.
+type UserImporter interface {
+	ImportUsers(ctx context.Context, realm string, users []ImportUser) (*ImportResult, error)
+}
