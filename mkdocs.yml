@@ -76,6 +76,8 @@ nav:
       - Lab host: lab-host.md
       - Console: console.md
       - Security posture: security-posture.md
+      - Policy as code: policy-as-code.md
+      - Access review: access-review.md
       - Tutorials: tutorials.md
       - CLI: cli.md
       - Production overlay: production-overlay.md
@@ -86,6 +88,7 @@ nav:
       - UX: ux.md
       - Private cloud: private-cloud.md
       - Roadmap: roadmap.md
+      - Research: RESEARCH.md
   - Meta:
       - Documentation map: documentation-map.md
       - Contributing: contributing.md

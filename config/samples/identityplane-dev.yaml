@@ -23,7 +23,7 @@ spec:
     storage: 8Gi
   keycloak:
     instances: 1
-    version: "26.8.0"
+    version: "26.8.2"
     features:
       - persistent-user-sessions
     resources:

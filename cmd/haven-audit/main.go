@@ -12,8 +12,12 @@ import (
 	"strings"
 
 	"github.com/zyvorai/haven/internal/keycloak"
+	"github.com/zyvorai/haven/internal/policy"
 	"github.com/zyvorai/haven/internal/posture"
 )
+
+// maxInputBytes bounds every file or stdin read.
+const maxInputBytes = 64 << 20
 
 type realmExport struct {
 	keycloak.Realm
@@ -21,10 +25,21 @@ type realmExport struct {
 }
 
 func main() {
-	var input, format, baseline, failOn string
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "diff":
+			runDiff(os.Args[2:])
+			return
+		case "access-review":
+			runAccessReview(os.Args[2:])
+			return
+		}
+	}
+	var input, format, baseline, failOn, policyPath string
 	flag.StringVar(&input, "input", "-", "Keycloak realm export JSON file, or - for stdin")
 	flag.StringVar(&format, "format", "text", "text, json, or sarif")
 	flag.StringVar(&baseline, "baseline", "", "expected Haven Guard sha256 fingerprint")
+	flag.StringVar(&policyPath, "policy", "", "policy-as-code JSON file evaluated in addition to the built-in rules")
 	flag.StringVar(&failOn, "fail-on", "high", "critical, high, medium, low, or none")
 	flag.Parse()
 
@@ -43,6 +58,13 @@ func main() {
 		clients[item.Realm.Realm] = item.Clients
 	}
 	report := posture.Evaluate(realms, clients, posture.Options{Baseline: baseline})
+	if policyPath != "" {
+		extra, err := evaluatePolicy(policyPath, data)
+		if err != nil {
+			fatal(err)
+		}
+		report.AddFindings(extra)
+	}
 
 	switch strings.ToLower(format) {
 	case "text":
@@ -62,10 +84,57 @@ func main() {
 
 func readInput(path string) ([]byte, error) {
 	if path == "-" {
-		return io.ReadAll(os.Stdin)
+		return limited(os.Stdin)
 	}
-	// #nosec G304 -- CLI reads the export file the operator names on the command line
-	return os.ReadFile(path)
+	return readCapped(path)
+}
+
+// readCapped reads a file the operator names on the command line, refusing
+// anything larger than maxInputBytes.
+func readCapped(path string) ([]byte, error) {
+	// #nosec G304 -- CLI reads the file the operator names on the command line
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	return limited(f)
+}
+
+func limited(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxInputBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxInputBytes {
+		return nil, fmt.Errorf("input exceeds %d bytes", maxInputBytes)
+	}
+	return data, nil
+}
+
+func evaluatePolicy(path string, export []byte) ([]posture.Finding, error) {
+	raw, err := readCapped(path)
+	if err != nil {
+		return nil, err
+	}
+	pol, err := policy.Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	var docs []map[string]any
+	if err := json.Unmarshal(export, &docs); err != nil {
+		var one map[string]any
+		if err := json.Unmarshal(export, &one); err != nil {
+			return nil, fmt.Errorf("decode realm export for policy: %w", err)
+		}
+		docs = []map[string]any{one}
+	}
+	var out []posture.Finding
+	for _, d := range docs {
+		name, _ := d["realm"].(string)
+		out = append(out, pol.Evaluate(name, d)...)
+	}
+	return out, nil
 }
 
 func decodeExports(data []byte) ([]realmExport, error) {
@@ -99,7 +168,9 @@ func printText(r posture.Report) {
 		if f.Evidence != "" {
 			fmt.Printf("  evidence: %s\n", f.Evidence)
 		}
-		fmt.Printf("  fix:      %s\n", f.Remediation)
+		if f.Remediation != "" {
+			fmt.Printf("  fix:      %s\n", f.Remediation)
+		}
 	}
 }
 

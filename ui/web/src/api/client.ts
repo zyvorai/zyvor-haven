@@ -271,6 +271,35 @@ export interface RestoreResult {
   warnings?: string[];
 }
 
+export interface AccessReviewItem {
+  username: string;
+  enabled: boolean;
+  emailVerified: boolean;
+  realmRoles?: string[];
+  groups?: string[];
+  pendingActions?: string[];
+  flags?: string[];
+  risk: 'high' | 'medium' | 'low';
+}
+
+export interface AccessReviewReport {
+  realm: string;
+  summary: { users: number; withAccess: number; privileged: number; staleAccess: number; highRisk: number; mediumRisk: number; breakGlass: number; noAccess: number };
+  breakGlass: { pattern: string; accounts: string[]; warnings?: string[] };
+  items: AccessReviewItem[];
+}
+
+export interface AccessReviewCampaignView {
+  campaign: {
+    id: string;
+    realm: string;
+    status: 'open' | 'closed';
+    items: (AccessReviewItem & { decision?: { action: string; reviewer: string; note?: string; decidedAt: string } })[];
+  };
+  progress: { Total: number; Certified: number; Revoked: number; Deferred: number; Pending: number };
+  revokeWorkItems: string[];
+}
+
 export interface CredentialInventoryItem {
   realm: string;
   clientId: string;
@@ -388,6 +417,18 @@ export const api = {
     }),
   deleteSnapshot: (id: string) =>
     request<void>(`/time-machine/snapshots/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  accessReviewReport: (realm: string) =>
+    request<AccessReviewReport>(`/access-review?realm=${encodeURIComponent(realm)}`),
+  createAccessReviewCampaign: (realm: string) =>
+    request<AccessReviewCampaignView>('/access-review/campaigns', {
+      method: 'POST', body: JSON.stringify({ realm }),
+    }),
+  decideAccessReview: (id: string, username: string, action: string, note: string) =>
+    request<AccessReviewCampaignView>(`/access-review/campaigns/${encodeURIComponent(id)}/decisions`, {
+      method: 'POST', body: JSON.stringify({ username, action, note }),
+    }),
+  closeAccessReview: (id: string) =>
+    request<AccessReviewCampaignView>(`/access-review/campaigns/${encodeURIComponent(id)}/close`, { method: 'POST' }),
   listCredentials: () =>
     request<{ rotationDays: number; items: CredentialInventoryItem[] }>('/credentials'),
   rotateCredential: (realm: string, clientUuid: string) =>

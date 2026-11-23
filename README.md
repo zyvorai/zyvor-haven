@@ -6,8 +6,8 @@
 [![License: Zyvor Production](https://img.shields.io/badge/license-Zyvor%20Production%20Licence%20v2.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-controller%20%C2%B7%20console-00ADD8?style=flat-square&labelColor=1d1d1f&logo=go&logoColor=white)](go.mod)
 [![Docs](https://img.shields.io/badge/docs-live-0071e3?style=flat-square&labelColor=1d1d1f)](https://zyvorai.github.io/zyvor-haven/)
-[![Keycloak Operator](https://img.shields.io/badge/Keycloak_Operator-26.8.0-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
-[![CloudNativePG](https://img.shields.io/badge/CloudNativePG-1.30.1-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
+[![Keycloak Operator](https://img.shields.io/badge/Keycloak_Operator-26.8.2-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
+[![CloudNativePG](https://img.shields.io/badge/CloudNativePG-1.30.2-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
 [![Version](https://img.shields.io/badge/version-0.1.0-0071e3?style=flat-square&labelColor=1d1d1f)](CHANGELOG.md)
 
 [![Book a demo](https://img.shields.io/badge/Book_a_demo-0071e3?style=for-the-badge)](https://zyvor.dev/schedule?utm_source=github&utm_medium=haven&utm_campaign=readme_hero)
@@ -38,6 +38,10 @@ On `main`, not yet in a tagged release (see [CHANGELOG.md](CHANGELOG.md)):
 | **Time Machine** | Immutable per-realm recovery points with drift diff (clients, users, roles, groups, IdPs, access bindings) and safe restore into a new realm |
 | **Credential Center** | Confidential-client secret inventory, rotation with overlap detection, and explicit retirement, never exposing the previous secret |
 | **Federation Hub** | Guided onboarding for Microsoft Entra ID, Google Workspace, GitHub, generic OIDC and SAML 2.0, with secret/certificate redaction on every response |
+| **Realm hardening rules** | Guard grows from 13 to 21 rules (HAVEN014-021): TLS requirement, password policy, token and session lifetimes, event recording and refresh-token rotation |
+| **Policy as code** | `haven-audit --policy` evaluates your own declarative rules (no code execution, bounded input, credential paths refused) next to the built-in ones |
+| **Access Review** | Privileged and stale account report, break-glass coverage check and recertification campaigns with an append-only decision ledger, via API, `haven-audit access-review` and a console page |
+| **Realm diff** | `haven-audit diff` compares two realm exports field by field with credential values redacted |
 | **Console persistence** | Optional persistent console volume (`console.persistence`) for durable Time Machine history, restricted to `console.replicas=1` |
 
 <a id="why-haven"></a>

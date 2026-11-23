@@ -8,7 +8,7 @@ hero:
     realm/client configuration produces the same findings, score, and
     SHA-256 fingerprint.
   highlights:
-    - {value: "13", label: "Deterministic rules, HAVEN001–013, across four severity tiers"}
+    - {value: "21", label: "Deterministic rules, HAVEN001–021, across four severity tiers"}
     - {value: "SHA-256", label: "Fingerprint for pinning a baseline and detecting drift"}
     - {value: "3", label: "CI exit codes: 0 clean, 1 error, 2 findings over threshold"}
     - {value: "6", label: "Built-in Keycloak clients excluded from findings and counts"}
@@ -75,6 +75,12 @@ Exit codes:
 - `1`: input/configuration/runtime error
 - `2`: scan succeeded but findings crossed `--fail-on`
 
+## Policy, diff and access review
+
+- `--policy policy.json` adds your own declarative rules to the audit: [Policy as code](policy-as-code.md).
+- `haven-audit diff before.json after.json` compares two realm exports field by field, ignoring server-generated ids and redacting every value under a credential-bearing key (`secret`, `password`, `credential`, `token`, `certificate` and similar), so the output is safe to paste into a pull request. Exit code `0` identical, `2` differences, `1` error. Documents are capped at 32 MiB and 24 levels of nesting.
+- `haven-audit access-review --input snapshot.json` reports privileged and stale accounts: [Access review](access-review.md).
+
 ## Rules
 
 | ID | Severity | Check |
@@ -92,6 +98,16 @@ Exit codes:
 | HAVEN011 | medium | self-registration without email verification |
 | HAVEN012 | medium | brute-force protection disabled |
 | HAVEN013 | low | disabled/stale application client retained |
+| HAVEN014 | high | realm `sslRequired=none` |
+| HAVEN015 | medium | realm has an empty password policy |
+| HAVEN016 | medium | password policy minimum length below 12 (or no `length()` term) |
+| HAVEN017 | medium | access token lifespan above one hour |
+| HAVEN018 | low | SSO session idle timeout above 24 hours |
+| HAVEN019 | medium | user events not recorded |
+| HAVEN020 | low | admin events not recorded |
+| HAVEN021 | medium | refresh tokens not rotated while an enabled public client exists |
+
+HAVEN014-021 read optional realm settings (`sslRequired`, `passwordPolicy`, `accessTokenLifespan`, `ssoSessionIdleTimeout`, `eventsEnabled`, `adminEventsEnabled`, `revokeRefreshToken`). A realm export or API response that omits a setting produces no finding for it: Guard does not guess. These settings are not part of the fingerprint, so existing baselines stay valid; use `--policy` for enforced settings drift (see [Policy as code](policy-as-code.md)).
 
 Built-in Keycloak clients (`account`, `account-console`, `admin-cli`, `broker`, `realm-management`, `security-admin-console`) are excluded from client counts and findings.
 

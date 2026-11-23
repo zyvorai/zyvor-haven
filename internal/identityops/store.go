@@ -309,6 +309,9 @@ func sanitizeSnapshot(s *RealmSnapshot) {
 	// Do not retain secrets or server-generated IDs. Their presence makes snapshots
 	// unnecessarily sensitive and fingerprints unstable across clean restores.
 	s.RealmConfig.ID = ""
+	// Guard-only settings are evaluated live; keeping them out of snapshots
+	// leaves existing recovery-point fingerprints stable.
+	s.RealmConfig.RealmHardening = nil
 	for i := range s.Clients {
 		s.Clients[i].ID = ""
 		s.Clients[i].Secret = ""

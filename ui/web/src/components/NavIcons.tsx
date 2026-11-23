@@ -186,6 +186,7 @@ export const navIcons = {
   guard: IconGuard,
   federation: IconFederation,
   credentials: IconCredentials,
+  access: IconClients,
   timemachine: IconTimeMachine,
   atlas: IconAtlas,
   settings: IconSettings,

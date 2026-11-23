@@ -24,7 +24,7 @@ Install cluster operators once per cluster:
 make crds    # optional for compose-only; needed for samples
 ```
 
-Pinned versions: `versions.env` (Keycloak Operator **26.8.0**, CloudNativePG **1.30.1**).
+Pinned versions: `versions.env` (Keycloak Operator **26.8.2**, CloudNativePG **1.30.2**).
 
 ---
 

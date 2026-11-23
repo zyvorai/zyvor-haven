@@ -28,6 +28,7 @@ export const sidebarNav = [
   { path: '/federation', label: 'Federation', icon: 'federation' },
   { path: '/credentials', label: 'Credentials', icon: 'credentials' },
   { path: '/security', label: 'Guard', icon: 'guard' },
+  { path: '/access-review', label: 'Access Review', icon: 'access' },
   { path: '/time-machine', label: 'Time Machine', icon: 'timemachine' },
   { path: '/atlas', label: 'Atlas', icon: 'atlas' },
   { path: '/settings', label: 'Settings', icon: 'settings' },

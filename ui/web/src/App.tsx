@@ -17,6 +17,7 @@ import { PlanesPage } from './pages/PlanesPage';
 import { AtlasPage } from './pages/AtlasPage';
 import { SecurityPosturePage } from './pages/SecurityPosturePage';
 import { TimeMachinePage } from './pages/TimeMachinePage';
+import { AccessReviewPage } from './pages/AccessReviewPage';
 import { CredentialCenterPage } from './pages/CredentialCenterPage';
 import { FederationHubPage } from './pages/FederationHubPage';
 
@@ -41,6 +42,7 @@ export function App() {
           <Route path="/security" element={<Console><SecurityPosturePage /></Console>} />
           <Route path="/federation" element={<Console><FederationHubPage /></Console>} />
           <Route path="/credentials" element={<Console><CredentialCenterPage /></Console>} />
+          <Route path="/access-review" element={<Console><AccessReviewPage /></Console>} />
           <Route path="/time-machine" element={<Console><TimeMachinePage /></Console>} />
           <Route path="/settings" element={<Console><SettingsPage /></Console>} />
         </Routes>

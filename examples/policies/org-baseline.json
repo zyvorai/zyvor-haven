@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "name": "Example organisation baseline",
+  "rules": [
+    {"id": "ORG-TLS", "severity": "high", "title": "Realm must require TLS for all requests", "path": "sslRequired", "op": "eq", "value": "all", "remediation": "Set the realm SSL requirement to all."},
+    {"id": "ORG-PWLEN", "severity": "medium", "title": "Password policy must set a minimum length", "path": "passwordPolicy", "op": "matches", "value": "length\\((1[2-9]|[2-9][0-9])\\)", "remediation": "Add length(12) or more to the password policy."},
+    {"id": "ORG-TOKEN", "severity": "medium", "title": "Access tokens must live 15 minutes or less", "path": "accessTokenLifespan", "op": "lte", "value": 900},
+    {"id": "ORG-EVENTS", "severity": "medium", "title": "Login and admin events must be stored", "path": "eventsEnabled", "op": "eq", "value": true},
+    {"id": "ORG-HTTPS", "severity": "high", "title": "Redirect URIs must be HTTPS", "scope": "client", "path": "redirectUris[]", "op": "matches", "value": "^https://"},
+    {"id": "ORG-OWNER", "severity": "low", "title": "Application clients must have a description naming an owner", "scope": "client", "path": "description", "op": "nonEmpty"}
+  ]
+}
