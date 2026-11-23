@@ -3,7 +3,12 @@
 
 // Command haven-idp is Haven's own OIDC identity server.
 //
-// Configuration (environment):
+//	haven-idp dev                try it locally in one command (in-memory, loopback only)
+//	haven-idp init               write a production config with generated secrets
+//	haven-idp serve [--env-file] run the server (default when no command is given)
+//	haven-idp version | help
+//
+// `serve` is configured by environment (an env file fills in unset variables):
 //
 //	HAVEN_IDP_LISTEN             listen address (default :8081)
 //	HAVEN_IDP_BASE_URL           public base URL, required; issuer = BASE/realms/{realm}
@@ -19,176 +24,94 @@
 //	                             the Admin API is not mounted when both are empty)
 //	HAVEN_IDP_ADMIN_CLIENT_SECRET secret of the "haven-admin" service-account client (or ..._SECRET_FILE);
 //	                             created in the bootstrap realm, rotated on restart when changed
+//	HAVEN_IDP_ENV_FILE           same as --env-file
 package main
 
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
+	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
-	"time"
-
-	"github.com/zyvorai/haven/internal/idp/admin"
-	"github.com/zyvorai/haven/internal/idp/bootstrap"
-	"github.com/zyvorai/haven/internal/idp/core"
-	"github.com/zyvorai/haven/internal/idp/keys"
-	"github.com/zyvorai/haven/internal/idp/oidc"
-	"github.com/zyvorai/haven/internal/idp/password"
-	"github.com/zyvorai/haven/internal/idp/store/memstore"
-	"github.com/zyvorai/haven/internal/idp/store/pgstore"
 )
 
+const usage = `haven-idp: Haven's own identity server
+
+Usage:
+  haven-idp dev     [--port 8081] [--realm demo] [--redirect URL]... [--open]
+  haven-idp init    [--dir .] [--base-url URL] [--realm platform] [--user admin] [--memory] [--force] [--print]
+  haven-idp serve   [--env-file haven-idp.env]
+  haven-idp version
+
+New here? Run "haven-idp dev".
+`
+
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
-	if err := run(log); err != nil {
-		log.Error("haven-idp failed", "error", err.Error())
+	args := os.Args[1:]
+	cmd := "serve"
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		cmd, args = args[0], args[1:]
+	}
+	var err error
+	switch cmd {
+	case "serve":
+		err = cmdServe(args)
+	case "init":
+		err = cmdInit(args, os.Stdout)
+	case "dev":
+		err = cmdDev(args, os.Stdout)
+	case "version":
+		fmt.Println(version())
+	case "help":
+		fmt.Print(usage)
+	default:
+		fmt.Fprintf(os.Stderr, "haven-idp: unknown command %q\n\n%s", cmd, usage)
+		os.Exit(2)
+	}
+	if errors.Is(err, flag.ErrHelp) {
+		return
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "haven-idp:", err)
 		os.Exit(1)
 	}
 }
 
-func run(log *slog.Logger) error {
-	base := strings.TrimRight(os.Getenv("HAVEN_IDP_BASE_URL"), "/")
-	if base == "" {
-		return errors.New("HAVEN_IDP_BASE_URL is required")
+func version() string {
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		return bi.Main.Version
 	}
+	return "dev"
+}
+
+func cmdServe(args []string) error {
+	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	envFile := fs.String("env-file", os.Getenv("HAVEN_IDP_ENV_FILE"), "load KEY=VALUE pairs for variables that are not already set")
+	if err := fs.Parse(args); err != nil {
+		return fmt.Errorf("%w\n\n%s", err, usage)
+	}
+	if *envFile != "" {
+		if err := loadEnvFile(*envFile); err != nil {
+			return err
+		}
+	}
+	cfg, err := configFromEnv()
+	if err != nil {
+		return err
+	}
+	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	var st core.Store
-	switch dsn := os.Getenv("HAVEN_IDP_DSN"); {
-	case dsn != "":
-		pg, err := pgstore.Open(ctx, dsn)
-		if err != nil {
-			return errors.New("open postgres store: " + err.Error())
-		}
-		defer pg.Close()
-		st = pg
-	case os.Getenv("HAVEN_IDP_DEV") == "1":
-		log.Warn("using the in-memory store: all data is lost on restart")
-		st = memstore.New()
-	default:
-		return errors.New("HAVEN_IDP_DSN is required (set HAVEN_IDP_DEV=1 for the in-memory store)")
-	}
-
-	hasher := password.New(password.DefaultParams)
-	signer := keys.New(st, keys.Options{})
-
-	adminPW := os.Getenv("HAVEN_IDP_BOOTSTRAP_PASSWORD")
-	if f := os.Getenv("HAVEN_IDP_BOOTSTRAP_PASSWORD_FILE"); f != "" && adminPW == "" {
-		b, err := os.ReadFile(f) // #nosec G304 -- operator-provided secret path
-		if err != nil {
-			return errors.New("read bootstrap password file: " + err.Error())
-		}
-		adminPW = strings.TrimSpace(string(b))
-	}
-	adminSecret := os.Getenv("HAVEN_IDP_ADMIN_CLIENT_SECRET")
-	if f := os.Getenv("HAVEN_IDP_ADMIN_CLIENT_SECRET_FILE"); f != "" && adminSecret == "" {
-		b, err := os.ReadFile(f) // #nosec G304 -- operator-provided secret path
-		if err != nil {
-			return errors.New("read admin client secret file: " + err.Error())
-		}
-		adminSecret = strings.TrimSpace(string(b))
-	}
-	res, err := bootstrap.Run(ctx, st, hasher, signer, bootstrap.Options{
-		Realm:             os.Getenv("HAVEN_IDP_BOOTSTRAP_REALM"),
-		AdminUser:         os.Getenv("HAVEN_IDP_BOOTSTRAP_USER"),
-		AdminPassword:     adminPW,
-		RedirectURIs:      splitList(os.Getenv("HAVEN_IDP_CONSOLE_REDIRECTS")),
-		AdminClientSecret: adminSecret,
-	})
-	if err != nil {
-		return errors.New("bootstrap: " + err.Error())
-	}
-	if os.Getenv("HAVEN_IDP_BOOTSTRAP_REALM") != "" {
-		log.Info("bootstrap complete", "realmCreated", res.RealmCreated, "userCreated", res.UserCreated, "clientCreated", res.ClientCreated)
-	}
-
-	provider := oidc.New(oidc.Config{
-		Store: st, Signer: signer, Hasher: hasher, BaseURL: base, Logger: log,
-		TrustProxy: os.Getenv("HAVEN_IDP_TRUST_PROXY") == "1",
-		CSRFKey:    []byte(os.Getenv("HAVEN_IDP_CSRF_KEY")),
-	})
-
-	mux := http.NewServeMux()
-	mux.Handle("/realms/", provider)
-	adminRealm := os.Getenv("HAVEN_IDP_ADMIN_REALM")
-	if adminRealm == "" {
-		adminRealm = os.Getenv("HAVEN_IDP_BOOTSTRAP_REALM")
-	}
-	if adminRealm == "" {
-		log.Warn("HAVEN_IDP_ADMIN_REALM and HAVEN_IDP_BOOTSTRAP_REALM are empty: the Admin API (/admin/v1) is NOT mounted")
-	} else {
-		mux.Handle("/admin/v1/", admin.New(admin.Config{
-			Store: st, Signer: signer, Hasher: hasher, BaseURL: base,
-			AdminRealm: adminRealm, Logger: log,
-		}))
-		log.Info("admin API mounted", "path", "/admin/v1", "realm", adminRealm)
-	}
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		c, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if _, err := st.ListRealms(c); err != nil {
-			http.Error(w, "store unavailable", http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})
-
-	addr := os.Getenv("HAVEN_IDP_LISTEN")
-	if addr == "" {
-		addr = ":8081"
-	}
-	srv := &http.Server{
-		Addr: addr, Handler: mux,
-		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
-		WriteTimeout: 30 * time.Second, IdleTimeout: 120 * time.Second,
-		MaxHeaderBytes: 64 << 10,
-	}
-
-	go purgeLoop(ctx, st, log)
-
-	errc := make(chan error, 1)
-	go func() { errc <- srv.ListenAndServe() }()
-	log.Info("haven-idp listening", "addr", addr, "baseURL", base)
-
-	select {
-	case err := <-errc:
+	if err := serve(ctx, log, cfg); err != nil {
+		log.Error("haven-idp failed", "error", err.Error())
 		return err
-	case <-ctx.Done():
 	}
-	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	return srv.Shutdown(shutdown)
-}
-
-func purgeLoop(ctx context.Context, st core.Store, log *slog.Logger) {
-	t := time.NewTicker(5 * time.Minute)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case now := <-t.C:
-			if n, err := st.PurgeExpired(ctx, now); err != nil {
-				log.Warn("purge expired failed", "error", err.Error())
-			} else if n > 0 {
-				log.Info("purged expired rows", "count", n)
-			}
-		}
-	}
-}
-
-func splitList(s string) []string {
-	var out []string
-	for _, p := range strings.Split(s, ",") {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
+	return nil
 }
