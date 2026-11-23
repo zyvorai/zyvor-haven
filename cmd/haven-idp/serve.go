@@ -14,10 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zyvorai/haven/internal/idp/admin"
 	"github.com/zyvorai/haven/internal/idp/bootstrap"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/keys"
+	"github.com/zyvorai/haven/internal/idp/obs"
 	"github.com/zyvorai/haven/internal/idp/oidc"
 	"github.com/zyvorai/haven/internal/idp/password"
 	"github.com/zyvorai/haven/internal/idp/store/memstore"
@@ -45,10 +47,22 @@ type Config struct {
 
 	PasswordParams password.Params // zero = production defaults
 
+	// Observability. MetricsListen serves only /metrics on a separate listener
+	// (empty = disabled). MetricsOnMain also serves /metrics on the main
+	// listener (used by `dev`, which is loopback only). AuditSpec is an audit
+	// sink spec (stdout, file:PATH, webhook:URL; empty = none).
+	MetricsListen      string
+	MetricsOnMain      bool
+	AuditSpec          string
+	AuditWebhookSecret string
+	Observer           *obs.Observer // built by serve when nil
+
 	// Hooks (optional).
 	PostBootstrap func(ctx context.Context, st core.Store, h core.PasswordHasher) error
 	Mount         func(mux *http.ServeMux)
 	OnReady       func(addr string) // called once the listener is bound
+
+	OnMetricsReady func(addr string) // called once the metrics listener is bound
 }
 
 // configFromEnv reads the HAVEN_IDP_* environment (see the usage text).
@@ -66,6 +80,10 @@ func configFromEnv() (Config, error) {
 		AdminRealm:        os.Getenv("HAVEN_IDP_ADMIN_REALM"),
 		BootstrapPassword: os.Getenv("HAVEN_IDP_BOOTSTRAP_PASSWORD"),
 		AdminClientSecret: os.Getenv("HAVEN_IDP_ADMIN_CLIENT_SECRET"),
+
+		MetricsListen:      os.Getenv("HAVEN_IDP_METRICS_LISTEN"),
+		AuditSpec:          os.Getenv("HAVEN_IDP_AUDIT"),
+		AuditWebhookSecret: os.Getenv("HAVEN_IDP_AUDIT_WEBHOOK_SECRET"),
 	}
 	var err error
 	if c.BootstrapPassword, err = fromFile(c.BootstrapPassword, os.Getenv("HAVEN_IDP_BOOTSTRAP_PASSWORD_FILE"), "bootstrap password"); err != nil {
@@ -110,6 +128,35 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		return errors.New("HAVEN_IDP_DSN is required (set HAVEN_IDP_DEV=1 for the in-memory store, or run `haven-idp dev`)")
 	}
 
+	observer := cfg.Observer
+	if observer == nil {
+		reg := prometheus.NewRegistry()
+		var sink obs.AuditSink
+		if cfg.AuditSpec != "" {
+			var err error
+			sink, err = obs.NewAuditSink(cfg.AuditSpec, obs.AuditOptions{Logger: log, Registerer: reg, WebhookSecret: cfg.AuditWebhookSecret})
+			if err != nil {
+				return errors.New("audit sink: " + err.Error())
+			}
+		}
+		var err error
+		observer, err = obs.New(obs.Config{Registry: reg, Audit: sink, Version: version(), Logger: log})
+		if err != nil {
+			return errors.New("observability: " + err.Error())
+		}
+		if sink != nil {
+			st = obs.AuditStore(st, sink)
+		}
+	}
+	// Flush traces and the audit stream on every exit path.
+	defer func() {
+		fc, fcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer fcancel()
+		if err := observer.Shutdown(fc); err != nil {
+			log.Warn("observability shutdown", "error", err.Error())
+		}
+	}()
+
 	params := cfg.PasswordParams
 	if params == (password.Params{}) {
 		params = password.DefaultParams
@@ -137,14 +184,14 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		}
 	}
 
-	provider := oidc.New(oidc.Config{
+	oidcCfg := oidc.Config{
 		Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL, Logger: log,
 		TrustProxy: cfg.TrustProxy,
 		CSRFKey:    []byte(cfg.CSRFKey),
-	})
+	}
+	adminCfg := admin.Config{}
 
 	mux := http.NewServeMux()
-	mux.Handle("/realms/", provider)
 	adminRealm := cfg.AdminRealm
 	if adminRealm == "" {
 		adminRealm = cfg.BootstrapRealm
@@ -152,17 +199,24 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	if adminRealm == "" {
 		log.Warn("HAVEN_IDP_ADMIN_REALM and HAVEN_IDP_BOOTSTRAP_REALM are empty: the Admin API (/admin/v1) is NOT mounted")
 	} else {
-		mux.Handle("/admin/v1/", admin.New(admin.Config{
+		adminCfg = admin.Config{
 			Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL,
 			AdminRealm: adminRealm, Logger: log,
-		}))
+		}
+		withObs(observer, &oidcCfg, &adminCfg)
+		mux.Handle("/admin/v1/", admin.New(adminCfg))
 		log.Info("admin API mounted", "path", "/admin/v1", "realm", adminRealm)
+	}
+	withObs(observer, &oidcCfg, nil)
+	mux.Handle("/realms/", oidc.New(oidcCfg))
+	if cfg.MetricsOnMain {
+		mux.Handle("/metrics", observer.Handler())
 	}
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		c, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if _, err := st.ListRealms(c); err != nil {
+		_, d, err := obs.PingStore(r.Context(), st)
+		observer.SetStoreUp(err == nil, d)
+		if err != nil {
 			http.Error(w, "store unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -181,13 +235,36 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		return fmt.Errorf("listen on %s: %w (is another process using that port?)", addr, err)
 	}
 	srv := &http.Server{
-		Handler:           mux,
+		Handler:           observer.Middleware(mux),
 		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
 		WriteTimeout: 30 * time.Second, IdleTimeout: 120 * time.Second,
 		MaxHeaderBytes: 64 << 10,
 	}
 
 	go purgeLoop(ctx, st, log)
+	go obs.WatchStore(ctx, st, observer, 15*time.Second)
+
+	var msrv *http.Server
+	if cfg.MetricsListen != "" {
+		mln, err := net.Listen("tcp", cfg.MetricsListen)
+		if err != nil {
+			_ = ln.Close()
+			return fmt.Errorf("metrics listen on %s: %w", cfg.MetricsListen, err)
+		}
+		mmux := http.NewServeMux()
+		mmux.Handle("GET /metrics", observer.Handler())
+		msrv = &http.Server{
+			Handler:           mmux,
+			ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
+			WriteTimeout: 30 * time.Second, IdleTimeout: 120 * time.Second,
+			MaxHeaderBytes: 64 << 10,
+		}
+		go func() { _ = msrv.Serve(mln) }()
+		log.Info("metrics listening", "addr", mln.Addr().String())
+		if cfg.OnMetricsReady != nil {
+			cfg.OnMetricsReady(mln.Addr().String())
+		}
+	}
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
@@ -206,6 +283,9 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	}
 	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	if msrv != nil {
+		_ = msrv.Shutdown(shutdown)
+	}
 	return srv.Shutdown(shutdown)
 }
 

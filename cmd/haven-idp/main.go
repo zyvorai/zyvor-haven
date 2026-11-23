@@ -24,6 +24,11 @@
 //	                             the Admin API is not mounted when both are empty)
 //	HAVEN_IDP_ADMIN_CLIENT_SECRET secret of the "haven-admin" service-account client (or ..._SECRET_FILE);
 //	                             created in the bootstrap realm, rotated on restart when changed
+//	HAVEN_IDP_METRICS_LISTEN     serve Prometheus /metrics (only) on this separate address, e.g. :9100 (empty = off)
+//	HAVEN_IDP_AUDIT              audit event sink: stdout, file:PATH or webhook:URL (empty = none)
+//	HAVEN_IDP_AUDIT_WEBHOOK_SECRET HMAC secret signing webhook audit deliveries
+//	OTEL_EXPORTER_OTLP_ENDPOINT  export request traces over OTLP/HTTP (also OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+//	                             OTEL_EXPORTER_OTLP_HEADERS, OTEL_SERVICE_NAME, OTEL_TRACES_SAMPLER_ARG ratio 0..1)
 //	HAVEN_IDP_ENV_FILE           same as --env-file
 package main
 
