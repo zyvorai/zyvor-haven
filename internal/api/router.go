@@ -49,10 +49,18 @@ func NewRouter(kc *keycloak.Manager, pr *plane.Reader, sessions *auth.Store) htt
 	mux.HandleFunc("POST /api/v1/federation/connections", requireAuth(s, s.CreateFederationConnection))
 	mux.Handle("/api/v1/federation/connections/", requireAuth(s, federationSubroutes(s)))
 
+	mux.HandleFunc("GET /api/v1/access-review", requireAuth(s, s.AccessReviewReport))
+	mux.HandleFunc("GET /api/v1/access-review/campaigns", requireAuth(s, s.ListAccessReviewCampaigns))
+	mux.HandleFunc("POST /api/v1/access-review/campaigns", requireAuth(s, s.CreateAccessReviewCampaign))
+	mux.Handle("/api/v1/access-review/campaigns/", requireAuth(s, accessReviewSubroutes(s)))
+
 	mux.Handle("/api/v1/realms/", requireAuth(s, realmSubroutes(s)))
 
-	return mux
+	// Cap every request body: handlers decode JSON straight from r.Body.
+	return http.MaxBytesHandler(mux, maxRequestBody)
 }
+
+const maxRequestBody = 4 << 20
 
 func realmSubroutes(s *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

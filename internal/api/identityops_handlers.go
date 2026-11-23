@@ -5,6 +5,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -367,6 +368,9 @@ func restoreUserAccess(r *http.Request, kc *keycloak.AdminClient, realm string, 
 
 func (s *Server) captureRealmSnapshot(r *http.Request, realm, reason string) (identityops.RealmSnapshot, error) {
 	kc := s.kc()
+	if kc == nil {
+		return identityops.RealmSnapshot{}, errors.New("keycloak is not connected")
+	}
 	rc, err := kc.GetRealm(r.Context(), realm)
 	if err != nil {
 		return identityops.RealmSnapshot{}, err
