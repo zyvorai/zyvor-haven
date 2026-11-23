@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/zyvorai/haven/internal/auth"
+	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/plane"
 )
@@ -19,8 +20,13 @@ type Server struct {
 	Auth  *auth.Store
 }
 
-func (s *Server) kc() *keycloak.AdminClient {
-	return s.KC.Client()
+func (s *Server) kc() idp.Provider {
+	c := s.KC.Client()
+	if c == nil {
+		// Avoid a typed-nil interface: callers can compare against nil.
+		return nil
+	}
+	return c
 }
 
 func (s *Server) KeycloakConfig(w http.ResponseWriter, r *http.Request) {

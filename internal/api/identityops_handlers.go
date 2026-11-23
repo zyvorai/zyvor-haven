@@ -15,6 +15,7 @@ import (
 
 	"github.com/zyvorai/haven/internal/federation"
 	"github.com/zyvorai/haven/internal/identityops"
+	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/keycloak"
 )
 
@@ -191,7 +192,7 @@ type restoreResult struct {
 	Warnings       []string `json:"warnings,omitempty"`
 }
 
-func restoreSnapshot(r *http.Request, kc *keycloak.AdminClient, snap identityops.RealmSnapshot, target string) (restoreResult, error) {
+func restoreSnapshot(r *http.Request, kc idp.Provider, snap identityops.RealmSnapshot, target string) (restoreResult, error) {
 	out := restoreResult{TargetRealm: target}
 	realm := snap.RealmConfig
 	realm.ID = ""
@@ -307,7 +308,7 @@ func restoreSnapshot(r *http.Request, kc *keycloak.AdminClient, snap identityops
 	return out, nil
 }
 
-func restoreUserAccess(r *http.Request, kc *keycloak.AdminClient, realm string, access []identityops.UserAccess, out *restoreResult) {
+func restoreUserAccess(r *http.Request, kc idp.Provider, realm string, access []identityops.UserAccess, out *restoreResult) {
 	roles, _ := kc.ListRoles(r.Context(), realm)
 	roleByName := make(map[string]keycloak.Role, len(roles))
 	for _, role := range roles {

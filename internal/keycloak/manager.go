@@ -6,6 +6,7 @@ package keycloak
 import (
 	"context"
 	"fmt"
+	"github.com/zyvorai/haven/internal/idp"
 	"sync"
 )
 
@@ -67,3 +68,6 @@ func New(baseURL, user, password string) *AdminClient {
 }
 
 func (c *AdminClient) User() string { return c.user }
+
+// AdminClient is the Keycloak implementation of idp.Provider.
+var _ idp.Provider = (*AdminClient)(nil)
