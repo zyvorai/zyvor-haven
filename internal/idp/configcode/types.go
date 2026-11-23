@@ -11,7 +11,8 @@
 //     realm, and gets a secure default when the realm is created.
 //   - roles, groups and clients are managed sets. Entries in the file are
 //     created or updated; live entries missing from the file are left alone
-//     unless Options.Prune is set, in which case they are deleted.
+//     unless Options.Prune is set, in which case live clients (only) are
+//     deleted; roles and groups are never pruned in v1.
 //   - Built-in clients (posture.IsBuiltInClient) and the admin client are never
 //     pruned. Users are data, not configuration, and are out of scope in v1.
 //   - Secrets never appear in a Spec, a Plan or rendered output. A confidential
@@ -109,7 +110,7 @@ type Change struct {
 
 // Plan is the ordered list of changes that turns live into desired.
 // Order: realm, roles, groups, clients (creates/updates), then deletes in
-// reverse dependency order (clients, groups, roles). Empty = no drift.
+// reverse dependency order (clients only in v1). Empty = no drift.
 type Plan struct {
 	Realm        string   `json:"realm"`
 	RealmMissing bool     `json:"realmMissing,omitempty"` // realm does not exist yet
@@ -118,7 +119,8 @@ type Plan struct {
 
 // Options for Diff and Apply.
 type Options struct {
-	// Prune deletes live roles/groups/clients that the file does not list.
+	// Prune deletes live clients that the file does not list. Roles and groups
+	// are never pruned in v1 (idp.Provider cannot delete them).
 	Prune bool
 }
 
