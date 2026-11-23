@@ -5,6 +5,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -101,6 +102,12 @@ func (s *Server) ChangeKeycloakAdminPassword(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if err := s.KC.Reconfigure(r.Context(), baseURL, adminUser, body.CurrentPassword); err != nil {
+		if errors.Is(err, idp.ErrBackendFixed) {
+			// The native backend authenticates with a service client whose secret
+			// is set by the environment, so there is no admin password to change.
+			writeKCError(w, http.StatusNotImplemented, "this identity backend is configured by the environment; rotate its admin client secret there instead", nil)
+			return
+		}
 		writeKCError(w, http.StatusUnauthorized, "current password is incorrect", nil)
 		return
 	}
@@ -312,6 +319,18 @@ func (s *Server) CreateClient(w http.ResponseWriter, r *http.Request, realm stri
 	var body keycloak.Client
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
+		return
+	}
+	// Providers that cannot read a secret back (the native IdP stores only a
+	// hash) reveal it once here; the caller must copy it now.
+	if sc, ok := s.kc().(idp.SecretCreator); ok && !body.PublicClient {
+		id, secret, err := sc.CreateClientWithSecret(r.Context(), realm, body)
+		if err != nil {
+			writeProviderError(w, err, "keycloak error")
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "secret": secret})
 		return
 	}
 	if err := s.kc().CreateClient(r.Context(), realm, body); err != nil {

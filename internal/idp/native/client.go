@@ -284,6 +284,35 @@ func (c *Client) CreateClient(ctx context.Context, realm string, cl idp.Client) 
 	return c.call(ctx, http.MethodPost, realmPath(realm)+"/clients", cl, nil)
 }
 
+// CreateClientWithSecret creates a client and returns its generated secret,
+// which the server reveals only once. Public clients get an empty secret.
+func (c *Client) CreateClientWithSecret(ctx context.Context, realm string, cl idp.Client) (string, string, error) {
+	var out struct {
+		ID     string `json:"id"`
+		Secret string `json:"secret"`
+	}
+	if err := c.call(ctx, http.MethodPost, realmPath(realm)+"/clients", cl, &out); err != nil {
+		return "", "", err
+	}
+	return out.ID, out.Secret, nil
+}
+
+var _ idp.SecretCreator = (*Client)(nil)
+
+// FindClientByClientID looks a client up with the server-side clientId filter.
+func (c *Client) FindClientByClientID(ctx context.Context, realm, clientID string) (*idp.Client, error) {
+	got, err := list[idp.Client](ctx, c, realmPath(realm)+"/clients?clientId="+url.QueryEscape(clientID))
+	if err != nil {
+		return nil, err
+	}
+	for i := range got {
+		if got[i].ClientID == clientID { // never trust the filter alone
+			return &got[i], nil
+		}
+	}
+	return nil, nil
+}
+
 func (c *Client) UpdateClient(ctx context.Context, realm, id string, cl idp.Client) error {
 	return c.call(ctx, http.MethodPut, clientPath(realm, id), cl, nil)
 }

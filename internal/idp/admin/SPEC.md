@@ -37,7 +37,7 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
 | GET `/status` | `idp.Status` (`connected:true`, `version`, `realmCount`) |
 | GET, POST `/realms` | list `[]idp.Realm` / create `idp.Realm` |
 | GET, PUT, DELETE `/realms/{r}` | `idp.Realm`; PUT replaces mutable fields |
-| GET, POST `/realms/{r}/clients` | `[]idp.Client` / create `idp.Client` (secret generated for confidential clients, returned ONCE as `{"id","secret"}`) |
+| GET, POST `/realms/{r}/clients` | `[]idp.Client` (optional `?clientId=` exact-match filter) / create `idp.Client` (secret generated for confidential clients, returned ONCE as `{"id","secret"}`) |
 | GET, PUT, DELETE `/realms/{r}/clients/{id}` | `idp.Client` (never contains `secret`) |
 | POST `/realms/{r}/clients/{id}/secret` | regenerate; returns `idp.ClientSecret{type:"secret",value}` once |
 | GET `/realms/{r}/clients/{id}/secret` | 501 (only a hash is stored) |
@@ -100,3 +100,10 @@ if missing (409 ignored) + `EnsureHavenConsoleClient`. `EnsureHavenConsoleClient
 mirrors `internal/keycloak/ensure.go` semantics (merge redirect URIs, public
 client, PKCE S256). `EnsureUserPassword` creates the user if missing, then sets
 the password via the password route. `BaseURL()`/`User()` mirror the Keycloak client.
+
+## Once-only secrets (`idp.SecretCreator`)
+`native.Client` also implements `CreateClientWithSecret(ctx, realm, idp.Client) (id, secret, err)`
+because the server stores only a hash and `GET .../secret` is 501. The console's
+create-client handler uses it for confidential clients and returns
+`201 {"id","secret"}` with `Cache-Control: no-store`; the UI must show the secret
+once. Providers that can read secrets back (Keycloak) keep the old 201-with-no-body response.

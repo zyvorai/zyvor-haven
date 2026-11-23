@@ -67,3 +67,11 @@ type Provider interface {
 	PartialExport(ctx context.Context, realm string) (json.RawMessage, error)
 	PartialImport(ctx context.Context, realm string, payload json.RawMessage) error
 }
+
+// SecretCreator is implemented by providers that return a generated client
+// secret exactly once, at creation (the native IdP stores only a hash, so the
+// secret cannot be read back later). Callers fall back to CreateClient and
+// GetClientSecret when a provider does not implement it.
+type SecretCreator interface {
+	CreateClientWithSecret(ctx context.Context, realm string, cl Client) (id, secret string, err error)
+}

@@ -40,17 +40,11 @@ func (c *Client) EnsureHavenConsoleClient(ctx context.Context, realm string, con
 	clientID := keycloak.ConsoleClientID()
 	want := keycloak.ConsoleRedirectURIs(consoleBases...)
 
-	clients, err := c.ListClients(ctx, realm)
+	found, err := c.FindClientByClientID(ctx, realm, clientID)
 	if err != nil {
 		return err
 	}
-	var existing *idp.Client
-	for i := range clients {
-		if clients[i].ClientID == clientID {
-			existing = &clients[i]
-			break
-		}
-	}
+	existing := found
 	if existing == nil || existing.ID == "" {
 		return c.CreateClient(ctx, realm, idp.Client{
 			ClientID:            clientID,

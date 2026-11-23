@@ -40,8 +40,12 @@ func (a *api) listClients(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	want := r.URL.Query().Get("clientId")
 	out := make([]idp.Client, 0, len(cs))
 	for _, c := range cs {
+		if want != "" && c.ClientID != want {
+			continue
+		}
 		out = append(out, clientToWire(c))
 	}
 	writeJSON(w, http.StatusOK, out)

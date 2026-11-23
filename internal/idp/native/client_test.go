@@ -909,3 +909,46 @@ func TestContextCancel(t *testing.T) {
 		t.Fatal("want error")
 	}
 }
+
+func TestFindClientByClientIDUsesFilterAndIgnoresSloppyServer(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/token") {
+			_, _ = w.Write([]byte(`{"access_token":"t","expires_in":300,"token_type":"Bearer"}`))
+			return
+		}
+		gotQuery = r.URL.RawQuery
+		// A server that ignores the filter must not trick the client.
+		_, _ = w.Write([]byte(`[{"id":"1","clientId":"other"},{"id":"2","clientId":"web"}]`))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Realm: "platform", ClientID: "haven-admin", ClientSecret: "s"})
+	got, err := c.FindClientByClientID(context.Background(), "acme", "we b&x")
+	if err != nil || got != nil {
+		t.Fatalf("no exact match must be nil, got %+v %v", got, err)
+	}
+	if gotQuery != "clientId=we+b%26x" {
+		t.Fatalf("filter not escaped: %q", gotQuery)
+	}
+	got, err = c.FindClientByClientID(context.Background(), "acme", "web")
+	if err != nil || got == nil || got.ID != "2" {
+		t.Fatalf("want id 2, got %+v %v", got, err)
+	}
+}
+
+func TestCreateClientWithSecretReturnsOnceOnlySecret(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/token") {
+			_, _ = w.Write([]byte(`{"access_token":"t","expires_in":300,"token_type":"Bearer"}`))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"abc","secret":"shh"}`))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Realm: "platform", ClientID: "haven-admin", ClientSecret: "s"})
+	id, secret, err := c.CreateClientWithSecret(context.Background(), "acme", idp.Client{ClientID: "svc"})
+	if err != nil || id != "abc" || secret != "shh" {
+		t.Fatalf("got %q %q %v", id, secret, err)
+	}
+}

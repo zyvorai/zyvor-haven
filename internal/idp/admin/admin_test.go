@@ -766,3 +766,33 @@ func (e *env) loginIn(rlm, clientID, user, pw string) map[string]any {
 	}
 	return out
 }
+
+func TestClientListClientIDFilter(t *testing.T) {
+	e := newEnv(t)
+	base := "/realms/" + realm + "/clients"
+	for _, id := range []string{"alpha", "alpha-two", "beta"} {
+		e.api(201, "POST", base, map[string]any{"clientId": id, "enabled": true})
+	}
+	ids := func(q string) []string {
+		var cs []struct {
+			ClientID string `json:"clientId"`
+		}
+		if err := json.Unmarshal(e.api(200, "GET", base+q, nil), &cs); err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, c := range cs {
+			out = append(out, c.ClientID)
+		}
+		return out
+	}
+	if got := ids("?clientId=alpha"); len(got) != 1 || got[0] != "alpha" {
+		t.Fatalf("filter must be an exact match, got %v", got)
+	}
+	if got := ids("?clientId=nope"); len(got) != 0 {
+		t.Fatalf("unknown clientId must return an empty list, got %v", got)
+	}
+	if got := ids(""); len(got) < 3 {
+		t.Fatalf("no filter must list everything, got %v", got)
+	}
+}
