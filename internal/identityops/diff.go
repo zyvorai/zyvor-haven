@@ -39,19 +39,20 @@ func Diff(snapshot, live RealmSnapshot) (SnapshotDiff, error) {
 		return SnapshotDiff{}, err
 	}
 
+	sn, ln := snapshot.Neutral(), live.Neutral()
 	return SnapshotDiff{
 		SnapshotID:          snapshot.ID,
 		Realm:               snapshot.Realm,
 		SnapshotFingerprint: sfp,
 		LiveFingerprint:     lfp,
 		Drifted:             sfp != lfp,
-		Clients:             diffNames(clientNames(snapshot), clientNames(live)),
-		Users:               diffNames(userNames(snapshot), userNames(live)),
-		Roles:               diffNames(roleNames(snapshot), roleNames(live)),
-		Groups:              diffNames(groupNames(snapshot), groupNames(live)),
-		Providers:           diffNames(providerNames(snapshot), providerNames(live)),
-		Access:              diffNames(accessNames(snapshot), accessNames(live)),
-		NativeConfigChanged: string(snapshot.PartialExport) != string(live.PartialExport),
+		Clients:             diffNames(clientNames(sn), clientNames(ln)),
+		Users:               diffNames(userNames(sn), userNames(ln)),
+		Roles:               diffNames(roleNames(sn), roleNames(ln)),
+		Groups:              diffNames(groupNames(sn), groupNames(ln)),
+		Providers:           diffNames(providerNames(sn), providerNames(ln)),
+		Access:              diffNames(accessNames(sn), accessNames(ln)),
+		NativeConfigChanged: string(sn.PartialExport) != string(ln.PartialExport),
 	}, nil
 }
 
@@ -80,28 +81,28 @@ func diffNames(before, after []string) ChangeSet {
 	return out
 }
 
-func clientNames(s RealmSnapshot) []string {
+func clientNames(s NeutralSnapshot) []string {
 	out := make([]string, 0, len(s.Clients))
 	for _, v := range s.Clients {
 		out = append(out, v.ClientID)
 	}
 	return out
 }
-func userNames(s RealmSnapshot) []string {
+func userNames(s NeutralSnapshot) []string {
 	out := make([]string, 0, len(s.Users))
 	for _, v := range s.Users {
 		out = append(out, v.Username)
 	}
 	return out
 }
-func roleNames(s RealmSnapshot) []string {
+func roleNames(s NeutralSnapshot) []string {
 	out := make([]string, 0, len(s.Roles))
 	for _, v := range s.Roles {
 		out = append(out, v.Name)
 	}
 	return out
 }
-func groupNames(s RealmSnapshot) []string {
+func groupNames(s NeutralSnapshot) []string {
 	out := make([]string, 0, len(s.Groups))
 	for _, v := range s.Groups {
 		if v.Path != "" {
@@ -112,17 +113,17 @@ func groupNames(s RealmSnapshot) []string {
 	}
 	return out
 }
-func providerNames(s RealmSnapshot) []string {
-	out := make([]string, 0, len(s.IdentityProviders))
-	for _, v := range s.IdentityProviders {
+func providerNames(s NeutralSnapshot) []string {
+	out := make([]string, 0, len(s.Providers))
+	for _, v := range s.Providers {
 		out = append(out, v.Alias)
 	}
 	return out
 }
 
-func accessNames(s RealmSnapshot) []string {
+func accessNames(s NeutralSnapshot) []string {
 	out := []string{}
-	for _, access := range s.UserAccess {
+	for _, access := range s.Access {
 		for _, role := range access.RealmRoles {
 			out = append(out, access.Username+" role:"+role)
 		}
