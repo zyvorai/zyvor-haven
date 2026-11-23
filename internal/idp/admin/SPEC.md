@@ -11,8 +11,11 @@ realm** (`HAVEN_IDP_ADMIN_REALM`, default = `HAVEN_IDP_BOOTSTRAP_REALM`).
 Verify with `core.Signer.Verify(adminRealm, token)`, then require `iss` ==
 `<BaseURL>/realms/<adminRealm>`, unexpired, `typ` == "Bearer" (not an ID token),
 and one of:
-  * `azp` is in the configured admin client list (default `haven-admin`), which
-    must be a confidential `ServiceAccount` client in the admin realm; or
+  * a service-account token: `sub` == `"service-account-"+client_id` and
+    `client_id` is in the configured admin client list (default `haven-admin`),
+    which must be a confidential `ServiceAccount` client in the admin realm
+    (re-check in the Store that the client exists, is enabled and is such a
+    client; do not trust the token alone); or
   * `realm_access.roles` contains `haven-admin` (a user holding that realm role).
 401 + `WWW-Authenticate: Bearer` when missing/invalid; 403 when valid but not
 admin. Compare nothing secret with `==`. All responses `Cache-Control: no-store`.
