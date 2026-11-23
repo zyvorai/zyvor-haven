@@ -23,9 +23,16 @@ func NewManagerFromEnv() (*Manager, error) {
 	return &Manager{client: c}, nil
 }
 
-func (m *Manager) Client() *AdminClient {
+// Manager is the Keycloak implementation of idp.Backend.
+var _ idp.Backend = (*Manager)(nil)
+
+// Client returns the current provider, or a true nil interface when unset.
+func (m *Manager) Client() idp.Provider {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	if m.client == nil {
+		return nil
+	}
 	return m.client
 }
 
