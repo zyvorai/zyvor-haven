@@ -1,0 +1,138 @@
+# Alert rules for haven-idp. This is a prometheus-operator PrometheusRule.
+# For a plain Prometheus rule_files entry, extract the groups:
+#   yq '.spec' prometheus-rules.yaml > haven-idp.rules.yaml
+# Metric names are checked against the contract in internal/idp/obs/obs.go by
+# internal/idp/obs/assets_test.go.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: haven-idp
+  labels:
+    app.kubernetes.io/name: haven-idp
+spec:
+  groups:
+    - name: haven-idp.availability
+      rules:
+        - alert: HavenIdpDown
+          expr: up{job="haven-idp"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "haven-idp instance {{ $labels.instance }} is not scrapeable"
+            description: "Prometheus cannot scrape {{ $labels.instance }} for 2 minutes. Logins and token requests on that instance are probably failing."
+            action: "Check pod/process status and logs, then the metrics listener (HAVEN_IDP_METRICS_LISTEN) and network policy. If the pod is healthy, fix the scrape config."
+        - alert: HavenIdpStoreDown
+          expr: haven_idp_store_up == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "haven-idp {{ $labels.instance }} cannot reach its store"
+            description: "The store ping is failing; sign-ins, token issuance and admin calls will return errors."
+            action: "Check the database (Postgres) health, credentials and connectivity from the pod. Watch haven_idp_store_ping_duration_seconds for slowness before the outage."
+        - alert: HavenIdp5xxRatio
+          expr: |
+            sum(rate(haven_idp_http_requests_total{code=~"5.."}[5m]))
+              / clamp_min(sum(rate(haven_idp_http_requests_total[5m])), 0.001) > 0.02
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "More than 2% of haven-idp requests fail with 5xx"
+            description: "5xx ratio is {{ $value | humanizePercentage }} over 5m."
+            action: "Break the ratio down by route and code (dashboard row Traffic). Correlate with HavenIdpStoreDown, recent deploys and request_id values in the logs."
+        - alert: HavenIdpLatencyP99
+          expr: |
+            histogram_quantile(0.99,
+              sum by (le) (rate(haven_idp_http_request_duration_seconds_bucket[5m]))) > 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "haven-idp p99 latency above 1s"
+            description: "p99 request latency is {{ $value | humanizeDuration }}."
+            action: "Find the slow route on the dashboard. Check store ping latency, CPU throttling and password hashing load (login floods). Scale out or rate limit upstream."
+    - name: haven-idp.security
+      rules:
+        - alert: HavenIdpLoginFailureSpike
+          expr: |
+            sum by (realm) (rate(haven_idp_logins_total{result=~"bad_credentials|locked"}[10m]))
+              > 0.5 and
+            sum by (realm) (rate(haven_idp_logins_total{result=~"bad_credentials|locked"}[10m]))
+              > 2 * sum by (realm) (rate(haven_idp_logins_total{result="success"}[10m]))
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Login failures in realm {{ $labels.realm }} far exceed successes"
+            description: "Failed logins (bad_credentials or locked) are over twice the success rate and above 0.5/s: likely credential stuffing or password spraying."
+            action: "Look at LOGIN_ERROR audit events grouped by ip. Block or rate limit the source at the edge, confirm lockouts are working, and consider forcing MFA for the realm."
+        - alert: HavenIdpRefreshTokenReuse
+          expr: sum by (realm) (increase(haven_idp_refresh_reuse_total[10m])) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: "Refresh token reuse detected in realm {{ $labels.realm }}"
+            description: "A rotated refresh token was presented again and its token family was revoked. This is the classic sign of a stolen refresh token."
+            action: "Find REFRESH_REUSE events in the audit stream (userId, clientId, ip). Contact the user, revoke their sessions, rotate the client secret if it is a confidential client, and check the client for token leakage in logs or storage."
+        - alert: HavenIdpCodeReplay
+          expr: sum by (realm) (increase(haven_idp_code_replay_total[10m])) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "Authorization code replay in realm {{ $labels.realm }}"
+            description: "An authorization code was presented twice. Either a client bug (retrying the exchange) or an interception attempt."
+            action: "Find CODE_REPLAY events (clientId, ip). If one client repeats it, fix its retry logic. If the IP is unrelated to the client, treat as interception: check redirect URI registration and enforce PKCE."
+        - alert: HavenIdpLockoutBurst
+          expr: sum by (realm) (increase(haven_idp_lockouts_total[10m])) > 20
+          labels:
+            severity: warning
+          annotations:
+            summary: "Many account lockouts in realm {{ $labels.realm }}"
+            description: "More than 20 accounts were locked in 10 minutes. Brute force in progress, or a lockout-DoS against real users."
+            action: "Check LOCKOUT events for the source ips. Block them at the edge. Support may need to unlock legitimate users afterwards."
+        - alert: HavenIdpAdminAuthFailures
+          expr: sum by (kind) (increase(haven_idp_admin_auth_failures_total[10m])) > 10
+          labels:
+            severity: warning
+          annotations:
+            summary: "Repeated admin API authentication failures ({{ $labels.kind }})"
+            description: "More than 10 rejected admin API calls in 10 minutes (kind {{ $labels.kind }})."
+            action: "Check whether a deploy or script uses a stale admin token (invalid) or the wrong role (forbidden). If unexplained, restrict network access to the admin API and rotate admin credentials."
+    - name: haven-idp.keys-and-audit
+      rules:
+        - alert: HavenIdpSigningKeyStale
+          expr: haven_idp_signing_key_age_seconds > 90 * 24 * 3600
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Signing key in realm {{ $labels.realm }} is older than 90 days"
+            description: "The newest active signing key is {{ $value | humanizeDuration }} old. Key rotation is overdue."
+            action: "Rotate the realm signing key (admin API key rotation). Keep the old key published until issued tokens expire."
+        - alert: HavenIdpAuditDropping
+          expr: sum by (sink) (increase(haven_idp_audit_events_total{result="dropped"}[10m])) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: "Audit events are being dropped by sink {{ $labels.sink }}"
+            description: "The audit queue overflowed (consumer too slow or down) so events were lost. The audit chain will show a seq gap."
+            action: "Fix the downstream consumer (disk full, webhook receiver slow). Note the time window and reconcile it from application logs; the seq gap marks the loss."
+        - alert: HavenIdpAuditWebhookErrors
+          expr: sum by (sink) (increase(haven_idp_audit_events_total{result="error"}[15m])) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "Audit delivery errors on sink {{ $labels.sink }}"
+            description: "Events could not be delivered after retries (or the receiver rejected them) and were dropped."
+            action: "Check the webhook receiver URL, TLS certificate and HMAC secret (HAVEN_IDP_AUDIT_WEBHOOK_SECRET). A 4xx response means the receiver rejects the payload or signature."
+        - alert: HavenIdpAuditQueueBacklog
+          expr: haven_idp_audit_queue_length > 5000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Audit queue for sink {{ $labels.sink }} is more than half full"
+            description: "The queue holds {{ $value }} events (capacity 10000); drops start when it is full."
+            action: "Check the sink target for slowness before events are dropped."
