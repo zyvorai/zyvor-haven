@@ -63,3 +63,16 @@ product to be useful.**
 ## Order of work
 Parity merge -> 1, 3, 17 (foundation) -> 5, 6, 8 -> 7 -> 4, 2 -> 11, 12, 13 ->
 14, 15 -> 9, 10, 16 -> 18, 19, 20.
+
+## Status (updated)
+Done and verified end to end: parity (OIDC core, Admin API v1, native Provider,
+selectable console backend), #1 `haven-idp init` / `dev` (with a browser OIDC
+playground, the first slice of #2), #3 config as code (`validate`/`plan`/`apply`/
+`export`, Guard gate, drift `--check`), #17 observability (Prometheus metrics,
+W3C tracing with OTLP export, hash-chained audit stream to stdout/file/signed
+webhook, dashboards and alert rules).
+
+Known gaps carried forward: authorization-code replay and refresh-reuse
+revocation of already-issued tokens is partly in-memory (not shared across
+replicas); federation is not implemented on the native backend; rotated-secret
+overlap is unsupported; `--prune` removes clients only.
