@@ -10,7 +10,7 @@
   // ---- persistence -------------------------------------------------------
   const save = (k, v) => SS.setItem('hd.' + k, JSON.stringify(v));
   const load = (k) => { try { return JSON.parse(SS.getItem('hd.' + k)); } catch (e) { return null; } };
-  const persist = () => { save('timeline', S.timeline); save('tokens', S.tokens); save('scope', S.scope); save('oldRefresh', S.oldRefresh); };
+  const persist = () => { save('timeline', S.timeline); save('tokens', S.tokens); save('scope', S.scope); save('oldRefresh', S.oldRefresh); save('fromRefresh', !!S.fromRefresh); };
 
   // ---- small DOM helpers (textContent only, never innerHTML) -------------
   function el(tag, attrs, ...kids) {
@@ -104,7 +104,7 @@
     $('tokens').replaceChildren(...cards);
     renderChecks(await L.runChecks({
       issuer: S.cfg.issuer, clientId: S.cfg.client_id, accessToken: t.access_token, idToken: t.id_token,
-      nonce: load('nonce'), requestedScope: S.scope, jwks: S.jwks, now: Math.floor(Date.now() / 1000), sigs }));
+      nonce: load('nonce'), fromRefresh: !!S.fromRefresh, requestedScope: S.scope, jwks: S.jwks, now: Math.floor(Date.now() / 1000), sigs }));
   }
 
   function updateButtons() {
@@ -127,7 +127,7 @@
     Array.from(document.querySelectorAll('input[name=scope]:checked')).map((c) => c.value).join(' ');
 
   async function signIn() {
-    S.timeline = []; S.tokens = null; S.oldRefresh = null;
+    S.timeline = []; S.tokens = null; S.oldRefresh = null; S.fromRefresh = false;
     await discover();
     const verifier = L.randomB64url(32);
     const state = L.randomB64url(16);
@@ -167,6 +167,7 @@
     }
     if (isRefresh) S.oldRefresh = S.tokens && S.tokens.refresh_token;
     S.tokens = b;
+    S.fromRefresh = !!isRefresh; // a refreshed id_token carries no nonce (OIDC Core 12.2)
     const issues = [];
     if (!b.refresh_token) issues.push({ noRefreshToken: true });
     if (!b.id_token) issues.push({ noIdToken: true });
@@ -224,6 +225,7 @@
     S.tokens = load('tokens');
     S.scope = load('scope') || '';
     S.oldRefresh = load('oldRefresh');
+    S.fromRefresh = !!load('fromRefresh');
     $('btn-signin').addEventListener('click', guard(signIn));
     $('btn-userinfo').addEventListener('click', guard(callUserinfo));
     $('btn-refresh').addEventListener('click', guard(refresh));

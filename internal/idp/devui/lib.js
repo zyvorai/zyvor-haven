@@ -136,8 +136,14 @@
     if (idt) {
       const t = idt.payload.typ;
       rows.push(row('id.typ', 'id_token typ is ID', t === 'ID', t === 'ID' ? 'typ=ID.' : 'typ is ' + JSON.stringify(t) + ', expected "ID".'));
-      const nOk = !!ctx.nonce && idt.payload.nonce === ctx.nonce;
-      rows.push(row('id.nonce', 'nonce matches', nOk, nOk ? 'nonce echoed.' : 'id_token nonce ' + JSON.stringify(idt.payload.nonce) + ' differs from the one sent. Possible replay, or sessionStorage was cleared.'));
+      if (ctx.fromRefresh && idt.payload.nonce === undefined) {
+        // OIDC Core 12.2: an id_token from a refresh response need not carry the
+        // original nonce, so absence is correct here (a present nonce is still checked below).
+        rows.push(row('id.nonce', 'nonce not applicable to a refreshed token', true, 'Refresh responses carry no nonce (OIDC Core 12.2); the nonce was verified at sign-in.'));
+      } else {
+        const nOk = !!ctx.nonce && idt.payload.nonce === ctx.nonce;
+        rows.push(row('id.nonce', 'nonce matches', nOk, nOk ? 'nonce echoed.' : 'id_token nonce ' + JSON.stringify(idt.payload.nonce) + ' differs from the one sent. Possible replay, or sessionStorage was cleared.'));
+      }
       if (ctx.accessToken) {
         const want = await atHash(ctx.accessToken);
         const ok = idt.payload.at_hash === want;

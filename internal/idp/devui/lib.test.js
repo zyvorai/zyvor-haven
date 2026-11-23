@@ -75,6 +75,28 @@ test('runChecks pass and fail', async () => {
   assert.ok(f2.has('id.typ') && f2.has('id.at_hash'));
 });
 
+test('nonce check on a refreshed token', async () => {
+  const k = kp();
+  const now = 1_700_000_000, iss = 'http://i/realms/r', cid = 'pg';
+  const access = mk(k, 'k1', {}, { iss, sub: 'u', aud: 'account', azp: cid, exp: now + 300, iat: now, jti: 'j', scope: 'openid', typ: 'Bearer' });
+  const J = jwks(k, 'k1');
+  const mkId = (extra) => mk(k, 'k1', {}, Object.assign({ iss, sub: 'u', aud: cid, exp: now + 300, iat: now, typ: 'ID' }, extra));
+  const run = async (idToken, fromRefresh) => {
+    const sigs = { access: await L.verifyJwt(access, J), id: await L.verifyJwt(idToken, J) };
+    const rows = await L.runChecks({ issuer: iss, clientId: cid, accessToken: access, idToken, nonce: 'n1', fromRefresh, requestedScope: 'openid', jwks: J, now, sigs });
+    return rows.find((r) => r.id === 'id.nonce');
+  };
+  const noNonce = mkId({ at_hash: await L.atHash(access) });
+  // No nonce is wrong at sign-in but correct after a refresh (OIDC Core 12.2).
+  assert.equal((await run(noNonce, false)).pass, false);
+  const ok = await run(noNonce, true);
+  assert.equal(ok.pass, true);
+  assert.match(ok.label, /not applicable/);
+  // A nonce that IS present must still match, even on refresh.
+  assert.equal((await run(mkId({ nonce: 'someone-else' }), true)).pass, false);
+  assert.equal((await run(mkId({ nonce: 'n1' }), true)).pass, true);
+});
+
 test('diagnose and toCurl', () => {
   assert.match(L.diagnose({ error: 'invalid_grant' })[0], /rotated/);
   assert.match(L.diagnose({ stateMismatch: true })[0], /State mismatch/);
