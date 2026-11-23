@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/zyvorai/haven/internal/identityops"
+	"github.com/zyvorai/haven/internal/idmodel"
 )
 
 const (
@@ -80,8 +81,22 @@ func IsPrivileged(name string) bool {
 	return privilegedToken.MatchString(name) || managePrefix.MatchString(name)
 }
 
-// Analyze builds the report. Output is sorted and deterministic.
+// Input is the neutral data a review is computed from.
+type Input struct {
+	Realm      string
+	SnapshotID string
+	Users      []idmodel.User
+	Access     []idmodel.UserAccess
+}
+
+// Analyze builds the report from a stored snapshot.
 func Analyze(snap identityops.RealmSnapshot, opts Options) (Report, error) {
+	n := snap.Neutral()
+	return AnalyzeModel(Input{Realm: n.Realm, SnapshotID: n.ID, Users: n.Users, Access: n.Access}, opts)
+}
+
+// AnalyzeModel builds the report. Output is sorted and deterministic.
+func AnalyzeModel(snap Input, opts Options) (Report, error) {
 	if len(snap.Users) > MaxUsers {
 		return Report{}, fmt.Errorf("realm has %d users, maximum for a review is %d", len(snap.Users), MaxUsers)
 	}
@@ -97,16 +112,16 @@ func Analyze(snap identityops.RealmSnapshot, opts Options) (Report, error) {
 		return Report{}, fmt.Errorf("invalid break-glass pattern: %w", err)
 	}
 
-	access := map[string]identityops.UserAccess{}
-	for _, a := range snap.UserAccess {
+	access := map[string]idmodel.UserAccess{}
+	for _, a := range snap.Access {
 		access[a.Username] = a
 	}
-	rep := Report{Realm: snap.Realm, SnapshotID: snap.ID, BreakGlass: BreakGlass{Pattern: pattern, Accounts: []string{}}}
+	rep := Report{Realm: snap.Realm, SnapshotID: snap.SnapshotID, BreakGlass: BreakGlass{Pattern: pattern, Accounts: []string{}}}
 	rep.Summary.Users = len(snap.Users)
 	enabledBG := 0
 
 	for _, u := range snap.Users {
-		if strings.HasPrefix(u.Username, "service-account-") {
+		if u.IsServiceAccount {
 			rep.Summary.Users--
 			continue
 		}
@@ -121,7 +136,7 @@ func Analyze(snap identityops.RealmSnapshot, opts Options) (Report, error) {
 		}
 		it := Item{
 			Username: u.Username, Enabled: u.Enabled, EmailVerified: u.EmailVerified,
-			RealmRoles: roles, Groups: groups, PendingActions: dedupSorted(u.RequiredActions),
+			RealmRoles: roles, Groups: groups, PendingActions: dedupSorted(u.PendingActions),
 		}
 		privileged := anyPrivileged(roles) || anyPrivileged(groups)
 		if privileged {
