@@ -45,6 +45,7 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
 | GET `/realms/{r}/client-scopes` | fixed `[openid, profile, email, offline_access]` |
 | GET `/realms/{r}/users?search=&first=&max=` | `[]idp.User` (max default 100, cap 1000) |
 | POST `/realms/{r}/users` | create `idp.User` |
+| POST `/realms/{r}/users/import` | bulk import `{"users":[idp.ImportUser]}` (see "User import"); 200 `idp.ImportResult` |
 | GET, PUT, DELETE `/realms/{r}/users/{id}` | `idp.User` |
 | PUT `/realms/{r}/users/{id}/password` | `idp.PasswordReset`; enforce realm password policy via `password.CheckPolicy`; `temporary:true` adds pending action `UPDATE_PASSWORD`; resets lockout |
 | GET, POST `/realms/{r}/users/{id}/roles` | `idp.RoleMappings` / `[]idp.Role` (match by name; unknown role -> 400) |
@@ -78,6 +79,21 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
 * User: straightforward; `RequiredActions`=PendingActions. Passwords are never
   accepted on user create/update bodies (use the password route).
 * Group paths are "/name". Role/group membership is by name/path inside core.User.
+
+## User import
+`POST /realms/{r}/users/import` takes up to 1000 users and 8 MiB (more: 413; unknown
+JSON fields, including any plaintext `password`: 400). Users are processed sequentially;
+one bad user never fails the batch. Per user: same username/email/name rules as user
+create; `passwordHash` (optional) must pass `password.ValidateEncoded` and is stored
+as-is (never returned or logged); every role name and group path must exist;
+`requiredActions` are filtered to {UPDATE_PASSWORD, VERIFY_EMAIL}. An existing
+username (case-insensitive) is counted in `skipped` and never modified, its password
+included. A username repeated inside one request is an error "duplicate in request".
+Store failures are reported generically. Response `idp.ImportResult{created,skipped,errors}`:
+`errors` is capped at 100 entries (failed users beyond the cap are not in the response,
+only in the admin event's failed count). Admin event `ADMIN_IMPORT` detail is
+`users: created=N skipped=M failed=K` (counts only). Metrics:
+`AdminOp(realm,"user","action",ok)`.
 
 ## Native export format
 `{"version":1,"realm":"<r>","roles":[idp.Role],"groups":[idp.Group],"clients":[idp.Client without secrets]}`.

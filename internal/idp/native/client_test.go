@@ -42,6 +42,9 @@ type fake struct {
 	groups     map[string][]idp.Group
 	userGroups map[string][]string
 	imported   json.RawMessage
+
+	importCalls  int
+	importFailAt int // 1-based import request number to answer 500
 }
 
 func newFake() *fake {
@@ -238,6 +241,36 @@ func (f *fake) routes(m *http.ServeMux) {
 		}
 		end := min(first+max, len(all))
 		wj(w, 200, append([]idp.User{}, all[first:end]...))
+	})
+	m.HandleFunc("POST /realms/{r}/users/import", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Users []idp.ImportUser `json:"users"`
+		}
+		if dec(r, &in) != nil {
+			werr(w, 400, "bad")
+			return
+		}
+		f.importCalls++
+		if f.importFailAt > 0 && f.importCalls == f.importFailAt {
+			werr(w, 500, "boom")
+			return
+		}
+		if len(in.Users) > 500 {
+			werr(w, 413, "too many")
+			return
+		}
+		res := idp.ImportResult{}
+		for _, u := range in.Users {
+			switch {
+			case u.Username == "":
+				res.Errors = append(res.Errors, idp.ImportError{Username: u.Username, Reason: "invalid username"})
+			case strings.HasPrefix(u.Username, "old"):
+				res.Skipped++
+			default:
+				res.Created++
+			}
+		}
+		wj(w, 200, res)
 	})
 	m.HandleFunc("POST /realms/{r}/users", func(w http.ResponseWriter, r *http.Request) {
 		rn := r.PathValue("r")

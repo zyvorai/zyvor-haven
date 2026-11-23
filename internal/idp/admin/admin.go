@@ -91,7 +91,7 @@ func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, status, msg)
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	r.Body = http.MaxBytesReader(w, r.Body, bodyLimit(r.URL.Path))
 	a.mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), actorKey{}, actor)))
 }
 
@@ -108,6 +108,7 @@ func (a *api) routes() {
 	a.realmRoutes(m)
 	a.clientRoutes(m)
 	a.userRoutes(m)
+	a.importRoutes(m)
 	a.roleGroupRoutes(m)
 	a.miscRoutes(m)
 	m.HandleFunc(pathPrefix+"/", func(w http.ResponseWriter, _ *http.Request) { writeErr(w, http.StatusNotFound, "not found") })

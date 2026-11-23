@@ -510,3 +510,35 @@ func (c *Client) PartialExport(ctx context.Context, realm string) (json.RawMessa
 func (c *Client) PartialImport(ctx context.Context, realm string, payload json.RawMessage) error {
 	return c.call(ctx, http.MethodPost, realmPath(realm)+"/import", payload, nil)
 }
+
+const (
+	importChunk     = 500
+	maxImportErrors = 100
+)
+
+var _ idp.UserImporter = (*Client)(nil)
+
+// ImportUsers sends users in batches of 500 and sums the results. Per-user
+// errors are kept (at most 100 in total). If a request fails, the result so
+// far is returned together with the error.
+func (c *Client) ImportUsers(ctx context.Context, realm string, users []idp.ImportUser) (*idp.ImportResult, error) {
+	total := &idp.ImportResult{}
+	for start := 0; start < len(users); start += importChunk {
+		end := min(start+importChunk, len(users))
+		var part idp.ImportResult
+		body := struct {
+			Users []idp.ImportUser `json:"users"`
+		}{users[start:end]}
+		if err := c.call(ctx, http.MethodPost, realmPath(realm)+"/users/import", body, &part); err != nil {
+			return total, err
+		}
+		total.Created += part.Created
+		total.Skipped += part.Skipped
+		for _, e := range part.Errors {
+			if len(total.Errors) < maxImportErrors {
+				total.Errors = append(total.Errors, e)
+			}
+		}
+	}
+	return total, nil
+}
