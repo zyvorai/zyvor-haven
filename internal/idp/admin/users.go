@@ -24,11 +24,11 @@ const (
 func (a *api) userRoutes(m *http.ServeMux) {
 	p := pathPrefix + "/realms/{r}/users"
 	m.HandleFunc("GET "+p, a.listUsers)
-	m.HandleFunc("POST "+p, a.createUser)
+	m.HandleFunc("POST "+p, a.op("user", "create", a.createUser))
 	m.HandleFunc("GET "+p+"/{id}", a.getUser)
-	m.HandleFunc("PUT "+p+"/{id}", a.updateUser)
-	m.HandleFunc("DELETE "+p+"/{id}", a.deleteUser)
-	m.HandleFunc("PUT "+p+"/{id}/password", a.resetPassword)
+	m.HandleFunc("PUT "+p+"/{id}", a.op("user", "update", a.updateUser))
+	m.HandleFunc("DELETE "+p+"/{id}", a.op("user", "delete", a.deleteUser))
+	m.HandleFunc("PUT "+p+"/{id}/password", a.op("user", "action", a.resetPassword))
 }
 
 func intParam(r *http.Request, name string, def, min, max int) (int, error) {

@@ -290,6 +290,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 	form := r.PostForm.Get("csrf")
 	ck, err := r.Cookie(csrfCookie)
 	if err != nil || form == "" || !hmac.Equal([]byte(ck.Value), []byte(form)) || !p.checkCSRF(rl.Name, form) {
+		p.cfg.Obs.Login(rl.Name, "csrf")
 		p.errorPage(w, http.StatusForbidden, "Your session expired or the request was invalid. Go back and try again.")
 		return
 	}
@@ -298,10 +299,12 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 	username := strings.TrimSpace(r.PostForm.Get("username"))
 	password := r.PostForm.Get("password")
 	if username == "" || password == "" || len(username) > 256 || len(password) > 1024 {
+		p.cfg.Obs.Login(rl.Name, "bad_credentials")
 		p.loginPage(w, r, ar, badCreds, username)
 		return
 	}
-	fail := func(u core.User, why string) {
+	fail := func(u core.User, why, result string) {
+		p.cfg.Obs.Login(rl.Name, result)
 		p.event(ctx, rl, "LOGIN_ERROR", u.ID, ar.client.ClientID, ip, why)
 		p.loginPage(w, r, ar, badCreds, username)
 	}
@@ -314,7 +317,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 			return
 		}
 		p.cfg.Hasher.Verify(password, p.dummy())
-		fail(core.User{}, "user_not_found")
+		fail(core.User{}, "user_not_found", "bad_credentials")
 		return
 	}
 	now := p.now()
@@ -328,7 +331,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 	}
 	locked := !u.LockedUntil.IsZero() && now.Before(u.LockedUntil)
 	if rl.BruteForceProtection && locked {
-		fail(u, "user_temporarily_disabled")
+		fail(u, "user_temporarily_disabled", "locked")
 		return
 	}
 	if !good {
@@ -343,15 +346,19 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 			if err := p.cfg.Store.UpdateUser(ctx, u); err != nil {
 				p.cfg.Logger.Error("oidc: record failed login", "err", err)
 			}
+			if u.FailedLogins >= lockThreshold {
+				p.cfg.Obs.Lockout(rl.Name)
+			}
 		}
-		fail(u, "invalid_credentials")
+		fail(u, "invalid_credentials", "bad_credentials")
 		return
 	}
 	if !u.Enabled {
-		fail(u, "user_disabled")
+		fail(u, "user_disabled", "disabled")
 		return
 	}
 	if rl.EmailVerificationRequired && !u.EmailVerified {
+		p.cfg.Obs.Login(rl.Name, "unverified")
 		p.event(ctx, rl, "LOGIN_ERROR", u.ID, ar.client.ClientID, ip, "email_not_verified")
 		p.loginPage(w, r, ar, "Your email address has not been verified. Verify it before signing in.", username)
 		return
@@ -380,6 +387,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
 		return
 	}
+	p.cfg.Obs.Login(rl.Name, "success")
 	p.event(ctx, rl, "LOGIN", u.ID, ar.client.ClientID, ip, "")
 	// Expire the CSRF cookie.
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: "/realms/" + rl.Name + oidcPath + "/auth", MaxAge: -1})

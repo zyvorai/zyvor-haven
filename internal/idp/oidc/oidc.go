@@ -23,6 +23,7 @@ import (
 
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/obs"
 )
 
 const (
@@ -51,6 +52,9 @@ type Config struct {
 	// CSRFKey keys the login-form CSRF tokens. Random per process if empty;
 	// set it when several replicas serve the same login form.
 	CSRFKey []byte
+	// Obs receives protocol and security signals (enums and realm names
+	// only). Nil records nothing.
+	Obs obs.Recorder
 }
 
 // Provider is the http.Handler for all realms.
@@ -86,6 +90,9 @@ func New(cfg Config) *Provider {
 	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.NewTextHandler(discard{}, nil))
+	}
+	if cfg.Obs == nil {
+		cfg.Obs = obs.Nop{}
 	}
 	if cfg.CodeTTL <= 0 {
 		cfg.CodeTTL = defaultCodeTTL

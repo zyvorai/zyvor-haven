@@ -13,10 +13,10 @@ import (
 func (a *api) realmRoutes(m *http.ServeMux) {
 	p := pathPrefix + "/realms"
 	m.HandleFunc("GET "+p, a.listRealms)
-	m.HandleFunc("POST "+p, a.createRealm)
+	m.HandleFunc("POST "+p, a.op("realm", "create", a.createRealm))
 	m.HandleFunc("GET "+p+"/{r}", a.getRealm)
-	m.HandleFunc("PUT "+p+"/{r}", a.updateRealm)
-	m.HandleFunc("DELETE "+p+"/{r}", a.deleteRealm)
+	m.HandleFunc("PUT "+p+"/{r}", a.op("realm", "update", a.updateRealm))
+	m.HandleFunc("DELETE "+p+"/{r}", a.op("realm", "delete", a.deleteRealm))
 }
 
 func (a *api) status(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +72,7 @@ func (a *api) createRealm(w http.ResponseWriter, r *http.Request) {
 	if err := a.cfg.Signer.EnsureKey(r.Context(), rl.Name); err != nil {
 		a.cfg.Logger.Error("admin: ensure signing key", "realm", rl.Name, "err", err.Error())
 	}
+	noteRealm(r, rl.Name)
 	a.audit(r, rl, "CREATE", "realm", rl.Name)
 	created(w, pathPrefix+"/realms/"+rl.Name, map[string]string{"id": rl.Name})
 }

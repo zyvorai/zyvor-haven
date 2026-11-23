@@ -25,7 +25,7 @@ func (a *api) miscRoutes(m *http.ServeMux) {
 	m.HandleFunc("GET "+p+"/events", a.events)
 	m.HandleFunc("GET "+p+"/keys", a.keys)
 	m.HandleFunc("GET "+p+"/export", a.export)
-	m.HandleFunc("POST "+p+"/import", a.importRealm)
+	m.HandleFunc("POST "+p+"/import", a.op("import", "action", a.importRealm))
 }
 
 func (a *api) clientScopes(w http.ResponseWriter, r *http.Request) {

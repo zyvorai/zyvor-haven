@@ -38,6 +38,21 @@ func (p *Provider) writeTokenErr(w http.ResponseWriter, e *tokenErr, basic bool)
 // authClient authenticates the calling client from Basic or POST credentials.
 // Public clients identify with client_id only. The returned bool reports
 // whether the client authenticated with a secret.
+// grantLabel bounds the grant label to the known grant types.
+func grantLabel(g string) string {
+	switch g {
+	case "authorization_code", "refresh_token", "client_credentials":
+		return g
+	}
+	return "other"
+}
+
+// tokenFail records a token endpoint error and writes it.
+func (p *Provider) tokenFail(w http.ResponseWriter, e *tokenErr, basic bool, realm, grant string) {
+	p.cfg.Obs.TokenError(realm, grant, e.code)
+	p.writeTokenErr(w, e, basic)
+}
+
 func (p *Provider) authClient(r *http.Request, realm string) (core.Client, bool, bool, *tokenErr) {
 	id, secret, basic := r.BasicAuth()
 	if basic {
@@ -86,12 +101,13 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		p.writeTokenErr(w, oerr("invalid_request", "malformed body"), false)
+		p.tokenFail(w, oerr("invalid_request", "malformed body"), false, rl.Name, "other")
 		return
 	}
+	grant := grantLabel(r.PostForm.Get("grant_type"))
 	cl, confidential, basic, terr := p.authClient(r, name)
 	if terr != nil {
-		p.writeTokenErr(w, terr, basic)
+		p.tokenFail(w, terr, basic, rl.Name, grant)
 		return
 	}
 	var resp map[string]any
@@ -106,7 +122,7 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 		terr = oerr("unsupported_grant_type", "grant_type not supported")
 	}
 	if terr != nil {
-		p.writeTokenErr(w, terr, basic)
+		p.tokenFail(w, terr, basic, rl.Name, grant)
 		return
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -125,7 +141,7 @@ func (p *Provider) grantCode(r *http.Request, rl core.Realm, cl core.Client) (ma
 	ac, err := p.cfg.Store.ConsumeAuthCode(ctx, hash)
 	if err != nil {
 		if errors.Is(err, idp.ErrNotFound) {
-			p.revokeForReplayedCode(r, hash)
+			p.revokeForReplayedCode(r, rl.Name, hash)
 			return nil, oerr("invalid_grant", "invalid or expired code")
 		}
 		p.cfg.Logger.Error("oidc: consume code", "err", err)
@@ -156,7 +172,7 @@ func (p *Provider) grantCode(r *http.Request, rl core.Realm, cl core.Client) (ma
 		return nil, bad
 	}
 	family := randToken(16)
-	resp, terr := p.issue(r, rl, cl, u, ac.Scope, ac.Nonce, ac.AuthTime, family, "", true)
+	resp, terr := p.issue(r, rl, cl, u, ac.Scope, ac.Nonce, ac.AuthTime, family, "", true, "authorization_code")
 	if terr != nil {
 		return nil, terr
 	}
@@ -186,7 +202,7 @@ func (p *Provider) rememberCode(hash, family string, exp time.Time) {
 	p.codeFams[hash] = codeFam{family: family, expires: exp}
 }
 
-func (p *Provider) revokeForReplayedCode(r *http.Request, hash string) {
+func (p *Provider) revokeForReplayedCode(r *http.Request, realm, hash string) {
 	p.mu.Lock()
 	cf, ok := p.codeFams[hash]
 	if ok {
@@ -194,6 +210,7 @@ func (p *Provider) revokeForReplayedCode(r *http.Request, hash string) {
 	}
 	p.mu.Unlock()
 	if ok && p.now().Before(cf.expires) {
+		p.cfg.Obs.CodeReplay(realm)
 		if err := p.cfg.Store.RevokeRefreshFamily(r.Context(), cf.family); err != nil {
 			p.cfg.Logger.Error("oidc: revoke family on code replay", "err", err)
 		}
@@ -222,7 +239,7 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 		return nil, bad
 	}
 	if rt.Used {
-		p.revokeFamily(r, rt.FamilyID)
+		p.refreshReuse(r, rl.Name, rt.FamilyID)
 		return nil, bad
 	}
 	scope := rt.Scope
@@ -242,7 +259,7 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 	if rl.RefreshTokenRotation {
 		if err := p.cfg.Store.MarkRefreshUsed(ctx, hash); err != nil {
 			if errors.Is(err, idp.ErrConflict) {
-				p.revokeFamily(r, rt.FamilyID)
+				p.refreshReuse(r, rl.Name, rt.FamilyID)
 				return nil, bad
 			}
 			p.cfg.Logger.Error("oidc: mark refresh used", "err", err)
@@ -251,7 +268,7 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 	} else {
 		newRefresh = raw
 	}
-	resp, terr := p.issue(r, rl, cl, u, scope, "", time.Time{}, rt.FamilyID, newRefresh, newRefresh == "")
+	resp, terr := p.issue(r, rl, cl, u, scope, "", time.Time{}, rt.FamilyID, newRefresh, newRefresh == "", "refresh_token")
 	if terr != nil {
 		return nil, terr
 	}
@@ -260,6 +277,12 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 		resp["refresh_expires_in"] = int(rt.ExpiresAt.Sub(p.now()).Seconds())
 	}
 	return resp, nil
+}
+
+// refreshReuse reports a reused refresh token and revokes its family.
+func (p *Provider) refreshReuse(r *http.Request, realm, family string) {
+	p.cfg.Obs.RefreshReuse(realm)
+	p.revokeFamily(r, family)
 }
 
 func (p *Provider) revokeFamily(r *http.Request, family string) {
@@ -294,13 +317,14 @@ func (p *Provider) grantClientCreds(r *http.Request, rl core.Realm, cl core.Clie
 		p.cfg.Logger.Error("oidc: sign access token", "err", err)
 		return nil, &tokenErr{http.StatusInternalServerError, "server_error", "temporary error"}
 	}
+	p.cfg.Obs.TokenIssued(rl.Name, "client_credentials", "access")
 	return map[string]any{"access_token": at, "token_type": "Bearer", "expires_in": int(ttl.Seconds()), "scope": scope}, nil
 }
 
 // issue builds the token response for a user. When newFamily is true a
 // refresh token may be issued (and stored) in family.
 func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.User, scope, nonce string,
-	authTime time.Time, family, _ string, issueRefresh bool) (map[string]any, *tokenErr) {
+	authTime time.Time, family, _ string, issueRefresh bool, grant string) (map[string]any, *tokenErr) {
 	ctx := r.Context()
 	if err := p.ensureKey(ctx, rl.Name); err != nil {
 		p.cfg.Logger.Error("oidc: ensure key", "err", err)
@@ -359,6 +383,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		resp["id_token"] = idt
 	}
 
+	issuedRefresh := false
 	if issueRefresh && (slices.Contains(scopes, "offline_access") || rl.RefreshTokenTTL > 0) {
 		rtl := rl.RefreshTokenTTL
 		if rtl <= 0 {
@@ -375,6 +400,15 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		}
 		resp["refresh_token"] = raw
 		resp["refresh_expires_in"] = int(rtl.Seconds())
+		issuedRefresh = true
+	}
+	// Report only once everything was issued successfully.
+	p.cfg.Obs.TokenIssued(rl.Name, grant, "access")
+	if _, ok := resp["id_token"]; ok {
+		p.cfg.Obs.TokenIssued(rl.Name, grant, "id")
+	}
+	if issuedRefresh {
+		p.cfg.Obs.TokenIssued(rl.Name, grant, "refresh")
 	}
 	return resp, nil
 }

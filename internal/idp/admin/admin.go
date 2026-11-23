@@ -21,6 +21,7 @@ import (
 
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/obs"
 )
 
 const (
@@ -40,6 +41,7 @@ type Config struct {
 	Version      string   // reported by /status (default "haven-idp")
 	Logger       *slog.Logger
 	Clock        func() time.Time
+	Obs          obs.Recorder // nil records nothing
 }
 
 type api struct {
@@ -64,6 +66,9 @@ func New(cfg Config) http.Handler {
 	if cfg.Clock == nil {
 		cfg.Clock = time.Now
 	}
+	if cfg.Obs == nil {
+		cfg.Obs = obs.Nop{}
+	}
 	if cfg.Version == "" {
 		cfg.Version = "haven-idp"
 	}
@@ -82,6 +87,7 @@ func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if status == http.StatusUnauthorized {
 			h.Set("WWW-Authenticate", "Bearer")
 		}
+		a.authFailure(r, status)
 		writeErr(w, status, msg)
 		return
 	}
@@ -205,6 +211,7 @@ func (a *api) realmOf(w http.ResponseWriter, r *http.Request) (core.Realm, bool)
 		a.fail(w, r, err)
 		return core.Realm{}, false
 	}
+	noteRealm(r, rl.Name)
 	return rl, true
 }
 
@@ -242,4 +249,73 @@ func validText(s string, max int) bool {
 		}
 	}
 	return true
+}
+
+// ---- observability ----
+
+// opState carries the validated realm name from a handler back to the op
+// wrapper. Only realm names that exist are ever stored in it.
+type opState struct{ realm string }
+
+type opKey struct{}
+
+// noteRealm records the validated realm for the current mutating request.
+func noteRealm(r *http.Request, realm string) {
+	if st, _ := r.Context().Value(opKey{}).(*opState); st != nil {
+		st.realm = realm
+	}
+}
+
+// statusWriter remembers the response status.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusWriter) WriteHeader(code int) {
+	if s.status == 0 {
+		s.status = code
+	}
+	s.ResponseWriter.WriteHeader(code)
+}
+
+func (s *statusWriter) Write(b []byte) (int, error) {
+	if s.status == 0 {
+		s.status = http.StatusOK
+	}
+	return s.ResponseWriter.Write(b)
+}
+
+func (s *statusWriter) Unwrap() http.ResponseWriter { return s.ResponseWriter }
+
+// op wraps a mutating handler and reports its outcome once it is known. The
+// recorder receives only the realm, fixed resource and action enums, and
+// whether the response was a success (status below 400).
+func (a *api) op(resource, action string, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		st := &opState{realm: "unknown"}
+		sw := &statusWriter{ResponseWriter: w}
+		h(sw, r.WithContext(context.WithValue(r.Context(), opKey{}, st)))
+		status := sw.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		a.cfg.Obs.AdminOp(st.realm, resource, action, status < 400)
+	}
+}
+
+// authFailure reports a rejected admin call. The kind is derived from the
+// request shape only: missing (no bearer token), invalid, or forbidden.
+func (a *api) authFailure(r *http.Request, status int) {
+	switch status {
+	case http.StatusForbidden:
+		a.cfg.Obs.AdminAuthFailure("forbidden")
+	case http.StatusUnauthorized:
+		h := r.Header.Get("Authorization")
+		if len(h) < 8 || !strings.EqualFold(h[:7], "bearer ") || strings.TrimSpace(h[7:]) == "" {
+			a.cfg.Obs.AdminAuthFailure("missing")
+		} else {
+			a.cfg.Obs.AdminAuthFailure("invalid")
+		}
+	}
 }

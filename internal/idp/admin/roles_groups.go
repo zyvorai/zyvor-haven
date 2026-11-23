@@ -15,13 +15,13 @@ import (
 func (a *api) roleGroupRoutes(m *http.ServeMux) {
 	p := pathPrefix + "/realms/{r}"
 	m.HandleFunc("GET "+p+"/roles", a.listRoles)
-	m.HandleFunc("POST "+p+"/roles", a.createRole)
+	m.HandleFunc("POST "+p+"/roles", a.op("role", "create", a.createRole))
 	m.HandleFunc("GET "+p+"/groups", a.listGroups)
-	m.HandleFunc("POST "+p+"/groups", a.createGroup)
+	m.HandleFunc("POST "+p+"/groups", a.op("group", "create", a.createGroup))
 	m.HandleFunc("GET "+p+"/users/{id}/roles", a.userRoles)
-	m.HandleFunc("POST "+p+"/users/{id}/roles", a.addUserRoles)
+	m.HandleFunc("POST "+p+"/users/{id}/roles", a.op("role", "action", a.addUserRoles))
 	m.HandleFunc("GET "+p+"/users/{id}/groups", a.userGroups)
-	m.HandleFunc("PUT "+p+"/users/{id}/groups/{gid}", a.joinGroup)
+	m.HandleFunc("PUT "+p+"/users/{id}/groups/{gid}", a.op("group", "action", a.joinGroup))
 }
 
 func (a *api) listRoles(w http.ResponseWriter, r *http.Request) {

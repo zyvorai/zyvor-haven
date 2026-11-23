@@ -14,11 +14,11 @@ import (
 func (a *api) clientRoutes(m *http.ServeMux) {
 	p := pathPrefix + "/realms/{r}/clients"
 	m.HandleFunc("GET "+p, a.listClients)
-	m.HandleFunc("POST "+p, a.createClient)
+	m.HandleFunc("POST "+p, a.op("client", "create", a.createClient))
 	m.HandleFunc("GET "+p+"/{id}", a.getClient)
-	m.HandleFunc("PUT "+p+"/{id}", a.updateClient)
-	m.HandleFunc("DELETE "+p+"/{id}", a.deleteClient)
-	m.HandleFunc("POST "+p+"/{id}/secret", a.regenerateSecret)
+	m.HandleFunc("PUT "+p+"/{id}", a.op("client", "update", a.updateClient))
+	m.HandleFunc("DELETE "+p+"/{id}", a.op("client", "delete", a.deleteClient))
+	m.HandleFunc("POST "+p+"/{id}/secret", a.op("secret", "action", a.regenerateSecret))
 	m.HandleFunc("GET "+p+"/{id}/secret", func(w http.ResponseWriter, _ *http.Request) {
 		notImplemented(w, "client secrets are stored hashed and cannot be read; regenerate instead")
 	})
