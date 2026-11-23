@@ -13,6 +13,23 @@ type Realm struct {
 	RegistrationAllowed bool   `json:"registrationAllowed,omitempty"`
 	VerifyEmail         bool   `json:"verifyEmail,omitempty"`
 	BruteForceProtected bool   `json:"bruteForceProtected,omitempty"`
+
+	// RealmHardening carries optional settings read by Haven Guard. A nil
+	// pointer means the source did not report the value, which is never
+	// treated as a finding.
+	*RealmHardening
+}
+
+// RealmHardening holds the realm settings Haven Guard evaluates beyond the
+// core fields. Fields are pointers so "absent" and "false" stay distinct.
+type RealmHardening struct {
+	SSLRequired           *string `json:"sslRequired,omitempty"`
+	PasswordPolicy        *string `json:"passwordPolicy,omitempty"`
+	AccessTokenLifespan   *int    `json:"accessTokenLifespan,omitempty"`
+	SSOSessionIdleTimeout *int    `json:"ssoSessionIdleTimeout,omitempty"`
+	EventsEnabled         *bool   `json:"eventsEnabled,omitempty"`
+	AdminEventsEnabled    *bool   `json:"adminEventsEnabled,omitempty"`
+	RevokeRefreshToken    *bool   `json:"revokeRefreshToken,omitempty"`
 }
 
 type Client struct {

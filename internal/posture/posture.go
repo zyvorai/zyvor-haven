@@ -7,9 +7,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/zyvorai/haven/internal/keycloak"
@@ -89,6 +91,14 @@ var rules = map[string]rule{
 	"HAVEN010": {"HAVEN010", SeverityMedium, "Auth-code client has no redirect URI", "Configure at least one exact callback URI or disable Standard Flow."},
 	"HAVEN011": {"HAVEN011", SeverityMedium, "Realm permits self-registration without verified email", "Require email verification when self-registration is enabled."},
 	"HAVEN012": {"HAVEN012", SeverityMedium, "Realm brute-force protection disabled", "Enable Keycloak brute-force detection for interactive user realms."},
+	"HAVEN014": {"HAVEN014", SeverityHigh, "Realm does not require TLS", "Set the realm SSL requirement to external or all."},
+	"HAVEN015": {"HAVEN015", SeverityMedium, "Realm has no password policy", "Configure a password policy with a minimum length and a breached-password check where available."},
+	"HAVEN016": {"HAVEN016", SeverityMedium, "Password policy minimum length below 12", "Require a password length of at least 12 (NIST SP 800-63B-4 asks 15 for single-factor passwords)."},
+	"HAVEN017": {"HAVEN017", SeverityMedium, "Access token lifespan exceeds one hour", "Shorten the access token lifespan to one hour or less and rely on refresh tokens."},
+	"HAVEN018": {"HAVEN018", SeverityLow, "SSO session idle timeout exceeds 24 hours", "Reduce the SSO session idle timeout to 24 hours or less."},
+	"HAVEN019": {"HAVEN019", SeverityMedium, "Login events are not recorded", "Enable user events and an event listener so sign-ins can be audited and streamed."},
+	"HAVEN020": {"HAVEN020", SeverityLow, "Admin events are not recorded", "Enable admin events so configuration changes leave an audit trail."},
+	"HAVEN021": {"HAVEN021", SeverityMedium, "Refresh tokens are not rotated while public clients exist", "Enable Revoke Refresh Token so public-client refresh tokens are single use (RFC 9700)."},
 	"HAVEN013": {"HAVEN013", SeverityLow, "Disabled client remains configured", "Remove stale clients or document why they are intentionally retained."},
 }
 
@@ -126,13 +136,18 @@ func evaluateRealm(realm keycloak.Realm, clients []keycloak.Client) RealmReport 
 		rr.Findings = append(rr.Findings, finding("HAVEN012", realm.Realm, "", "bruteForceProtected=false"))
 	}
 
+	hasPublicClient := false
 	for _, client := range sortedClients {
 		if isBuiltInClient(client.ClientID) {
 			continue
 		}
+		if client.Enabled && client.PublicClient {
+			hasPublicClient = true
+		}
 		rr.ClientCount++
 		rr.Findings = append(rr.Findings, evaluateClient(realm.Realm, client)...)
 	}
+	rr.Findings = append(rr.Findings, evaluateHardening(realm, hasPublicClient)...)
 	for _, f := range rr.Findings {
 		increment(&rr.Counts, f.Severity)
 	}
@@ -380,4 +395,100 @@ func hashJSON(v any) string {
 	b, _ := json.Marshal(v)
 	sum := sha256.Sum256(b)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// evaluateHardening applies the realm-level rules that depend on optional
+// settings. Settings the source did not report produce no finding.
+func evaluateHardening(realm keycloak.Realm, hasPublicClient bool) []Finding {
+	h := realm.RealmHardening
+	if h == nil || !realm.Enabled {
+		return nil
+	}
+	var out []Finding
+	name := realm.Realm
+	if h.SSLRequired != nil && strings.EqualFold(strings.TrimSpace(*h.SSLRequired), "none") {
+		out = append(out, finding("HAVEN014", name, "", "sslRequired=none"))
+	}
+	if h.PasswordPolicy != nil {
+		policy := strings.TrimSpace(*h.PasswordPolicy)
+		if policy == "" {
+			out = append(out, finding("HAVEN015", name, "", "passwordPolicy is empty"))
+		} else if n := policyMinLength(policy); n < 12 {
+			out = append(out, finding("HAVEN016", name, "", fmt.Sprintf("minimum length %d", n)))
+		}
+	}
+	if h.AccessTokenLifespan != nil && *h.AccessTokenLifespan > 3600 {
+		out = append(out, finding("HAVEN017", name, "", fmt.Sprintf("accessTokenLifespan=%ds", *h.AccessTokenLifespan)))
+	}
+	if h.SSOSessionIdleTimeout != nil && *h.SSOSessionIdleTimeout > 86400 {
+		out = append(out, finding("HAVEN018", name, "", fmt.Sprintf("ssoSessionIdleTimeout=%ds", *h.SSOSessionIdleTimeout)))
+	}
+	if h.EventsEnabled != nil && !*h.EventsEnabled {
+		out = append(out, finding("HAVEN019", name, "", "eventsEnabled=false"))
+	}
+	if h.AdminEventsEnabled != nil && !*h.AdminEventsEnabled {
+		out = append(out, finding("HAVEN020", name, "", "adminEventsEnabled=false"))
+	}
+	if h.RevokeRefreshToken != nil && !*h.RevokeRefreshToken && hasPublicClient {
+		out = append(out, finding("HAVEN021", name, "", "revokeRefreshToken=false with an enabled public client"))
+	}
+	return out
+}
+
+// policyMinLength extracts length(n) from a Keycloak password policy string
+// such as "length(12) and digits(1)". It returns 0 when no length term exists.
+func policyMinLength(policy string) int {
+	for _, part := range strings.Split(policy, " and ") {
+		part = strings.TrimSpace(part)
+		if !strings.HasPrefix(part, "length(") || !strings.HasSuffix(part, ")") {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(part[len("length(") : len(part)-1]))
+		if err == nil && n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+// IsBuiltInClient reports whether id is a Keycloak-provided client that Guard
+// excludes from client counts and findings.
+func IsBuiltInClient(id string) bool { return isBuiltInClient(id) }
+
+// AddFindings merges externally produced findings (for example from a policy
+// file) into the report and recomputes counts, scores and grade. Findings for
+// realms that are not in the report are attached to a new realm entry. The
+// fingerprint is intentionally unchanged: it tracks configuration, not policy.
+func (r *Report) AddFindings(extra []Finding) {
+	if len(extra) == 0 {
+		return
+	}
+	byRealm := map[string]int{}
+	for i, rr := range r.Realms {
+		byRealm[rr.Realm] = i
+	}
+	for _, f := range extra {
+		i, ok := byRealm[f.Realm]
+		if !ok {
+			r.Realms = append(r.Realms, RealmReport{Realm: f.Realm})
+			i = len(r.Realms) - 1
+			byRealm[f.Realm] = i
+		}
+		r.Realms[i].Findings = append(r.Realms[i].Findings, f)
+	}
+	r.Counts = Counts{}
+	r.Findings = nil
+	for i := range r.Realms {
+		rr := &r.Realms[i]
+		rr.Counts = Counts{}
+		for _, f := range rr.Findings {
+			increment(&rr.Counts, f.Severity)
+		}
+		rr.Score = score(rr.Counts)
+		r.Findings = append(r.Findings, rr.Findings...)
+		addCounts(&r.Counts, rr.Counts)
+	}
+	r.RealmCount = len(r.Realms)
+	r.Score = score(r.Counts)
+	r.Grade = grade(r.Score)
 }

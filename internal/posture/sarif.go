@@ -74,7 +74,11 @@ func ToSARIF(report Report, artifactURI ...string) SARIF {
 			continue
 		}
 		seen[f.RuleID] = true
-		r := rules[f.RuleID]
+		r, known := rules[f.RuleID]
+		if !known {
+			// Findings from user policy files carry their own metadata.
+			r = rule{id: f.RuleID, severity: f.Severity, title: f.Title, remediation: f.Remediation}
+		}
 		sarifRules = append(sarifRules, SARIFRule{
 			ID:               r.id,
 			Name:             r.title,
