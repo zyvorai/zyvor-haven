@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/zyvorai/haven/internal/idp"
 	"io"
 	"net/http"
 	"net/url"
@@ -161,16 +163,16 @@ func (c *AdminClient) GetRealm(ctx context.Context, realm string) (*Realm, error
 	return &r, err
 }
 
-func (c *AdminClient) CreateRealm(ctx context.Context, realm Realm) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms", realm, nil)
+func (c *AdminClient) CreateRealm(ctx context.Context, realm Realm) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms", realm, nil))
 }
 
-func (c *AdminClient) UpdateRealm(ctx context.Context, realm string, body Realm) (int, []byte, error) {
-	return c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm), body, nil)
+func (c *AdminClient) UpdateRealm(ctx context.Context, realm string, body Realm) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm), body, nil))
 }
 
-func (c *AdminClient) DeleteRealm(ctx context.Context, realm string) (int, []byte, error) {
-	return c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm), nil, nil)
+func (c *AdminClient) DeleteRealm(ctx context.Context, realm string) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm), nil, nil))
 }
 
 func (c *AdminClient) ListClients(ctx context.Context, realm string) ([]Client, error) {
@@ -185,16 +187,16 @@ func (c *AdminClient) GetClient(ctx context.Context, realm, id string) (*Client,
 	return &cl, err
 }
 
-func (c *AdminClient) CreateClient(ctx context.Context, realm string, cl Client) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/clients", cl, nil)
+func (c *AdminClient) CreateClient(ctx context.Context, realm string, cl Client) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/clients", cl, nil))
 }
 
-func (c *AdminClient) UpdateClient(ctx context.Context, realm, id string, cl Client) (int, []byte, error) {
-	return c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id), cl, nil)
+func (c *AdminClient) UpdateClient(ctx context.Context, realm, id string, cl Client) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id), cl, nil))
 }
 
-func (c *AdminClient) DeleteClient(ctx context.Context, realm, id string) (int, []byte, error) {
-	return c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id), nil, nil)
+func (c *AdminClient) DeleteClient(ctx context.Context, realm, id string) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id), nil, nil))
 }
 
 func (c *AdminClient) GetClientSecret(ctx context.Context, realm, id string) (*ClientSecret, error) {
@@ -219,20 +221,20 @@ func (c *AdminClient) ListUsers(ctx context.Context, realm string, search string
 	return users, err
 }
 
-func (c *AdminClient) CreateUser(ctx context.Context, realm string, u User) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/users", u, nil)
+func (c *AdminClient) CreateUser(ctx context.Context, realm string, u User) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/users", u, nil))
 }
 
-func (c *AdminClient) UpdateUser(ctx context.Context, realm, id string, u User) (int, []byte, error) {
-	return c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(id), u, nil)
+func (c *AdminClient) UpdateUser(ctx context.Context, realm, id string, u User) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(id), u, nil))
 }
 
-func (c *AdminClient) DeleteUser(ctx context.Context, realm, id string) (int, []byte, error) {
-	return c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(id), nil, nil)
+func (c *AdminClient) DeleteUser(ctx context.Context, realm, id string) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(id), nil, nil))
 }
 
-func (c *AdminClient) ResetPassword(ctx context.Context, realm, id string, pw PasswordReset) (int, []byte, error) {
-	return c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(id)+"/reset-password", pw, nil)
+func (c *AdminClient) ResetPassword(ctx context.Context, realm, id string, pw PasswordReset) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(id)+"/reset-password", pw, nil))
 }
 
 func (c *AdminClient) ListRoles(ctx context.Context, realm string) ([]Role, error) {
@@ -241,8 +243,8 @@ func (c *AdminClient) ListRoles(ctx context.Context, realm string) ([]Role, erro
 	return roles, err
 }
 
-func (c *AdminClient) CreateRole(ctx context.Context, realm string, role Role) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/roles", role, nil)
+func (c *AdminClient) CreateRole(ctx context.Context, realm string, role Role) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/roles", role, nil))
 }
 
 func (c *AdminClient) GetUserRoleMappings(ctx context.Context, realm, userID string) (*RoleMappings, error) {
@@ -251,8 +253,8 @@ func (c *AdminClient) GetUserRoleMappings(ctx context.Context, realm, userID str
 	return &m, err
 }
 
-func (c *AdminClient) AddRealmRoleMappings(ctx context.Context, realm, userID string, roles []Role) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(userID)+"/role-mappings/realm", roles, nil)
+func (c *AdminClient) AddRealmRoleMappings(ctx context.Context, realm, userID string, roles []Role) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(userID)+"/role-mappings/realm", roles, nil))
 }
 
 func (c *AdminClient) ListGroups(ctx context.Context, realm string) ([]Group, error) {
@@ -267,8 +269,8 @@ func (c *AdminClient) ListIdentityProviders(ctx context.Context, realm string) (
 	return idps, err
 }
 
-func (c *AdminClient) CreateIdentityProvider(ctx context.Context, realm string, idp IdentityProvider) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/identity-provider/instances", idp, nil)
+func (c *AdminClient) CreateIdentityProvider(ctx context.Context, realm string, ip IdentityProvider) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/identity-provider/instances", ip, nil))
 }
 
 func (c *AdminClient) ListClientScopes(ctx context.Context, realm string) ([]ClientScope, error) {
@@ -304,12 +306,8 @@ func (c *AdminClient) BootstrapRealm(ctx context.Context, name string) error {
 	}
 	if !exists {
 		realm := Realm{Realm: name, DisplayName: "Private Cloud", Enabled: true}
-		code, raw, err := c.CreateRealm(ctx, realm)
-		if err != nil {
-			return err
-		}
-		if code >= 300 {
-			return fmt.Errorf("create realm: %s", string(raw))
+		if err := c.CreateRealm(ctx, realm); err != nil {
+			return wrapStatus("create realm", err)
 		}
 	}
 	if err := c.EnsureHavenConsoleClient(ctx, name); err != nil {
@@ -327,12 +325,17 @@ func (c *AdminClient) BootstrapRealm(ctx context.Context, name string) error {
 		StandardFlowEnabled:       true,
 		DirectAccessGrantsEnabled: false,
 	}
-	code, raw, err := c.CreateClient(ctx, name, cl)
-	if err != nil {
-		return err
-	}
-	if code >= 300 && code != http.StatusConflict {
-		return fmt.Errorf("create client %s: %s", cl.ClientID, string(raw))
+	if err := c.CreateClient(ctx, name, cl); err != nil && !errors.Is(err, idp.ErrConflict) {
+		return wrapStatus("create client "+cl.ClientID, err)
 	}
 	return nil
+}
+
+// wrapStatus keeps the historical "<what>: <backend body>" message for
+// backend rejections and passes transport errors through unchanged.
+func wrapStatus(what string, err error) error {
+	if se := idp.AsStatus(err); se != nil {
+		return fmt.Errorf("%s: %s", what, string(se.Body))
+	}
+	return err
 }

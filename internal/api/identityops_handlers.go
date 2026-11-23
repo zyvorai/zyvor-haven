@@ -197,91 +197,72 @@ func restoreSnapshot(r *http.Request, kc idp.Provider, snap identityops.RealmSna
 	realm := snap.RealmConfig
 	realm.ID = ""
 	realm.Realm = target
-	code, raw, err := kc.CreateRealm(r.Context(), realm)
-	if err != nil {
+	if err := kc.CreateRealm(r.Context(), realm); err != nil {
+		if se := idp.AsStatus(err); se != nil {
+			return out, fmt.Errorf("create realm: %s", string(se.Body))
+		}
 		return out, err
-	}
-	if code >= 300 {
-		return out, fmt.Errorf("create realm: %s", string(raw))
 	}
 
 	usedNative := false
 	if len(snap.PartialExport) > 0 {
-		code, raw, err := kc.PartialImport(r.Context(), target, snap.PartialExport)
-		if err == nil && code < 300 {
+		err := kc.PartialImport(r.Context(), target, snap.PartialExport)
+		if err == nil {
 			usedNative = true
 			out.NativeImport = true
 			out.Roles = len(snap.Roles)
 			out.Groups = len(snap.Groups)
 			out.Clients = len(snap.Clients)
-		} else if err != nil {
-			out.Warnings = append(out.Warnings, "native partial import: "+err.Error())
 		} else {
-			out.Warnings = append(out.Warnings, "native partial import: "+string(raw))
+			out.Warnings = append(out.Warnings, "native partial import: "+warnText(err))
 		}
 	}
 	if !usedNative {
 		for _, role := range snap.Roles {
 			role.ID = ""
-			code, raw, err := kc.CreateRole(r.Context(), target, role)
+			err := kc.CreateRole(r.Context(), target, role)
 			if err != nil {
-				out.Warnings = append(out.Warnings, "role "+role.Name+": "+err.Error())
+				if !errors.Is(err, idp.ErrConflict) {
+					out.Warnings = append(out.Warnings, "role "+role.Name+": "+warnText(err))
+				}
 				continue
 			}
-			if code >= 300 && code != http.StatusConflict {
-				out.Warnings = append(out.Warnings, "role "+role.Name+": "+string(raw))
-				continue
-			}
-			if code < 300 {
-				out.Roles++
-			}
+			out.Roles++
 		}
 		for _, group := range snap.Groups {
 			group.ID = ""
-			code, raw, err := kc.CreateGroup(r.Context(), target, group)
+			err := kc.CreateGroup(r.Context(), target, group)
 			if err != nil {
-				out.Warnings = append(out.Warnings, "group "+group.Name+": "+err.Error())
+				if !errors.Is(err, idp.ErrConflict) {
+					out.Warnings = append(out.Warnings, "group "+group.Name+": "+warnText(err))
+				}
 				continue
 			}
-			if code >= 300 && code != http.StatusConflict {
-				out.Warnings = append(out.Warnings, "group "+group.Name+": "+string(raw))
-				continue
-			}
-			if code < 300 {
-				out.Groups++
-			}
+			out.Groups++
 		}
 	}
-	for _, idp := range snap.IdentityProviders {
-		code, raw, err := kc.CreateIdentityProvider(r.Context(), target, idp)
+	for _, prov := range snap.IdentityProviders {
+		err := kc.CreateIdentityProvider(r.Context(), target, prov)
 		if err != nil {
-			out.Warnings = append(out.Warnings, "provider "+idp.Alias+": "+err.Error())
+			if !errors.Is(err, idp.ErrConflict) {
+				out.Warnings = append(out.Warnings, "provider "+prov.Alias+": "+warnText(err))
+			}
 			continue
 		}
-		if code >= 300 && code != http.StatusConflict {
-			out.Warnings = append(out.Warnings, "provider "+idp.Alias+": "+string(raw))
-			continue
-		}
-		if code < 300 {
-			out.Providers++
-		}
+		out.Providers++
 	}
 	if !usedNative {
 		for _, client := range snap.Clients {
 			client.ID = ""
 			client.Secret = ""
-			code, raw, err := kc.CreateClient(r.Context(), target, client)
+			err := kc.CreateClient(r.Context(), target, client)
 			if err != nil {
-				out.Warnings = append(out.Warnings, "client "+client.ClientID+": "+err.Error())
+				if !errors.Is(err, idp.ErrConflict) {
+					out.Warnings = append(out.Warnings, "client "+client.ClientID+": "+warnText(err))
+				}
 				continue
 			}
-			if code >= 300 && code != http.StatusConflict {
-				out.Warnings = append(out.Warnings, "client "+client.ClientID+": "+string(raw))
-				continue
-			}
-			if code < 300 {
-				out.Clients++
-			}
+			out.Clients++
 		}
 	}
 	for _, user := range snap.Users {
@@ -289,18 +270,14 @@ func restoreSnapshot(r *http.Request, kc idp.Provider, snap identityops.RealmSna
 			continue
 		}
 		user.ID = ""
-		code, raw, err := kc.CreateUser(r.Context(), target, user)
+		err := kc.CreateUser(r.Context(), target, user)
 		if err != nil {
-			out.Warnings = append(out.Warnings, "user "+user.Username+": "+err.Error())
+			if !errors.Is(err, idp.ErrConflict) {
+				out.Warnings = append(out.Warnings, "user "+user.Username+": "+warnText(err))
+			}
 			continue
 		}
-		if code >= 300 && code != http.StatusConflict {
-			out.Warnings = append(out.Warnings, "user "+user.Username+": "+string(raw))
-			continue
-		}
-		if code < 300 {
-			out.Users++
-		}
+		out.Users++
 	}
 	if len(snap.UserAccess) > 0 {
 		restoreUserAccess(r, kc, target, snap.UserAccess, &out)
@@ -345,9 +322,8 @@ func restoreUserAccess(r *http.Request, kc idp.Provider, realm string, access []
 			}
 		}
 		if len(mapped) > 0 {
-			code, raw, err := kc.AddRealmRoleMappings(r.Context(), realm, userID, mapped)
-			if err != nil || code >= 300 {
-				out.Warnings = append(out.Warnings, "role mappings "+grant.Username+": "+string(raw))
+			if err := kc.AddRealmRoleMappings(r.Context(), realm, userID, mapped); err != nil {
+				out.Warnings = append(out.Warnings, "role mappings "+grant.Username+": "+warnText(err))
 			} else {
 				out.AccessBindings += len(mapped)
 			}
@@ -357,9 +333,8 @@ func restoreUserAccess(r *http.Request, kc idp.Provider, realm string, access []
 			if !ok || group.ID == "" {
 				continue
 			}
-			code, raw, err := kc.JoinGroup(r.Context(), realm, userID, group.ID)
-			if err != nil || code >= 300 {
-				out.Warnings = append(out.Warnings, "group mapping "+grant.Username+": "+string(raw))
+			if err := kc.JoinGroup(r.Context(), realm, userID, group.ID); err != nil {
+				out.Warnings = append(out.Warnings, "group mapping "+grant.Username+": "+warnText(err))
 			} else {
 				out.AccessBindings++
 			}
@@ -478,8 +453,8 @@ func (s *Server) ListCredentials(w http.ResponseWriter, r *http.Request) {
 				item.AgeDays = &age
 				item.RotationDue = age >= days
 			}
-			_, code, _ := kc.GetRotatedClientSecret(r.Context(), realm.Realm, cl.ID)
-			item.OverlapAvailable = code == http.StatusOK
+			_, rotErr := kc.GetRotatedClientSecret(r.Context(), realm.Realm, cl.ID)
+			item.OverlapAvailable = rotErr == nil
 			items = append(items, item)
 		}
 	}
@@ -530,8 +505,8 @@ func (s *Server) RotateCredential(w http.ResponseWriter, r *http.Request, realm,
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "Keycloak returned an empty client secret"})
 		return
 	}
-	_, code, _ := kc.GetRotatedClientSecret(r.Context(), realm, id)
-	overlap := code == http.StatusOK
+	_, rotErr := kc.GetRotatedClientSecret(r.Context(), realm, id)
+	overlap := rotErr == nil
 	rec := identityops.RotationRecord{Realm: realm, ClientID: cl.ClientID, ClientUUID: id, LastRotatedAt: time.Now().UTC(), OverlapAvailable: overlap}
 	if err := identityops.DefaultStore().RecordRotation(rec); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "secret rotated but rotation metadata could not be saved: " + err.Error()})
@@ -546,13 +521,8 @@ func (s *Server) RotateCredential(w http.ResponseWriter, r *http.Request, realm,
 }
 
 func (s *Server) RetireRotatedCredential(w http.ResponseWriter, r *http.Request, realm, id string) {
-	code, raw, err := s.kc().InvalidateRotatedClientSecret(r.Context(), realm, id)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
-		return
-	}
-	if code >= 300 && code != http.StatusNotFound {
-		writeJSON(w, code, map[string]any{"error": "Keycloak could not invalidate the rotated secret", "keycloak": redactKeycloakError(raw)})
+	if err := s.kc().InvalidateRotatedClientSecret(r.Context(), realm, id); err != nil && !errors.Is(err, idp.ErrNotFound) {
+		writeRejection(w, err, "Keycloak could not invalidate the rotated secret")
 		return
 	}
 	_ = identityops.DefaultStore().ClearOverlap(realm, id)
@@ -606,13 +576,8 @@ func (s *Server) CreateFederationConnection(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
-	code, raw, err := s.kc().CreateIdentityProvider(r.Context(), req.Realm, idp)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
-		return
-	}
-	if code >= 300 {
-		writeJSON(w, code, map[string]any{"error": "Keycloak rejected the identity provider", "keycloak": redactKeycloakError(raw)})
+	if err := s.kc().CreateIdentityProvider(r.Context(), req.Realm, idp); err != nil {
+		writeRejection(w, err, "Keycloak rejected the identity provider")
 		return
 	}
 	redactIDP(&idp)
@@ -638,13 +603,8 @@ func federationSubroutes(s *Server) http.HandlerFunc {
 }
 
 func (s *Server) DeleteFederationConnection(w http.ResponseWriter, r *http.Request, realm, alias string) {
-	code, raw, err := s.kc().DeleteIdentityProvider(r.Context(), realm, alias)
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
-		return
-	}
-	if code >= 300 && code != http.StatusNotFound {
-		writeJSON(w, code, map[string]any{"error": "Keycloak rejected the delete", "keycloak": redactKeycloakError(raw)})
+	if err := s.kc().DeleteIdentityProvider(r.Context(), realm, alias); err != nil && !errors.Is(err, idp.ErrNotFound) {
+		writeRejection(w, err, "Keycloak rejected the delete")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -697,4 +657,23 @@ func redactIDP(idp *keycloak.IdentityProvider) {
 			}
 		}
 	}
+}
+
+// warnText is the text shown in restore warnings: the backend's body for a
+// rejection, the error text for transport failures.
+func warnText(err error) string {
+	if se := idp.AsStatus(err); se != nil {
+		return string(se.Body)
+	}
+	return err.Error()
+}
+
+// writeRejection relays a backend rejection with its redacted body, or a 502
+// for transport failures.
+func writeRejection(w http.ResponseWriter, err error, msg string) {
+	if se := idp.AsStatus(err); se != nil {
+		writeJSON(w, se.Code, map[string]any{"error": msg, "keycloak": redactKeycloakError(se.Body)})
+		return
+	}
+	writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 }

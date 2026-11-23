@@ -117,17 +117,12 @@ func (s *Server) ChangeKeycloakAdminPassword(w http.ResponseWriter, r *http.Requ
 		writeKCError(w, http.StatusNotFound, "admin user not found in master realm", nil)
 		return
 	}
-	code, raw, err := s.kc().ResetPassword(r.Context(), "master", adminID, keycloak.PasswordReset{
+	if err := s.kc().ResetPassword(r.Context(), "master", adminID, keycloak.PasswordReset{
 		Type:      "password",
 		Value:     body.NewPassword,
 		Temporary: false,
-	})
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	}); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	if err := s.KC.Reconfigure(r.Context(), baseURL, adminUser, body.NewPassword); err != nil {
@@ -148,6 +143,16 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeProviderError relays a backend rejection with its status and body, and
+// reports transport failures as 502.
+func writeProviderError(w http.ResponseWriter, err error, msg string) {
+	if se := idp.AsStatus(err); se != nil {
+		writeKCError(w, se.Code, msg, se.Body)
+		return
+	}
+	writeKCError(w, http.StatusBadGateway, err.Error(), nil)
 }
 
 func writeKCError(w http.ResponseWriter, status int, msg string, raw []byte) {
@@ -254,13 +259,8 @@ func (s *Server) CreateRealm(w http.ResponseWriter, r *http.Request) {
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().CreateRealm(r.Context(), body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().CreateRealm(r.Context(), body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -272,26 +272,16 @@ func (s *Server) UpdateRealm(w http.ResponseWriter, r *http.Request, realm strin
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().UpdateRealm(r.Context(), realm, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().UpdateRealm(r.Context(), realm, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) DeleteRealm(w http.ResponseWriter, r *http.Request, realm string) {
-	code, raw, err := s.kc().DeleteRealm(r.Context(), realm)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().DeleteRealm(r.Context(), realm); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -321,13 +311,8 @@ func (s *Server) CreateClient(w http.ResponseWriter, r *http.Request, realm stri
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().CreateClient(r.Context(), realm, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().CreateClient(r.Context(), realm, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -339,26 +324,16 @@ func (s *Server) UpdateClient(w http.ResponseWriter, r *http.Request, realm, id 
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().UpdateClient(r.Context(), realm, id, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().UpdateClient(r.Context(), realm, id, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) DeleteClient(w http.ResponseWriter, r *http.Request, realm, id string) {
-	code, raw, err := s.kc().DeleteClient(r.Context(), realm, id)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().DeleteClient(r.Context(), realm, id); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -398,13 +373,8 @@ func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request, realm string
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().CreateUser(r.Context(), realm, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().CreateUser(r.Context(), realm, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -416,26 +386,16 @@ func (s *Server) UpdateUser(w http.ResponseWriter, r *http.Request, realm, id st
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().UpdateUser(r.Context(), realm, id, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().UpdateUser(r.Context(), realm, id, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) DeleteUser(w http.ResponseWriter, r *http.Request, realm, id string) {
-	code, raw, err := s.kc().DeleteUser(r.Context(), realm, id)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().DeleteUser(r.Context(), realm, id); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -447,13 +407,8 @@ func (s *Server) ResetPassword(w http.ResponseWriter, r *http.Request, realm, id
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().ResetPassword(r.Context(), realm, id, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().ResetPassword(r.Context(), realm, id, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -474,13 +429,8 @@ func (s *Server) CreateRole(w http.ResponseWriter, r *http.Request, realm string
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().CreateRole(r.Context(), realm, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().CreateRole(r.Context(), realm, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -501,13 +451,8 @@ func (s *Server) AddRealmRoleMappings(w http.ResponseWriter, r *http.Request, re
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().AddRealmRoleMappings(r.Context(), realm, userID, roles)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().AddRealmRoleMappings(r.Context(), realm, userID, roles); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -537,13 +482,8 @@ func (s *Server) CreateIdentityProvider(w http.ResponseWriter, r *http.Request, 
 		writeKCError(w, http.StatusBadRequest, "invalid JSON", nil)
 		return
 	}
-	code, raw, err := s.kc().CreateIdentityProvider(r.Context(), realm, body)
-	if err != nil {
-		writeKCError(w, http.StatusBadGateway, err.Error(), nil)
-		return
-	}
-	if code >= 300 {
-		writeKCError(w, code, "keycloak error", raw)
+	if err := s.kc().CreateIdentityProvider(r.Context(), realm, body); err != nil {
+		writeProviderError(w, err, "keycloak error")
 		return
 	}
 	w.WriteHeader(http.StatusCreated)

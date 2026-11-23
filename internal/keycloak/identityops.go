@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/zyvorai/haven/internal/idp"
 	"net/http"
 	"net/url"
 )
@@ -51,8 +52,8 @@ func (c *AdminClient) ListUserGroups(ctx context.Context, realm, userID string) 
 	return groups, err
 }
 
-func (c *AdminClient) JoinGroup(ctx context.Context, realm, userID, groupID string) (int, []byte, error) {
-	return c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(userID)+"/groups/"+url.PathEscape(groupID), nil, nil)
+func (c *AdminClient) JoinGroup(ctx context.Context, realm, userID, groupID string) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/users/"+url.PathEscape(userID)+"/groups/"+url.PathEscape(groupID), nil, nil))
 }
 
 // PartialExport asks Keycloak for its native client/group/role representation.
@@ -68,12 +69,12 @@ func (c *AdminClient) PartialExport(ctx context.Context, realm string) (json.Raw
 	return json.RawMessage(raw), nil
 }
 
-func (c *AdminClient) PartialImport(ctx context.Context, realm string, payload json.RawMessage) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/partialImport", payload, nil)
+func (c *AdminClient) PartialImport(ctx context.Context, realm string, payload json.RawMessage) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/partialImport", payload, nil))
 }
 
-func (c *AdminClient) CreateGroup(ctx context.Context, realm string, group Group) (int, []byte, error) {
-	return c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/groups", group, nil)
+func (c *AdminClient) CreateGroup(ctx context.Context, realm string, group Group) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPost, "/admin/realms/"+url.PathEscape(realm)+"/groups", group, nil))
 }
 
 func (c *AdminClient) GetIdentityProvider(ctx context.Context, realm, alias string) (*IdentityProvider, error) {
@@ -82,20 +83,23 @@ func (c *AdminClient) GetIdentityProvider(ctx context.Context, realm, alias stri
 	return &idp, err
 }
 
-func (c *AdminClient) UpdateIdentityProvider(ctx context.Context, realm, alias string, idp IdentityProvider) (int, []byte, error) {
-	return c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/identity-provider/instances/"+url.PathEscape(alias), idp, nil)
+func (c *AdminClient) UpdateIdentityProvider(ctx context.Context, realm, alias string, ip IdentityProvider) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodPut, "/admin/realms/"+url.PathEscape(realm)+"/identity-provider/instances/"+url.PathEscape(alias), ip, nil))
 }
 
-func (c *AdminClient) DeleteIdentityProvider(ctx context.Context, realm, alias string) (int, []byte, error) {
-	return c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/identity-provider/instances/"+url.PathEscape(alias), nil, nil)
+func (c *AdminClient) DeleteIdentityProvider(ctx context.Context, realm, alias string) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/identity-provider/instances/"+url.PathEscape(alias), nil, nil))
 }
 
-func (c *AdminClient) GetRotatedClientSecret(ctx context.Context, realm, id string) (*ClientSecret, int, error) {
+func (c *AdminClient) GetRotatedClientSecret(ctx context.Context, realm, id string) (*ClientSecret, error) {
 	var sec ClientSecret
-	code, _, err := c.do(ctx, http.MethodGet, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id)+"/client-secret/rotated", nil, &sec)
-	return &sec, code, err
+	code, body, err := c.do(ctx, http.MethodGet, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id)+"/client-secret/rotated", nil, &sec)
+	if err := idp.CheckStatus(code, body, err); err != nil {
+		return nil, err
+	}
+	return &sec, nil
 }
 
-func (c *AdminClient) InvalidateRotatedClientSecret(ctx context.Context, realm, id string) (int, []byte, error) {
-	return c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id)+"/client-secret/rotated", nil, nil)
+func (c *AdminClient) InvalidateRotatedClientSecret(ctx context.Context, realm, id string) error {
+	return idp.CheckStatus(c.do(ctx, http.MethodDelete, "/admin/realms/"+url.PathEscape(realm)+"/clients/"+url.PathEscape(id)+"/client-secret/rotated", nil, nil))
 }

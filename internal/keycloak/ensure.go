@@ -141,12 +141,8 @@ func (c *AdminClient) EnsureHavenConsoleClient(ctx context.Context, realm string
 			RedirectURIs:              wantURIs,
 			WebOrigins:                []string{"+"},
 		}
-		code, raw, err := c.CreateClient(ctx, realm, cl)
-		if err != nil {
-			return err
-		}
-		if code >= 300 {
-			return fmt.Errorf("create %s: %s", clientID, string(raw))
+		if err := c.CreateClient(ctx, realm, cl); err != nil {
+			return wrapStatus("create "+clientID, err)
 		}
 		return nil
 	}
@@ -200,16 +196,12 @@ func (c *AdminClient) EnsureUserPassword(ctx context.Context, realm, username, p
 		}
 	}
 	if id == "" {
-		code, raw, err := c.CreateUser(ctx, realm, User{
+		if err := c.CreateUser(ctx, realm, User{
 			Username:      username,
 			Enabled:       true,
 			EmailVerified: true,
-		})
-		if err != nil {
-			return err
-		}
-		if code >= 300 {
-			return fmt.Errorf("create user: %s", string(raw))
+		}); err != nil {
+			return wrapStatus("create user", err)
 		}
 		users, err = c.ListUsers(ctx, realm, username)
 		if err != nil {
@@ -225,16 +217,9 @@ func (c *AdminClient) EnsureUserPassword(ctx context.Context, realm, username, p
 			return fmt.Errorf("user %q created but not found", username)
 		}
 	}
-	code, raw, err := c.ResetPassword(ctx, realm, id, PasswordReset{
+	return wrapStatus("reset password", c.ResetPassword(ctx, realm, id, PasswordReset{
 		Type:      "password",
 		Value:     password,
 		Temporary: false,
-	})
-	if err != nil {
-		return err
-	}
-	if code >= 300 {
-		return fmt.Errorf("reset password: %s", string(raw))
-	}
-	return nil
+	}))
 }
