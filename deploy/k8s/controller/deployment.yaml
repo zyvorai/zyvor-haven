@@ -29,8 +29,25 @@ rules:
     resources: [certificates]
     verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [""]
-    resources: [namespaces, secrets]
+    resources: [namespaces]
     verbs: [get, list, watch, create, update, patch]
+  # Secrets are generated once and never removed by the controller: no delete.
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch, create, update, patch]
+  # haven-idp workload objects (<plane>-idp), see internal/render/IDP_CONTRACT.md.
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [services, serviceaccounts]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

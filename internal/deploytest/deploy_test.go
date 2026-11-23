@@ -12,9 +12,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
+	havenv1 "github.com/zyvorai/haven/api/v1alpha1"
+	"github.com/zyvorai/haven/internal/render"
 	"sigs.k8s.io/yaml"
 )
 
@@ -577,5 +580,239 @@ func TestRBACSecretsNeverDelete(t *testing.T) {
 				t.Error("controller must not be able to delete secrets")
 			}
 		}
+	}
+}
+
+// needed is what the native controller actually does to the API server. Both the
+// Helm chart and the plain manifest must grant it: a controller installed from
+// either path has to be able to create the haven-idp workload it owns.
+var needed = []struct {
+	group, resource string
+	verbs           []string
+}{
+	{"apps", "deployments", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+	{"", "services", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+	{"", "serviceaccounts", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+	{"policy", "poddisruptionbudgets", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+	{"", "secrets", []string{"get", "list", "watch", "create", "patch"}},
+	{"", "pods", []string{"get", "list"}},
+	{"", "namespaces", []string{"get", "patch"}},
+	{"postgresql.cnpg.io", "clusters", []string{"get", "list", "watch", "create", "update", "patch"}},
+	{"cert-manager.io", "certificates", []string{"get", "list", "watch", "create", "update", "patch"}},
+	{"identity.haven.dev", "identityplanes", []string{"get", "list", "watch", "update", "patch"}},
+	{"identity.haven.dev", "identityplanes/status", []string{"get", "update", "patch"}},
+}
+
+// granted reports whether the rules allow verb on group/resource.
+func granted(rules []any, group, resource, verb string) bool {
+	has := func(v any, want string) bool {
+		for _, x := range list(v) {
+			if s := str(x); s == want || s == "*" {
+				return true
+			}
+		}
+		return false
+	}
+	for _, r := range rules {
+		rule := m(r)
+		if has(rule["apiGroups"], group) && has(rule["resources"], resource) && has(rule["verbs"], verb) {
+			return true
+		}
+	}
+	return false
+}
+
+func clusterRoleRules(objs []obj, name string) []any {
+	var rules []any
+	for _, o := range objs {
+		if o.kind() == "ClusterRole" && o.name() == name {
+			rules = append(rules, list(o["rules"])...)
+		}
+	}
+	return rules
+}
+
+func TestControllerRBACCoversNativeEngine(t *testing.T) {
+	chart := clusterRoleRules(run(t, "helm", "template", "haven", "charts/haven"), "haven-controller")
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "deploy", "k8s", "controller", "deployment.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := clusterRoleRules(parse(t, raw), "haven-controller")
+	for label, rules := range map[string][]any{"helm chart": chart, "plain manifest": plain} {
+		if len(rules) == 0 {
+			t.Fatalf("%s: no haven-controller ClusterRole rules found", label)
+		}
+		for _, n := range needed {
+			for _, verb := range n.verbs {
+				if !granted(rules, n.group, n.resource, verb) {
+					t.Errorf("%s: controller lacks %q on %s/%s", label, verb, n.group, n.resource)
+				}
+			}
+		}
+		if granted(rules, "", "secrets", "delete") {
+			t.Errorf("%s: controller must not be able to delete secrets", label)
+		}
+	}
+}
+
+// The sample planes use the new spec.engine / spec.idp fields: they must decode
+// strictly into the Go API type and be declared by the CRD schema, so the two
+// agents' halves (API + CRD vs samples) cannot drift.
+func TestSamplesMatchAPIAndCRD(t *testing.T) {
+	root := repoRoot(t)
+	crdRaw, err := os.ReadFile(filepath.Join(root, "config", "crd", "haven.identity_identityplanes.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var specProps map[string]any
+	for _, o := range parse(t, crdRaw) {
+		if o.kind() != "CustomResourceDefinition" || !strings.HasPrefix(o.name(), "identityplanes.") {
+			continue
+		}
+		for _, v := range list(m(o["spec"])["versions"]) {
+			schema := m(m(m(v)["schema"])["openAPIV3Schema"])
+			specProps = m(m(m(schema["properties"])["spec"])["properties"])
+		}
+	}
+	if specProps == nil {
+		t.Fatal("CRD has no spec schema")
+	}
+	engine := m(specProps["engine"])
+	if fmt.Sprint(engine["enum"]) != "[native keycloak]" {
+		t.Errorf("CRD engine enum = %v, want [native keycloak]", engine["enum"])
+	}
+	idp := m(specProps["idp"])
+	if str(idp["type"]) != "object" {
+		t.Error("CRD does not declare spec.idp")
+	}
+	if fmt.Sprint(m(m(idp["properties"])["replicas"])["minimum"]) != "1" {
+		t.Error("CRD spec.idp.replicas must have minimum 1")
+	}
+	for _, f := range []string{"identityplane-dev.yaml", "identityplane-prod.yaml"} {
+		raw, err := os.ReadFile(filepath.Join(root, "config", "samples", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The samples are multi-document: pick the IdentityPlane.
+		var planeDoc []byte
+		for _, o := range parse(t, raw) {
+			if o.kind() == "IdentityPlane" {
+				if planeDoc, err = yaml.Marshal(o); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		if planeDoc == nil {
+			t.Errorf("%s has no IdentityPlane document", f)
+			continue
+		}
+		var plane havenv1.IdentityPlane
+		if err := yaml.UnmarshalStrict(planeDoc, &plane); err != nil {
+			t.Errorf("%s does not decode strictly into the API type: %v", f, err)
+			continue
+		}
+		if plane.Spec.Engine != "native" {
+			t.Errorf("%s: engine = %q, want native", f, plane.Spec.Engine)
+		}
+	}
+}
+
+// The controller (Go renderer) and the kustomize overlay are written from the same
+// contract but by separate code. Their pods must agree on everything a consumer
+// depends on, or a plane behaves differently depending on how it was installed.
+func TestControllerAndOverlayAgree(t *testing.T) {
+	plane := &havenv1.IdentityPlane{}
+	plane.Name, plane.Namespace = "platform", "identity"
+	plane.Spec.Hostname = "auth.example.com"
+	plane.Spec.ConsoleHostname = "haven.example.com"
+	plane.Spec.Bootstrap.FirstRealm = "platform"
+	dep := render.IdPDeployment(plane, "ghcr.io/zyvorai/haven-idp:test", 3)
+	if len(dep.Spec.Template.Spec.Containers) == 0 {
+		t.Fatal("controller Deployment has no containers")
+	}
+	ctl := dep.Spec.Template.Spec.Containers[0]
+
+	var ov map[string]any
+	for _, o := range run(t, "kubectl", "kustomize", "deploy/overlays/prod") {
+		if o.kind() == "Deployment" && o.name() == render.IdPName("platform") {
+			ov = m(m(m(m(o["spec"])["template"])["spec"])["containers"].([]any)[0])
+		}
+	}
+	if ov == nil {
+		t.Fatalf("prod overlay has no Deployment %s", render.IdPName("platform"))
+	}
+
+	if ctl.Name != str(ov["name"]) {
+		t.Errorf("container name: controller %q, overlay %q", ctl.Name, str(ov["name"]))
+	}
+	if fmt.Sprint(ctl.Args) != fmt.Sprint(list(ov["args"])) {
+		t.Errorf("args: controller %v, overlay %v", ctl.Args, list(ov["args"]))
+	}
+
+	// Env: same names, and identical secret references for secret-backed ones.
+	type ref struct{ name, key string }
+	ctlEnv, ovEnv := map[string]ref{}, map[string]ref{}
+	for _, e := range ctl.Env {
+		r := ref{}
+		if e.ValueFrom != nil && e.ValueFrom.SecretKeyRef != nil {
+			r = ref{e.ValueFrom.SecretKeyRef.Name, e.ValueFrom.SecretKeyRef.Key}
+		}
+		ctlEnv[e.Name] = r
+	}
+	for _, e := range list(ov["env"]) {
+		em := m(e)
+		r := ref{}
+		if sk := m(m(em["valueFrom"])["secretKeyRef"]); len(sk) > 0 {
+			r = ref{str(sk["name"]), str(sk["key"])}
+		}
+		ovEnv[str(em["name"])] = r
+	}
+	for n, r := range ctlEnv {
+		o, ok := ovEnv[n]
+		switch {
+		case !ok:
+			t.Errorf("env %s is set by the controller but not by the overlay", n)
+		case r != o:
+			t.Errorf("env %s secret ref: controller %v, overlay %v", n, r, o)
+		}
+	}
+	for n := range ovEnv {
+		if _, ok := ctlEnv[n]; !ok {
+			t.Errorf("env %s is set by the overlay but not by the controller", n)
+		}
+	}
+
+	// Ports and probes.
+	ports := func(vals []any) string {
+		var out []string
+		for _, p := range vals {
+			pm := m(p)
+			out = append(out, fmt.Sprintf("%s:%v", str(pm["name"]), pm["containerPort"]))
+		}
+		sort.Strings(out)
+		return strings.Join(out, ",")
+	}
+	var cp []any
+	for _, p := range ctl.Ports {
+		cp = append(cp, map[string]any{"name": p.Name, "containerPort": float64(p.ContainerPort)})
+	}
+	if ports(cp) != ports(list(ov["ports"])) {
+		t.Errorf("ports: controller %s, overlay %s", ports(cp), ports(list(ov["ports"])))
+	}
+	if ctl.LivenessProbe == nil || ctl.LivenessProbe.HTTPGet.Path != str(m(m(ov["livenessProbe"])["httpGet"])["path"]) {
+		t.Errorf("liveness path differs: overlay %q", str(m(m(ov["livenessProbe"])["httpGet"])["path"]))
+	}
+	if ctl.ReadinessProbe == nil || ctl.ReadinessProbe.HTTPGet.Path != str(m(m(ov["readinessProbe"])["httpGet"])["path"]) {
+		t.Errorf("readiness path differs: overlay %q", str(m(m(ov["readinessProbe"])["httpGet"])["path"]))
+	}
+
+	// Security context: the hardening both paths promise.
+	sc := m(ov["securityContext"])
+	if ctl.SecurityContext == nil || ctl.SecurityContext.ReadOnlyRootFilesystem == nil || !*ctl.SecurityContext.ReadOnlyRootFilesystem || sc["readOnlyRootFilesystem"] != true {
+		t.Error("readOnlyRootFilesystem must be true in both")
+	}
+	if ctl.SecurityContext == nil || ctl.SecurityContext.AllowPrivilegeEscalation == nil || *ctl.SecurityContext.AllowPrivilegeEscalation || sc["allowPrivilegeEscalation"] != false {
+		t.Error("allowPrivilegeEscalation must be false in both")
 	}
 }

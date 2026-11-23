@@ -35,6 +35,11 @@ rules:
   - apiGroups: [""]
     resources: [services, serviceaccounts]
     verbs: [get, list, watch, create, update, patch, delete]
+  # Read-only, uncached: why a pod is not starting (ImagePullBackOff, ...) for the
+  # IdentityProviderReady condition. Without it the controller falls back to Deployment conditions.
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
   # Secrets are generated once and never overwritten or removed by the controller:
   # create/get/update/patch only, deliberately NO delete (deleting would rotate credentials).
   - apiGroups: [""]
