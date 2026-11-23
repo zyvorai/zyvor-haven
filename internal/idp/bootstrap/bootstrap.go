@@ -14,6 +14,7 @@ import (
 
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/oidc"
 )
 
 // Options describes what to seed. Empty Realm disables bootstrapping.
@@ -24,7 +25,14 @@ type Options struct {
 	ConsoleClient string // client_id, default "haven-console"
 	RedirectURIs  []string
 	Origins       []string
+	// AdminClientSecret, when set with Realm, provisions the confidential
+	// service-account client "haven-admin" used by the Admin API. Rotating
+	// the value rotates the credential on the next start. Never logged.
+	AdminClientSecret string
 }
+
+// AdminClientID is the client_id of the Admin API service account.
+const AdminClientID = "haven-admin"
 
 // Result reports what was created so callers can log it (without secrets).
 type Result struct {
@@ -97,5 +105,38 @@ func Run(ctx context.Context, st core.Store, h core.PasswordHasher, signer core.
 			return res, fmt.Errorf("create console client: %w", err)
 		}
 	}
+	if o.AdminClientSecret != "" {
+		if err := ensureAdminClient(ctx, st, o); err != nil {
+			return res, err
+		}
+	}
 	return res, nil
+}
+
+// ensureAdminClient creates the haven-admin service-account client, or
+// updates only its secret hash when the configured secret changed.
+func ensureAdminClient(ctx context.Context, st core.Store, o Options) error {
+	hash := oidc.HashSecret(o.AdminClientSecret)
+	err := st.CreateClient(ctx, core.Client{
+		Realm: o.Realm, ClientID: AdminClientID, Name: "Haven admin API", Enabled: true,
+		Public: false, ServiceAccount: true, AuthCodeFlow: false, SecretHash: hash,
+	})
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, idp.ErrConflict) {
+		return fmt.Errorf("create admin client: %w", err)
+	}
+	cur, err := st.GetClientByClientID(ctx, o.Realm, AdminClientID)
+	if err != nil {
+		return fmt.Errorf("load admin client: %w", err)
+	}
+	if cur.SecretHash == hash {
+		return nil
+	}
+	cur.SecretHash = hash
+	if err := st.UpdateClient(ctx, cur); err != nil {
+		return fmt.Errorf("rotate admin client secret: %w", err)
+	}
+	return nil
 }

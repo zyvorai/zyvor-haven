@@ -15,6 +15,10 @@
 //	HAVEN_IDP_BOOTSTRAP_USER     admin username in that realm
 //	HAVEN_IDP_BOOTSTRAP_PASSWORD admin password (or ..._PASSWORD_FILE)
 //	HAVEN_IDP_CONSOLE_REDIRECTS  comma-separated redirect URIs for the haven-console client
+//	HAVEN_IDP_ADMIN_REALM        realm whose tokens may call /admin/v1 (default: the bootstrap realm;
+//	                             the Admin API is not mounted when both are empty)
+//	HAVEN_IDP_ADMIN_CLIENT_SECRET secret of the "haven-admin" service-account client (or ..._SECRET_FILE);
+//	                             created in the bootstrap realm, rotated on restart when changed
 package main
 
 import (
@@ -28,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zyvorai/haven/internal/idp/admin"
 	"github.com/zyvorai/haven/internal/idp/bootstrap"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/keys"
@@ -80,11 +85,20 @@ func run(log *slog.Logger) error {
 		}
 		adminPW = strings.TrimSpace(string(b))
 	}
+	adminSecret := os.Getenv("HAVEN_IDP_ADMIN_CLIENT_SECRET")
+	if f := os.Getenv("HAVEN_IDP_ADMIN_CLIENT_SECRET_FILE"); f != "" && adminSecret == "" {
+		b, err := os.ReadFile(f) // #nosec G304 -- operator-provided secret path
+		if err != nil {
+			return errors.New("read admin client secret file: " + err.Error())
+		}
+		adminSecret = strings.TrimSpace(string(b))
+	}
 	res, err := bootstrap.Run(ctx, st, hasher, signer, bootstrap.Options{
-		Realm:         os.Getenv("HAVEN_IDP_BOOTSTRAP_REALM"),
-		AdminUser:     os.Getenv("HAVEN_IDP_BOOTSTRAP_USER"),
-		AdminPassword: adminPW,
-		RedirectURIs:  splitList(os.Getenv("HAVEN_IDP_CONSOLE_REDIRECTS")),
+		Realm:             os.Getenv("HAVEN_IDP_BOOTSTRAP_REALM"),
+		AdminUser:         os.Getenv("HAVEN_IDP_BOOTSTRAP_USER"),
+		AdminPassword:     adminPW,
+		RedirectURIs:      splitList(os.Getenv("HAVEN_IDP_CONSOLE_REDIRECTS")),
+		AdminClientSecret: adminSecret,
 	})
 	if err != nil {
 		return errors.New("bootstrap: " + err.Error())
@@ -101,6 +115,19 @@ func run(log *slog.Logger) error {
 
 	mux := http.NewServeMux()
 	mux.Handle("/realms/", provider)
+	adminRealm := os.Getenv("HAVEN_IDP_ADMIN_REALM")
+	if adminRealm == "" {
+		adminRealm = os.Getenv("HAVEN_IDP_BOOTSTRAP_REALM")
+	}
+	if adminRealm == "" {
+		log.Warn("HAVEN_IDP_ADMIN_REALM and HAVEN_IDP_BOOTSTRAP_REALM are empty: the Admin API (/admin/v1) is NOT mounted")
+	} else {
+		mux.Handle("/admin/v1/", admin.New(admin.Config{
+			Store: st, Signer: signer, Hasher: hasher, BaseURL: base,
+			AdminRealm: adminRealm, Logger: log,
+		}))
+		log.Info("admin API mounted", "path", "/admin/v1", "realm", adminRealm)
+	}
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		c, cancel := context.WithTimeout(r.Context(), 2*time.Second)
