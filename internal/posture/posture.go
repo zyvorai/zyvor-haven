@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zyvorai/haven/internal/keycloak"
+	"github.com/zyvorai/haven/internal/idmodel"
 )
 
 type Severity string
@@ -102,13 +102,13 @@ var rules = map[string]rule{
 	"HAVEN013": {"HAVEN013", SeverityLow, "Disabled client remains configured", "Remove stale clients or document why they are intentionally retained."},
 }
 
-func Evaluate(realms []keycloak.Realm, clients map[string][]keycloak.Client, opts Options) Report {
-	sortedRealms := append([]keycloak.Realm(nil), realms...)
-	sort.Slice(sortedRealms, func(i, j int) bool { return sortedRealms[i].Realm < sortedRealms[j].Realm })
+func Evaluate(realms []idmodel.Realm, clients map[string][]idmodel.Client, opts Options) Report {
+	sortedRealms := append([]idmodel.Realm(nil), realms...)
+	sort.Slice(sortedRealms, func(i, j int) bool { return sortedRealms[i].Name < sortedRealms[j].Name })
 
 	report := Report{Baseline: strings.TrimSpace(opts.Baseline)}
 	for _, realm := range sortedRealms {
-		rr := evaluateRealm(realm, clients[realm.Realm])
+		rr := evaluateRealm(realm, clients[realm.Name])
 		report.Realms = append(report.Realms, rr)
 		report.Findings = append(report.Findings, rr.Findings...)
 		report.ClientCount += rr.ClientCount
@@ -124,16 +124,16 @@ func Evaluate(realms []keycloak.Realm, clients map[string][]keycloak.Client, opt
 	return report
 }
 
-func evaluateRealm(realm keycloak.Realm, clients []keycloak.Client) RealmReport {
-	sortedClients := append([]keycloak.Client(nil), clients...)
+func evaluateRealm(realm idmodel.Realm, clients []idmodel.Client) RealmReport {
+	sortedClients := append([]idmodel.Client(nil), clients...)
 	sort.Slice(sortedClients, func(i, j int) bool { return sortedClients[i].ClientID < sortedClients[j].ClientID })
 
-	rr := RealmReport{Realm: realm.Realm}
-	if realm.RegistrationAllowed && !realm.VerifyEmail {
-		rr.Findings = append(rr.Findings, finding("HAVEN011", realm.Realm, "", "registrationAllowed=true, verifyEmail=false"))
+	rr := RealmReport{Realm: realm.Name}
+	if realm.SelfRegistration && !realm.EmailVerificationRequired {
+		rr.Findings = append(rr.Findings, finding("HAVEN011", realm.Name, "", "registrationAllowed=true, verifyEmail=false"))
 	}
-	if realm.Enabled && !realm.BruteForceProtected && realm.Realm != "master" {
-		rr.Findings = append(rr.Findings, finding("HAVEN012", realm.Realm, "", "bruteForceProtected=false"))
+	if realm.Enabled && !realm.BruteForceProtection && realm.Name != "master" {
+		rr.Findings = append(rr.Findings, finding("HAVEN012", realm.Name, "", "bruteForceProtected=false"))
 	}
 
 	hasPublicClient := false
@@ -141,11 +141,11 @@ func evaluateRealm(realm keycloak.Realm, clients []keycloak.Client) RealmReport 
 		if isBuiltInClient(client.ClientID) {
 			continue
 		}
-		if client.Enabled && client.PublicClient {
+		if client.Enabled && client.Public {
 			hasPublicClient = true
 		}
 		rr.ClientCount++
-		rr.Findings = append(rr.Findings, evaluateClient(realm.Realm, client)...)
+		rr.Findings = append(rr.Findings, evaluateClient(realm.Name, client)...)
 	}
 	rr.Findings = append(rr.Findings, evaluateHardening(realm, hasPublicClient)...)
 	for _, f := range rr.Findings {
@@ -156,7 +156,7 @@ func evaluateRealm(realm keycloak.Realm, clients []keycloak.Client) RealmReport 
 	return rr
 }
 
-func evaluateClient(realm string, c keycloak.Client) []Finding {
+func evaluateClient(realm string, c idmodel.Client) []Finding {
 	var out []Finding
 	if !c.Enabled {
 		out = append(out, finding("HAVEN013", realm, c.ClientID, "enabled=false"))
@@ -177,30 +177,30 @@ func evaluateClient(realm string, c keycloak.Client) []Finding {
 			out = append(out, finding("HAVEN002", realm, c.ClientID, u))
 		}
 	}
-	for _, origin := range c.WebOrigins {
+	for _, origin := range c.Origins {
 		if strings.TrimSpace(origin) == "*" || strings.Contains(origin, "*") {
 			out = append(out, finding("HAVEN003", realm, c.ClientID, origin))
 		}
 	}
-	if c.PublicClient && c.DirectAccessGrantsEnabled {
+	if c.Public && c.PasswordFlow {
 		out = append(out, finding("HAVEN004", realm, c.ClientID, "publicClient=true, directAccessGrantsEnabled=true"))
 	}
-	if c.PublicClient && c.StandardFlowEnabled && !hasPKCES256(c) {
+	if c.Public && c.AuthCodeFlow && !hasPKCES256(c) {
 		out = append(out, finding("HAVEN005", realm, c.ClientID, "pkce.code.challenge.method is not S256"))
 	}
-	if c.ImplicitFlowEnabled {
+	if c.ImplicitFlow {
 		out = append(out, finding("HAVEN006", realm, c.ClientID, "implicitFlowEnabled=true"))
 	}
-	if c.PublicClient && c.ServiceAccountsEnabled {
+	if c.Public && c.ServiceAccount {
 		out = append(out, finding("HAVEN007", realm, c.ClientID, "publicClient=true, serviceAccountsEnabled=true"))
 	}
-	if !c.PublicClient && !c.BearerOnly && c.DirectAccessGrantsEnabled {
+	if !c.Public && !c.BearerOnly && c.PasswordFlow {
 		out = append(out, finding("HAVEN008", realm, c.ClientID, "directAccessGrantsEnabled=true"))
 	}
-	if c.BearerOnly && (c.StandardFlowEnabled || c.ImplicitFlowEnabled || c.DirectAccessGrantsEnabled) {
+	if c.BearerOnly && (c.AuthCodeFlow || c.ImplicitFlow || c.PasswordFlow) {
 		out = append(out, finding("HAVEN009", realm, c.ClientID, "bearerOnly=true with an interactive grant enabled"))
 	}
-	if c.StandardFlowEnabled && len(c.RedirectURIs) == 0 {
+	if c.AuthCodeFlow && len(c.RedirectURIs) == 0 {
 		out = append(out, finding("HAVEN010", realm, c.ClientID, "standardFlowEnabled=true, redirectUris=[]"))
 	}
 	return out
@@ -245,13 +245,8 @@ func isInsecureRedirect(raw string) bool {
 	return ip == nil || !ip.IsLoopback()
 }
 
-func hasPKCES256(c keycloak.Client) bool {
-	for _, key := range []string{"pkce.code.challenge.method", "pkceCodeChallengeMethod"} {
-		if strings.EqualFold(strings.TrimSpace(c.Attributes[key]), "S256") {
-			return true
-		}
-	}
-	return false
+func hasPKCES256(c idmodel.Client) bool {
+	return strings.EqualFold(strings.TrimSpace(c.PKCEMethod), "S256")
 }
 
 func isBuiltInClient(id string) bool {
@@ -336,37 +331,37 @@ type fingerprintRealmModel struct {
 	Clients             []fingerprintClient `json:"clients"`
 }
 
-func fingerprintRealm(realm keycloak.Realm, clients []keycloak.Client) string {
+func fingerprintRealm(realm idmodel.Realm, clients []idmodel.Client) string {
 	model := fingerprintRealmModel{
-		Realm:               realm.Realm,
+		Realm:               realm.Name,
 		Enabled:             realm.Enabled,
-		RegistrationAllowed: realm.RegistrationAllowed,
-		VerifyEmail:         realm.VerifyEmail,
-		BruteForceProtected: realm.BruteForceProtected,
+		RegistrationAllowed: realm.SelfRegistration,
+		VerifyEmail:         realm.EmailVerificationRequired,
+		BruteForceProtected: realm.BruteForceProtection,
 	}
 	for _, c := range clients {
 		if isBuiltInClient(c.ClientID) {
 			continue
 		}
 		redirects := append([]string(nil), c.RedirectURIs...)
-		origins := append([]string(nil), c.WebOrigins...)
+		origins := append([]string(nil), c.Origins...)
 		sort.Strings(redirects)
 		sort.Strings(origins)
 		attrs := map[string]string{}
-		for _, k := range []string{"pkce.code.challenge.method", "pkceCodeChallengeMethod"} {
-			if v, ok := c.Attributes[k]; ok {
+		for _, k := range idmodel.PKCEAttrKeys() {
+			if v, ok := c.Attrs[k]; ok {
 				attrs[k] = v
 			}
 		}
 		model.Clients = append(model.Clients, fingerprintClient{
 			ClientID:                  c.ClientID,
 			Enabled:                   c.Enabled,
-			PublicClient:              c.PublicClient,
+			PublicClient:              c.Public,
 			BearerOnly:                c.BearerOnly,
-			StandardFlowEnabled:       c.StandardFlowEnabled,
-			ImplicitFlowEnabled:       c.ImplicitFlowEnabled,
-			DirectAccessGrantsEnabled: c.DirectAccessGrantsEnabled,
-			ServiceAccountsEnabled:    c.ServiceAccountsEnabled,
+			StandardFlowEnabled:       c.AuthCodeFlow,
+			ImplicitFlowEnabled:       c.ImplicitFlow,
+			DirectAccessGrantsEnabled: c.PasswordFlow,
+			ServiceAccountsEnabled:    c.ServiceAccount,
 			RedirectURIs:              redirects,
 			WebOrigins:                origins,
 			Attributes:                attrs,
@@ -399,14 +394,14 @@ func hashJSON(v any) string {
 
 // evaluateHardening applies the realm-level rules that depend on optional
 // settings. Settings the source did not report produce no finding.
-func evaluateHardening(realm keycloak.Realm, hasPublicClient bool) []Finding {
-	h := realm.RealmHardening
+func evaluateHardening(realm idmodel.Realm, hasPublicClient bool) []Finding {
+	h := realm.Hardening
 	if h == nil || !realm.Enabled {
 		return nil
 	}
 	var out []Finding
-	name := realm.Realm
-	if h.SSLRequired != nil && strings.EqualFold(strings.TrimSpace(*h.SSLRequired), "none") {
+	name := realm.Name
+	if h.TransportSecurity != nil && strings.EqualFold(strings.TrimSpace(*h.TransportSecurity), "none") {
 		out = append(out, finding("HAVEN014", name, "", "sslRequired=none"))
 	}
 	if h.PasswordPolicy != nil {
@@ -417,19 +412,19 @@ func evaluateHardening(realm keycloak.Realm, hasPublicClient bool) []Finding {
 			out = append(out, finding("HAVEN016", name, "", fmt.Sprintf("minimum length %d", n)))
 		}
 	}
-	if h.AccessTokenLifespan != nil && *h.AccessTokenLifespan > 3600 {
-		out = append(out, finding("HAVEN017", name, "", fmt.Sprintf("accessTokenLifespan=%ds", *h.AccessTokenLifespan)))
+	if h.AccessTokenTTLSeconds != nil && *h.AccessTokenTTLSeconds > 3600 {
+		out = append(out, finding("HAVEN017", name, "", fmt.Sprintf("accessTokenLifespan=%ds", *h.AccessTokenTTLSeconds)))
 	}
-	if h.SSOSessionIdleTimeout != nil && *h.SSOSessionIdleTimeout > 86400 {
-		out = append(out, finding("HAVEN018", name, "", fmt.Sprintf("ssoSessionIdleTimeout=%ds", *h.SSOSessionIdleTimeout)))
+	if h.SessionIdleTTLSeconds != nil && *h.SessionIdleTTLSeconds > 86400 {
+		out = append(out, finding("HAVEN018", name, "", fmt.Sprintf("ssoSessionIdleTimeout=%ds", *h.SessionIdleTTLSeconds)))
 	}
-	if h.EventsEnabled != nil && !*h.EventsEnabled {
+	if h.AuthEventsLogged != nil && !*h.AuthEventsLogged {
 		out = append(out, finding("HAVEN019", name, "", "eventsEnabled=false"))
 	}
-	if h.AdminEventsEnabled != nil && !*h.AdminEventsEnabled {
+	if h.AdminEventsLogged != nil && !*h.AdminEventsLogged {
 		out = append(out, finding("HAVEN020", name, "", "adminEventsEnabled=false"))
 	}
-	if h.RevokeRefreshToken != nil && !*h.RevokeRefreshToken && hasPublicClient {
+	if h.RefreshTokenRotation != nil && !*h.RefreshTokenRotation && hasPublicClient {
 		out = append(out, finding("HAVEN021", name, "", "revokeRefreshToken=false with an enabled public client"))
 	}
 	return out

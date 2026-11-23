@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/zyvorai/haven/internal/idmodel"
 	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/posture"
 )
@@ -44,7 +45,7 @@ func (s *Server) buildSecurityPosture(w http.ResponseWriter, r *http.Request) (p
 	wanted := strings.TrimSpace(r.URL.Query().Get("realm"))
 	includeMaster := r.URL.Query().Get("includeMaster") == "1" || strings.EqualFold(r.URL.Query().Get("includeMaster"), "true")
 	selected := make([]keycloak.Realm, 0, len(realms))
-	clients := map[string][]keycloak.Client{}
+	clients := map[string][]idmodel.Client{}
 
 	for _, realm := range realms {
 		if wanted != "" && realm.Realm != wanted {
@@ -59,7 +60,7 @@ func (s *Server) buildSecurityPosture(w http.ResponseWriter, r *http.Request) (p
 			return posture.Report{}, false
 		}
 		selected = append(selected, realm)
-		clients[realm.Realm] = items
+		clients[realm.Realm] = idmodel.FromClients(items)
 	}
 
 	if wanted != "" && len(selected) == 0 {
@@ -67,5 +68,5 @@ func (s *Server) buildSecurityPosture(w http.ResponseWriter, r *http.Request) (p
 		return posture.Report{}, false
 	}
 
-	return posture.Evaluate(selected, clients, posture.Options{Baseline: r.URL.Query().Get("baseline")}), true
+	return posture.Evaluate(idmodel.FromRealms(selected), clients, posture.Options{Baseline: r.URL.Query().Get("baseline")}), true
 }

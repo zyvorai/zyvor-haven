@@ -70,7 +70,7 @@ func TestHardeningRules(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			realm := keycloak.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: tc.h}
-			got := ruleIDs(Evaluate([]keycloak.Realm{realm}, map[string][]keycloak.Client{"r": tc.clients}, Options{}))
+			got := ruleIDs(evalKC([]keycloak.Realm{realm}, map[string][]keycloak.Client{"r": tc.clients}, Options{}))
 			for _, id := range tc.want {
 				if !got[id] {
 					t.Errorf("missing %s", id)
@@ -87,7 +87,7 @@ func TestHardeningRules(t *testing.T) {
 
 func TestHardeningIgnoredForDisabledRealm(t *testing.T) {
 	realm := keycloak.Realm{Realm: "r", Enabled: false, RealmHardening: &keycloak.RealmHardening{SSLRequired: sp("none")}}
-	if ids := ruleIDs(Evaluate([]keycloak.Realm{realm}, nil, Options{})); ids["HAVEN014"] {
+	if ids := ruleIDs(evalKC([]keycloak.Realm{realm}, nil, Options{})); ids["HAVEN014"] {
 		t.Fatal("disabled realm should not be evaluated for hardening")
 	}
 }
@@ -96,8 +96,8 @@ func TestHardeningDoesNotChangeFingerprint(t *testing.T) {
 	base := keycloak.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
 	hard := base
 	hard.RealmHardening = &keycloak.RealmHardening{SSLRequired: sp("none"), EventsEnabled: bp(false)}
-	a := Evaluate([]keycloak.Realm{base}, nil, Options{})
-	b := Evaluate([]keycloak.Realm{hard}, nil, Options{})
+	a := evalKC([]keycloak.Realm{base}, nil, Options{})
+	b := evalKC([]keycloak.Realm{hard}, nil, Options{})
 	if a.Fingerprint != b.Fingerprint {
 		t.Fatal("hardening settings must not alter the baseline fingerprint")
 	}
@@ -109,7 +109,7 @@ func TestHardeningDecodesFromRealmJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &r); err != nil {
 		t.Fatal(err)
 	}
-	ids := ruleIDs(Evaluate([]keycloak.Realm{r}, nil, Options{}))
+	ids := ruleIDs(evalKC([]keycloak.Realm{r}, nil, Options{}))
 	for _, id := range []string{"HAVEN014", "HAVEN015", "HAVEN017", "HAVEN019"} {
 		if !ids[id] {
 			t.Errorf("missing %s", id)

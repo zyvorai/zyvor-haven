@@ -6,6 +6,7 @@ package posture
 import (
 	"testing"
 
+	"github.com/zyvorai/haven/internal/idmodel"
 	"github.com/zyvorai/haven/internal/keycloak"
 )
 
@@ -33,7 +34,7 @@ func TestEvaluateDetectsOIDCRisks(t *testing.T) {
 		}},
 	}
 
-	r := Evaluate(realms, clients, Options{})
+	r := evalKC(realms, clients, Options{})
 	if r.Score >= 70 {
 		t.Fatalf("expected poor score, got %d", r.Score)
 	}
@@ -68,7 +69,7 @@ func TestSafePublicClientScoresClean(t *testing.T) {
 			Attributes:          map[string]string{"pkce.code.challenge.method": "S256"},
 		}},
 	}
-	r := Evaluate(realms, clients, Options{})
+	r := evalKC(realms, clients, Options{})
 	if r.Score != 100 || len(r.Findings) != 0 {
 		t.Fatalf("expected clean posture, score=%d findings=%v", r.Score, r.Findings)
 	}
@@ -84,7 +85,7 @@ func TestLoopbackHTTPRedirectAllowed(t *testing.T) {
 		RedirectURIs:        []string{"http://127.0.0.1:18080/callback", "http://localhost:5173/callback"},
 		Attributes:          map[string]string{"pkce.code.challenge.method": "S256"},
 	}
-	findings := evaluateClient("dev", c)
+	findings := evaluateClient("dev", idmodel.FromClient(c))
 	for _, f := range findings {
 		if f.RuleID == "HAVEN002" {
 			t.Fatalf("loopback redirect should not be flagged: %+v", f)
@@ -96,9 +97,9 @@ func TestFingerprintStableAcrossOrdering(t *testing.T) {
 	r := keycloak.Realm{Realm: "prod", Enabled: true, BruteForceProtected: true}
 	one := keycloak.Client{ClientID: "a", Enabled: true, RedirectURIs: []string{"https://x/b", "https://x/a"}}
 	two := keycloak.Client{ClientID: "b", Enabled: true}
-	a := Evaluate([]keycloak.Realm{r}, map[string][]keycloak.Client{"prod": {one, two}}, Options{})
+	a := evalKC([]keycloak.Realm{r}, map[string][]keycloak.Client{"prod": {one, two}}, Options{})
 	one.RedirectURIs = []string{"https://x/a", "https://x/b"}
-	b := Evaluate([]keycloak.Realm{r}, map[string][]keycloak.Client{"prod": {two, one}}, Options{})
+	b := evalKC([]keycloak.Realm{r}, map[string][]keycloak.Client{"prod": {two, one}}, Options{})
 	if a.Fingerprint != b.Fingerprint {
 		t.Fatalf("fingerprint must be order-independent: %s != %s", a.Fingerprint, b.Fingerprint)
 	}
@@ -106,8 +107,8 @@ func TestFingerprintStableAcrossOrdering(t *testing.T) {
 
 func TestBaselineDrift(t *testing.T) {
 	realms := []keycloak.Realm{{Realm: "prod", Enabled: true, BruteForceProtected: true}}
-	base := Evaluate(realms, map[string][]keycloak.Client{"prod": nil}, Options{})
-	changed := Evaluate(realms, map[string][]keycloak.Client{"prod": {{ClientID: "new-client", Enabled: true}}}, Options{Baseline: base.Fingerprint})
+	base := evalKC(realms, map[string][]keycloak.Client{"prod": nil}, Options{})
+	changed := evalKC(realms, map[string][]keycloak.Client{"prod": {{ClientID: "new-client", Enabled: true}}}, Options{Baseline: base.Fingerprint})
 	if !changed.Drifted {
 		t.Fatal("expected drift after client inventory changed")
 	}

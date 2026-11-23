@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/zyvorai/haven/internal/idmodel"
 	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/policy"
 	"github.com/zyvorai/haven/internal/posture"
@@ -52,12 +53,12 @@ func main() {
 		fatal(err)
 	}
 	realms := make([]keycloak.Realm, 0, len(exports))
-	clients := make(map[string][]keycloak.Client, len(exports))
+	clients := make(map[string][]idmodel.Client, len(exports))
 	for _, item := range exports {
 		realms = append(realms, item.Realm)
-		clients[item.Realm.Realm] = item.Clients
+		clients[item.Realm.Realm] = idmodel.FromClients(item.Clients)
 	}
-	report := posture.Evaluate(realms, clients, posture.Options{Baseline: baseline})
+	report := posture.Evaluate(idmodel.FromRealms(realms), clients, posture.Options{Baseline: baseline})
 	if policyPath != "" {
 		extra, err := evaluatePolicy(policyPath, data)
 		if err != nil {
