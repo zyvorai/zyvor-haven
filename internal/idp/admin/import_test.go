@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/zyvorai/haven/internal/idp"
-	"github.com/zyvorai/haven/internal/idp/password"
 )
 
 const importPath = "/realms/" + realm + "/users/import"
@@ -227,9 +226,6 @@ func pbkdf2Hash(t *testing.T, pw string) string {
 }
 
 func TestImportLegacyHashLogin(t *testing.T) {
-	if password.LegacyStub {
-		t.Skip("password.ValidateEncoded/legacy verification is still the lead-owned stub")
-	}
 	e := newEnv(t)
 	e.createID("/realms/"+realm+"/clients", map[string]any{
 		"clientId": "app", "enabled": true, "publicClient": true, "standardFlowEnabled": true,
