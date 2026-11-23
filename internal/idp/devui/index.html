@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haven OIDC playground</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="banner" role="alert">DEV MODE: do not expose this page</div>
+<main>
+  <h1>Haven OIDC playground</h1>
+  <p class="muted">Issuer <code id="issuer">…</code> · client <code id="client">…</code> · redirect URI <code id="redirect">…</code></p>
+
+  <section aria-labelledby="h-signin">
+    <h2 id="h-signin">1. Sign in</h2>
+    <fieldset>
+      <legend>Scopes</legend>
+      <label><input type="checkbox" name="scope" value="openid" checked> openid</label>
+      <label><input type="checkbox" name="scope" value="profile" checked> profile</label>
+      <label><input type="checkbox" name="scope" value="email" checked> email</label>
+      <label><input type="checkbox" name="scope" value="offline_access"> offline_access</label>
+    </fieldset>
+    <div class="row">
+      <button id="btn-signin" type="button">Sign in</button>
+      <button id="btn-userinfo" type="button" disabled>Call userinfo</button>
+      <button id="btn-refresh" type="button" disabled>Refresh</button>
+      <button id="btn-replay" type="button" disabled>Replay old refresh token</button>
+      <button id="btn-signout" type="button" disabled>Sign out</button>
+      <button id="btn-clear" type="button">Clear</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-diag" id="diag-section" hidden>
+    <h2 id="h-diag">Diagnosis</h2>
+    <div id="diag" role="status"></div>
+  </section>
+
+  <section aria-labelledby="h-checks" id="checks-section" hidden>
+    <h2 id="h-checks">2. Checks</h2>
+    <table id="checks"><thead><tr><th scope="col">Result</th><th scope="col">Check</th><th scope="col">Hint</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section aria-labelledby="h-tokens" id="tokens-section" hidden>
+    <h2 id="h-tokens">3. Tokens</h2>
+    <div id="tokens"></div>
+  </section>
+
+  <section aria-labelledby="h-timeline">
+    <h2 id="h-timeline">Timeline</h2>
+    <p id="timeline-empty" class="muted">No HTTP exchanges yet.</p>
+    <ol id="timeline"></ol>
+  </section>
+</main>
+<script src="lib.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

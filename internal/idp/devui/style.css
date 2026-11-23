@@ -1,0 +1,27 @@
+:root{--bg:#fff;--fg:#1b1f24;--muted:#5a6370;--card:#f4f6f8;--line:#d0d7de;--ok:#1a7f37;--bad:#cf222e;--accent:#0969da;--warn:#9a6700}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--card:#161b22;--line:#30363d;--ok:#3fb950;--bad:#f85149;--accent:#58a6ff;--warn:#d29922}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+.banner{background:var(--bad);color:#fff;text-align:center;font-weight:700;padding:.5rem;position:sticky;top:0;z-index:1}
+main{max-width:60rem;margin:0 auto;padding:0 1rem 3rem}
+h1{font-size:1.5rem}h2{font-size:1.15rem;margin-top:2rem}
+code,pre{font-family:ui-monospace,Menlo,monospace;font-size:.85rem}
+code{background:var(--card);padding:.1rem .3rem;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.6rem;overflow:auto;max-height:24rem;white-space:pre-wrap;overflow-wrap:anywhere;margin:.3rem 0}
+.muted{color:var(--muted)}
+fieldset{border:1px solid var(--line);border-radius:6px}
+fieldset label{margin-right:1rem;display:inline-block}
+.row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+button{font:inherit;padding:.45rem .8rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:.4rem;text-align:left;vertical-align:top}
+.pass{color:var(--ok);font-weight:700}.fail{color:var(--bad);font-weight:700}.warn{color:var(--warn);font-weight:700}
+#timeline{list-style:none;padding:0}
+#timeline>li{border:1px solid var(--line);border-radius:6px;padding:.6rem;margin-bottom:.6rem}
+details>summary{cursor:pointer}
+.tok{border:1px solid var(--line);border-radius:6px;padding:.6rem;margin-bottom:.6rem}
+.diag-item{border-left:4px solid var(--warn);background:var(--card);padding:.5rem .75rem;margin:.4rem 0}
+@media (max-width:480px){main{padding:0 .75rem}button{flex:1 1 auto}th,td{font-size:.9rem}}
