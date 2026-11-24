@@ -12,9 +12,6 @@ metadata:
   name: platform
   namespace: identity
 spec:
-  # engine: native is the haven-idp default. Needs the spec.engine CRD field (own-idp branch);
-  # until that CRD is applied, validation rejects this line: comment it out.
-  engine: native
   profile: production
   reclaimPolicy: Orphan
   hostname: auth.cloud.internal
@@ -28,19 +25,6 @@ spec:
       schedule: "0 0 2 * * *"
       retention: 14d
       credentialsSecret: haven-s3
-  keycloak:
-    instances: 3
-    version: "26.8.2"
-    features:
-      - persistent-user-sessions
-      - opentelemetry
-    resources:
-      requests:
-        cpu: "2"
-        memory: 1250Mi
-      limits:
-        cpu: "6"
-        memory: 2250Mi
   expose:
     class: gateway
     gatewayName: private-cloud-gw

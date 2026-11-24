@@ -19,7 +19,6 @@ spec:
                 name: platform-idp
                 port:
                   number: 8081
-                # legacy Keycloak backend: platform-service port 8080
     - host: haven.127.0.0.1.nip.io
       http:
         paths:
