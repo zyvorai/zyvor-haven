@@ -162,6 +162,34 @@ func (s *Service) Send(ctx context.Context, rl core.Realm, u core.User, purpose 
 	return nil
 }
 
+// Notify emails a security notification (for example mail.KindPasswordChanged)
+// to the address on file. It carries no token and is not counted against the
+// action-token rate limit; it is sent once and never retried. via describes
+// how the change happened ("reset link", "an administrator").
+func (s *Service) Notify(ctx context.Context, rl core.Realm, u core.User, kind mail.Kind, via string) error {
+	if !s.Enabled() {
+		return ErrDisabled
+	}
+	email := strings.TrimSpace(u.Email)
+	if email == "" || strings.ContainsAny(email, "\r\n") {
+		return ErrNoEmail
+	}
+	disp := rl.DisplayName
+	if disp == "" {
+		disp = rl.Name
+	}
+	msg, err := mail.Render(kind, mail.TemplateData{Realm: disp, Username: u.Username,
+		When: s.now().UTC().Format("2006-01-02 15:04:05 UTC"), Via: via})
+	if err != nil {
+		return err
+	}
+	msg.To = email
+	if err := s.Mailer.Send(ctx, msg); err != nil {
+		return fmt.Errorf("actions: notify: %w", err)
+	}
+	return nil
+}
+
 // Redeem consumes a token. It returns ErrInvalidToken for every failure that
 // is the link's fault: unknown, already used, expired, wrong realm or
 // purpose, user gone or disabled, or the address changed since it was sent.

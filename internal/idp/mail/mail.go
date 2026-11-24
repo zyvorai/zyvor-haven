@@ -28,6 +28,8 @@ type Kind string
 const (
 	KindVerifyEmail   Kind = "verify_email"
 	KindResetPassword Kind = "reset_password"
+	// KindPasswordChanged is a security notification. It never carries a link.
+	KindPasswordChanged Kind = "password_changed"
 )
 
 // TemplateData is everything a template may use.
@@ -36,4 +38,6 @@ type TemplateData struct {
 	Username string
 	Link     string // the single-use action URL
 	Hours    int    // validity in whole hours (minimum 1)
+	When     string // notifications: UTC timestamp text; optional
+	Via      string // notifications: "reset link" or "an administrator"; optional
 }
