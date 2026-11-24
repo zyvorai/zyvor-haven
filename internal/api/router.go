@@ -41,6 +41,8 @@ func NewRouter(kc idp.Backend, pr *plane.Reader, sessions *auth.Store) http.Hand
 	mux.HandleFunc("GET /api/v1/security/posture/sarif", requireAuth(s, s.SecurityPostureSARIF))
 	mux.HandleFunc("GET /api/v1/time-machine/snapshots", requireAuth(s, s.ListTimeMachineSnapshots))
 	mux.HandleFunc("POST /api/v1/time-machine/snapshots", requireAuth(s, s.CreateTimeMachineSnapshot))
+	mux.HandleFunc("POST /api/v1/time-machine/snapshots/{id}/undo", requireAuth(s, s.UndoTimeMachineSnapshot))
+	mux.HandleFunc("GET /api/v1/time-machine/undos", requireAuth(s, s.ListTimeMachineUndos))
 	mux.Handle("/api/v1/time-machine/snapshots/", requireAuth(s, timeMachineSubroutes(s)))
 	mux.HandleFunc("GET /api/v1/credentials", requireAuth(s, s.ListCredentials))
 	mux.Handle("/api/v1/credentials/", requireAuth(s, credentialSubroutes(s)))
