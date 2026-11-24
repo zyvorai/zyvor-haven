@@ -35,6 +35,7 @@ type Store struct {
 	events  []core.Event
 	rates   map[string]rateWindow
 	dev     deviceState // device flow rows (device.go)
+	dcr     *dcrState   // dynamic client registration (dcr.go), created lazily
 }
 
 type rateWindow struct {
