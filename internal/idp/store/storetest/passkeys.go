@@ -195,24 +195,29 @@ func passkeyKeepLastConcurrent(t *testing.T, s core.Store) {
 
 func passkeyChallenge(t *testing.T, s core.Store) {
 	ps := passkeyStore(t, s)
+	// The challenge table is global (not realm scoped), so use digests that are
+	// unique per run: a previous run may have left rows behind.
+	suffix := time.Now().Format("150405.000000000")
+	d1, d2 := "d1-"+suffix, "d2-"+suffix
 	exp := t0.Add(5 * time.Minute)
-	ok(t, ps.ConsumeChallenge(ctx, "d1", t0, exp))
-	is(t, ps.ConsumeChallenge(ctx, "d1", t0.Add(time.Minute), exp), idp.ErrConflict)
-	ok(t, ps.ConsumeChallenge(ctx, "d2", t0, exp))
+	ok(t, ps.ConsumeChallenge(ctx, d1, t0, exp))
+	is(t, ps.ConsumeChallenge(ctx, d1, t0.Add(time.Minute), exp), idp.ErrConflict)
+	ok(t, ps.ConsumeChallenge(ctx, d2, t0, exp))
 	// After expiry the marker may be purged; the signed token has expired by
 	// then so reuse is impossible, and the digest may be recorded again.
-	ok(t, ps.ConsumeChallenge(ctx, "d1", exp.Add(time.Minute), exp.Add(10*time.Minute)))
+	ok(t, ps.ConsumeChallenge(ctx, d1, exp.Add(time.Minute), exp.Add(10*time.Minute)))
 }
 
 func passkeyChallengeConcurrent(t *testing.T, s core.Store) {
 	ps := passkeyStore(t, s)
+	once := "once-" + time.Now().Format("150405.000000000")
 	var wg sync.WaitGroup
 	var won atomic.Int32
 	for i := 0; i < 16; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if ps.ConsumeChallenge(ctx, "once", t0, t0.Add(time.Hour)) == nil {
+			if ps.ConsumeChallenge(ctx, once, t0, t0.Add(time.Hour)) == nil {
 				won.Add(1)
 			}
 		}()
