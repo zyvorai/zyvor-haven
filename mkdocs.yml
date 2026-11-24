@@ -89,6 +89,7 @@ nav:
       - Email and password reset: email-and-password-reset.md
       - SSO sessions and single logout: sso-and-logout.md
       - Guard as an admission gate: guard-gate.md
+      - Time-boxed access (JIT roles): time-boxed-access.md
       - Password policy: password-policy.md
       - Add an app (wizard and Test login): add-an-app.md
       - Backups: backups.md

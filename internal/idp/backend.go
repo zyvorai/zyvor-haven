@@ -46,6 +46,20 @@ type SessionManager interface {
 	EndUserSessions(ctx context.Context, realm, userID string) (int, error)
 }
 
+// RoleGranter is implemented by providers that support time-boxed (just-in-
+// time) role grants: a role given to a user until an expiry, with a reason.
+// It is optional, like SessionManager, and is not part of Provider. Errors:
+// *StatusError (400 invalid request or policy, 404 unknown realm/user/grant,
+// 409 grant already ended, 429 too many active grants, 501 feature off).
+type RoleGranter interface {
+	CreateRoleGrant(ctx context.Context, realm, userID string, req RoleGrantRequest) (*RoleGrant, error)
+	// ListRoleGrants lists a user's grants; userID "" lists the realm's
+	// active grants. activeOnly=false (user only) includes ended ones.
+	ListRoleGrants(ctx context.Context, realm, userID string, activeOnly bool) ([]RoleGrant, error)
+	// RevokeRoleGrant ends a grant now; endSessions also ends the user's SSO sessions.
+	RevokeRoleGrant(ctx context.Context, realm, userID, grantID string, endSessions bool) error
+}
+
 var (
 	// ErrEmailNotConfigured: the identity backend has no SMTP configured.
 	ErrEmailNotConfigured = errors.New("idp: email is not configured on the identity backend")

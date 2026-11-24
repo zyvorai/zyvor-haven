@@ -153,3 +153,39 @@ after, not before) at or above the threshold, after waivers, count.
     (service accounts when NO_OVERRIDE=1). Evaluation failure: `500 guard_unavailable` (override allowed).
   * `POST /realms/{r}/guard/evaluate` `{"kind":"realm"|"client","body":<write body>}` -> `idp.GuardVerdict`, applies nothing.
   * `GET /realms/{r}/guard` -> `{realm,mode,threshold,score,grade,findings,waived,expiredWaivers}`.
+## Time-boxed access (role grants)
+Optional feature: needs a store implementing `core.GrantStore` (memstore and pgstore do,
+migration 0010); otherwise every route below answers `501 {"error":"time-boxed access is not
+available on this store"}`. All routes need the admin token like every other route (401/403).
+Wire types: `idp.RoleGrant`, `idp.RoleGrantRequest`.
+
+| Method + path | Body / query | Success |
+|---|---|---|
+| `POST /realms/{r}/users/{id}/grants` | `{role, expiresAt (RFC3339) XOR durationSeconds, reason}` | `201 idp.RoleGrant` |
+| `GET /realms/{r}/users/{id}/grants?state=active\|all&max=` | default `state=active`, `max` 1..1000 (default 200) | `200 [idp.RoleGrant]` newest first |
+| `GET /realms/{r}/grants?state=active\|all&max=` | realm-wide, for review | `200 [idp.RoleGrant]` |
+| `DELETE /realms/{r}/users/{id}/grants/{gid}?endSessions=true\|false` | | `204`; `endSessions=true` also ends the user's SSO sessions |
+| `GET /realms/{r}/grants-policy` | | `200 {maxDurationSeconds, requireReason, allowedRoles}` (defaults 28800, true, []) |
+| `PUT /realms/{r}/grants-policy` | any subset of the three fields; omitted keep their value | `200` the stored policy |
+
+`idp.RoleGrant`: `{id, userId, role, grantedBy, reason, createdAt, expiresAt, revokedAt?, revokedBy?, state}`;
+`state` is `active`, `expired` or `revoked` at the time of the call. Times are truncated to whole seconds.
+
+Create validation (all `400` unless noted): user exists (404) and is enabled; `role` is an existing
+realm role, is allowed by the policy's `allowedRoles` (empty = any) and is not `haven-admin` (the
+Admin API checks the permanent role, so a temporary one would not work); exactly one of
+`expiresAt` / `durationSeconds`; duration > 0; `expiresAt` strictly after now; expiry at most
+`maxDurationSeconds` from now (equal is allowed); `reason` trimmed, at most 500 characters, no control
+characters, non-empty when `requireReason`; at most 20 active grants per user (`429`, atomic in the
+store). Policy `PUT`: `maxDurationSeconds` 60..2592000; `allowedRoles` must be existing roles other than
+`haven-admin`. Narrowing a policy never touches grants that exist. Revoking a grant that already
+ended (expired or revoked) is `409`; an unknown grant, or one of another user or realm, is `404`.
+
+Effect: `realm_access.roles` of every token issued by the OIDC provider (`issue`) is the user's
+permanent roles plus the roles of their active grants at issue time. Access tokens already issued keep
+the role until they expire.
+
+Events (when `Realm.AdminEventsLogged`): `ROLE_GRANT_CREATED`, `ROLE_GRANT_REVOKED` (appended by the API,
+`UserID` = the user, `Detail` = `grant <role> until <RFC3339> by <actor>`) and `ROLE_GRANT_EXPIRED` (appended by the
+purge loop once per expired grant, `Detail` = `grant <role> until <RFC3339>`). The reason text is never
+put in an event. Obs: `AdminOp(realm,"role-grant","create"|"delete",ok)`, `AdminOp(realm,"grants-policy","update",ok)`.
