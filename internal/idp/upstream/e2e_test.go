@@ -558,10 +558,12 @@ func TestStateFromAnotherBrowser(t *testing.T) {
 	attacker := f.newBrowser()
 	resp, body := attacker.get(cb)
 	refused(t, resp, body)
-	// A browser that has a binding cookie from ANOTHER flow is refused too.
+	// A browser that has a binding cookie from ANOTHER flow is refused too (a
+	// fresh state: the one above was burned by the first attempt).
+	cb2 := f.callbackURL(f.newBrowser().startUpstream("fake"), goodClaims())
 	other := f.newBrowser()
 	other.startUpstream("fake")
-	resp, body = other.get(cb)
+	resp, body = other.get(cb2)
 	refused(t, resp, body)
 	if f.up.TokenHits.Load() != 0 || len(f.users()) != 0 {
 		t.Fatal("a foreign browser reached the token endpoint or created a user")
