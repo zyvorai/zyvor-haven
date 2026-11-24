@@ -29,6 +29,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/safehttp"
 	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"github.com/zyvorai/haven/internal/idp/sessions"
+	"github.com/zyvorai/haven/internal/idp/ssf"
 	"github.com/zyvorai/haven/internal/idp/store/memstore"
 	"github.com/zyvorai/haven/internal/idp/store/pgstore"
 	"github.com/zyvorai/haven/internal/idp/upstream"
@@ -329,6 +330,25 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 			log.Warn("back-channel logout drain timed out")
 		}
 	}()
+	// Shared Signals (SSF) transmitter: the decorator signals user/session
+	// changes, the worker pushes the outbox. Off when the store has no SSFStore.
+	if _, ok := core.StoreAs[core.SSFStore](st); ok {
+		rawStore := st
+		tx := &ssf.Transmitter{Builder: ssf.Builder{Signer: signer, BaseURL: cfg.BaseURL}, Store: rawStore, Logger: log, AllowPrivate: cfg.BackchannelAllowPrivate}
+		st = ssf.Wrap(rawStore, tx)
+		ssfw := &ssf.Worker{Store: rawStore, Box: box, Logger: log, AllowPrivate: cfg.BackchannelAllowPrivate}
+		go ssfw.Run(ctx)
+		defer func() {
+			done := make(chan struct{})
+			go func() { ssfw.Drain(); close(done) }()
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				log.Warn("shared signals drain timed out")
+			}
+		}()
+		log.Info("shared signals transmitter enabled (SSF 1.0, push delivery)")
+	}
 	sess := &sessions.Service{Store: st, Notifier: notifier}
 	resPolicy, err := oidc.LoadResourcePolicy(os.Getenv("HAVEN_IDP_RESOURCES_FILE")) // RFC 8707 allow-list, docs/mcp-resource-indicators.md
 	if err != nil {
@@ -376,6 +396,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	// RFC 8414 path-insertion discovery aliases (MCP clients try these first).
 	mux.Handle("/.well-known/oauth-authorization-server/realms/", oidcH)
 	mux.Handle("/.well-known/openid-configuration/realms/", oidcH)
+	mux.Handle("/.well-known/ssf-configuration/", oidcH) // SSF 1.0 well-known path
 	if cfg.MetricsOnMain {
 		mux.Handle("/metrics", observer.Handler())
 	}

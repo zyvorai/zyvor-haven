@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/ssf"
 )
 
 func init() { registerRoutes(passkeyRoutes) }
@@ -99,6 +100,8 @@ func (a *api) deletePasskey(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	core.EmitSignal(r.Context(), a.cfg.Store, core.Signal{Realm: rl.Name, UserID: u.ID, Kind: ssf.EvCredentialChange,
+		Attrs: map[string]any{"credential_type": "fido2-platform", "change_type": "delete"}})
 	a.audit(r, rl, "DELETE", "passkey", u.Username)
 	noContent(w)
 }
