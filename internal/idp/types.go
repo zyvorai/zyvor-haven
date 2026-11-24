@@ -51,6 +51,11 @@ type RealmHardening struct {
 	EventsEnabled             *bool `json:"eventsEnabled,omitempty"`
 	AdminEventsEnabled        *bool `json:"adminEventsEnabled,omitempty"`
 	RevokeRefreshToken        *bool `json:"revokeRefreshToken,omitempty"`
+	// Read by Guard rules HAVEN024-027. nil = the source did not report them.
+	EventsExpiration                 *int  `json:"eventsExpiration,omitempty"`
+	RefreshTokenMaxReuse             *int  `json:"refreshTokenMaxReuse,omitempty"`
+	FailureFactor                    *int  `json:"failureFactor,omitempty"`
+	OfflineSessionMaxLifespanEnabled *bool `json:"offlineSessionMaxLifespanEnabled,omitempty"`
 }
 
 type Client struct {
@@ -69,7 +74,10 @@ type Client struct {
 	DirectAccessGrantsEnabled bool              `json:"directAccessGrantsEnabled"`
 	ServiceAccountsEnabled    bool              `json:"serviceAccountsEnabled,omitempty"`
 	Attributes                map[string]string `json:"attributes,omitempty"`
-	Secret                    string            `json:"secret,omitempty"`
+	// FullScopeAllowed and DefaultClientScopes are read by Guard rules HAVEN028/029.
+	FullScopeAllowed    *bool    `json:"fullScopeAllowed,omitempty"`
+	DefaultClientScopes []string `json:"defaultClientScopes,omitempty"`
+	Secret              string   `json:"secret,omitempty"`
 	// BackchannelLogoutURL receives OIDC Back-Channel Logout tokens. Empty/omitted = not notified.
 	BackchannelLogoutURL string `json:"backchannelLogoutUrl,omitempty"`
 	// DeviceFlowEnabled lets the client use the OAuth 2.0 Device Authorization Grant (RFC 8628).

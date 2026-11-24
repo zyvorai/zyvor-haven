@@ -23,7 +23,7 @@ hero:
 footnotes:
   - {marker: "1", text: "The README states one tagged release, 0.1.0. Per-feature status and the honest not-yet lists are in the identity-server status table.", href: "own-idp-roadmap.md", href_label: "See the status table."}
   - {marker: "2", text: "IdentityPlane and OIDCClient are the two custom resources the controller reconciles; the controller builds the database, identity server, certificates and ingress from one IdentityPlane.", href: "architecture.md", href_label: "See Architecture."}
-  - {marker: "3", text: "Haven Guard's rule table lists HAVEN001 through HAVEN023 across critical/high/medium/low severity.", href: "security-posture.md", href_label: "See Security posture."}
+  - {marker: "3", text: "Haven Guard's rule table lists HAVEN001 through HAVEN030 across critical/high/medium/low severity.", href: "security-posture.md", href_label: "See Security posture."}
   - {marker: "4", text: "The CLI (./cli/haven) and Makefile targets cover deploy, status, doctor, admin, and backup.", href: "cli.md", href_label: "See CLI."}
 ---
 

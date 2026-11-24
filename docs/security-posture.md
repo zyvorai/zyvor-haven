@@ -100,6 +100,9 @@ go run ./cmd/haven-audit --input realm.json --known known.json --waivers waivers
 
 - `--policy policy.json` adds your own declarative rules to the audit: [Policy as code](policy-as-code.md).
 - `haven-audit diff before.json after.json` compares two realm exports field by field, ignoring server-generated ids and redacting every value under a credential-bearing key (`secret`, `password`, `credential`, `token`, `certificate` and similar), so the output is safe to paste into a pull request. Exit code `0` identical, `2` differences, `1` error. Documents are capped at 32 MiB and 24 levels of nesting.
+- `haven-audit diff --ignore GLOB` (repeatable; `*` matches any run of characters, a pattern also covers everything below the path it names) drops noisy paths, and `--format markdown` prints a fenced diff block for a pull-request comment.
+- `haven-audit --format markdown` writes a table for a PR comment or `$GITHUB_STEP_SUMMARY`; `--format junit` writes JUnit XML (one suite per realm, one failed case per finding, waived findings as skipped cases carrying the waiver reason) for GitLab, Jenkins and Azure DevOps test reports.
+- `haven-audit rules [--format text|json|markdown]` lists the built-in rules; `haven-audit explain HAVEN029` prints one rule with its fix.
 - `haven-audit access-review --input snapshot.json` reports privileged and stale accounts: [Access review](access-review.md).
 
 ## Rules
@@ -129,8 +132,15 @@ go run ./cmd/haven-audit --input realm.json --known known.json --waivers waivers
 | HAVEN021 | medium | refresh tokens not rotated while an enabled public client exists |
 | HAVEN022 | low | SSO session maximum lifespan above 30 days |
 | HAVEN023 | low | offline session idle timeout above 90 days |
+| HAVEN024 | low | login events kept forever (`eventsExpiration=0` while events are on) |
+| HAVEN025 | medium | refresh token reuse allowed (`refreshTokenMaxReuse` above 0 with rotation on) |
+| HAVEN026 | low | brute-force lockout allows more than 10 failures |
+| HAVEN027 | low | offline sessions have no maximum lifespan |
+| HAVEN028 | low | client has Full Scope Allowed (every user role in its tokens) |
+| HAVEN029 | medium | `offline_access` is a default client scope |
+| HAVEN030 | medium | client access token lifespan override above one hour |
 
-HAVEN014-023 read optional realm settings (`sslRequired`, `passwordPolicy`, `accessTokenLifespan`, `ssoSessionIdleTimeout`, `ssoSessionMaxLifespan`, `offlineSessionIdleTimeout`, `eventsEnabled`, `adminEventsEnabled`, `revokeRefreshToken`). A realm export or API response that omits a setting produces no finding for it: Guard does not guess. These settings are not part of the fingerprint, so existing baselines stay valid; use `--policy` for enforced settings drift (see [Policy as code](policy-as-code.md)).
+HAVEN014-027 read optional realm settings (`eventsExpiration`, `refreshTokenMaxReuse`, `failureFactor`, `offlineSessionMaxLifespanEnabled`, `sslRequired`, `passwordPolicy`, `accessTokenLifespan`, `ssoSessionIdleTimeout`, `ssoSessionMaxLifespan`, `offlineSessionIdleTimeout`, `eventsEnabled`, `adminEventsEnabled`, `revokeRefreshToken`). A realm export or API response that omits a setting produces no finding for it: Guard does not guess. These settings are not part of the fingerprint, so existing baselines stay valid; use `--policy` for enforced settings drift (see [Policy as code](policy-as-code.md)).
 
 Clients with these built-in administrative IDs (`account`, `account-console`, `admin-cli`, `broker`, `realm-management`, `security-admin-console`) are excluded from client counts and findings. They only appear in realms brought over from another server; see [Import a Keycloak realm](import-from-keycloak.md).
 
