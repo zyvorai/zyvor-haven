@@ -84,13 +84,13 @@ status:
       status: "True"
 ```
 
-Status also carries `endpoints` (issuer, console, account), `database` (primary, replicas, last backup), `idp` (instances, ready, version) and `tls`. Phases are `Pending`, `ProvisioningDatabase`, `ProvisioningIdP`, `Bootstrapping`, `Ready`, `Degraded`, `Failed` and `Suspending`.
+Status also carries `endpoints` (idp, issuer, console), `database` (primary, replicas, last backup), `idp` (instances, ready, version) and `tls`. Phases are `Pending`, `ProvisioningDatabase`, `ProvisioningIdP`, `Bootstrapping`, `Ready`, `Degraded`, `Failed` and `Suspending`.
 
 ### OIDCClient
 
 A client that belongs to a realm and must exist for platform SSO. The controller creates the client in `haven-idp` and writes a Secret the workload can mount (`client-id`, `client-secret`, `issuer`). See [OIDCClient CRD](oidcclient-crd.md) and [Ingress registration](ingress-registration.md).
 
-The CRD file also defines a `RealmBundle` type, but nothing in the controller reconciles it today. Declare realm settings, roles and groups with [config as code](config-as-code.md) instead.
+There is no RealmBundle type. Declare realm settings, roles and groups with [config as code](config-as-code.md).
 
 ## Reconciliation order
 
@@ -166,6 +166,16 @@ Today a plane is single-cluster, multi-AZ.
 - Secrets (`csrf-key`, `secret-key`, `admin-client-secret`) are generated once and never overwritten. Rotating one is a deliberate operator action. `secret-key` encrypts TOTP seeds and upstream IdP secrets; losing it makes them unreadable.
 - No admin password in Git. Ever.
 - `spec.reclaimPolicy` defaults to `Orphan`. Deleting an IdentityPlane must not drop PostgreSQL.
+
+## Upgrading from a release with the Keycloak engine
+
+Earlier builds could run a plane on the Keycloak Operator (`spec.engine: keycloak`) and the console could talk to a Keycloak Admin API. That engine is gone: `haven-idp` is the only identity server.
+
+- **IdentityPlane objects**: `spec.engine`, `spec.keycloak` and `status.keycloak` (plus `status.endpoints.keycloak|account|admin`) no longer exist in the CRD. Re-apply the CRD (`charts/haven/crds` or `config/crd`); the API server then prunes the stale fields from stored objects and your manifests keep working. Drop those fields from manifests you keep in Git so they stay clean. The `ProvisioningKeycloak` phase and the `KeycloakReady` condition are gone; planes report `IdentityProviderReady`.
+- **RealmBundle** is removed from the CRD bundle (nothing reconciled it). Delete leftover `realmbundles.identity.haven.dev` objects and the CRD itself after upgrading.
+- **A plane that still runs Keycloak** is not converted by the controller. Migrate it first with `haven-idp import-keycloak` ([migrate-from-keycloak.md](migrate-from-keycloak.md)); a controller that finds such a plane reconciles it as a `haven-idp` plane and would point it at a new, empty `haven_idp` database.
+- **Console and API move together**: the routes `/api/v1/keycloak/{status,config,connect,admin-password}` are now `/api/v1/identity-server/...`, the field `keycloakUrl` is `identityServerUrl` and the error body field `keycloak` is `identityServer`. Upgrade the console image and the UI together; an old UI against the new API (or the reverse) shows the identity server as offline. The console no longer reads `KEYCLOAK_URL`, `KEYCLOAK_ADMIN_USER` or `KEYCLOAK_ADMIN_PASSWORD`, and `HAVEN_IDP_BACKEND` accepts only `native` (or unset).
+- **Helm values**: `identity.backend` is removed; the chart always wires the console to `haven-idp`.
 
 ## Non-goals
 

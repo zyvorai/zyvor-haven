@@ -36,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependencies refreshed (`go get -u`): controller-runtime v0.25.3, client-go/api/apimachinery v0.37.2, prometheus client_golang v1.25.0, golang.org/x; UI on react-router-dom 7.18.6 and @vitejs/plugin-react 6.3.0
 - Operators: CloudNativePG 1.30.2, Keycloak Operator/server 26.8.2 (security fixes), cert-manager v1.21.3; docs build runs on Python 3.14
 
+### Removed
+
+- **Breaking:** the Keycloak engine. `IdentityPlane` loses `spec.engine`, `spec.keycloak`, `status.keycloak`, `status.endpoints.keycloak|account|admin` and the `ProvisioningKeycloak` phase; the controller no longer renders or watches Keycloak CRs or `KeycloakRealmImport`, and its RBAC for `k8s.keycloak.org` is gone. The unreconciled `RealmBundle` CRD is removed. Existing planes only need the stale fields dropped (the API server prunes them once the new CRD is applied); see "Upgrading" in docs/architecture.md
+- **Breaking:** the Keycloak Admin REST backend of the console (`internal/keycloak`, `KEYCLOAK_URL`, `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD`; `HAVEN_IDP_BACKEND` accepts only `native`) and the Helm value `identity.backend`
+- **Breaking:** console API routes `/api/v1/keycloak/{status,config,connect,admin-password}` are now `/api/v1/identity-server/{status,config,connect,admin-password}`, the payload field `keycloakUrl` is `identityServerUrl` and the error body field `keycloak` is `identityServer`; the console UI and API must be upgraded together
+- **Breaking:** the plane condition `KeycloakReady` is now `IdentityProviderReady` in the console's plane status (the controller already emitted that name for `haven-idp` planes)
+- Kept on purpose: `haven-idp import-keycloak`, legacy Keycloak password-hash verification for imported users, and the ability of Haven Guard / `haven-audit` to read a realm export JSON file
+
 ### Held back
 
 - `k8s.io/kube-openapi` stays at the 20260721 pseudo-version: the 20261104 revision moves to `structured-merge-diff/v7`, which apimachinery v0.37.2 (still on v6) cannot compile against
