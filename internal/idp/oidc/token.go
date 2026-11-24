@@ -114,6 +114,10 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 		p.tokenFail(w, terr, basic, rl.Name, grant)
 		return
 	}
+	if r, terr = p.fapiToken(w, r, rl, cl); terr != nil { // fapi.go: require DPoP, dpop_jkt, authorization_details
+		p.tokenFail(w, terr, basic, rl.Name, grant)
+		return
+	}
 	var resp map[string]any
 	switch g := r.PostForm.Get("grant_type"); g {
 	case "authorization_code":
@@ -131,6 +135,9 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 	}
 	if terr == nil {
 		terr = p.dpopTokenDone(w, r, rl, cl, resp) // DPoP: bind the refresh token
+	}
+	if terr == nil {
+		terr = p.fapiTokenDone(r, rl, cl, resp) // fapi.go: report and bind authorization_details
 	}
 	if terr != nil {
 		p.tokenFail(w, terr, basic, rl.Name, grant)
@@ -380,6 +387,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		atClaims["sid"] = sid
 	}
 	dpopBindClaims(ctx, atClaims)
+	fapiBindClaims(ctx, atClaims)
 	at, err := p.cfg.Signer.Sign(ctx, rl.Name, atClaims)
 	if err != nil {
 		p.cfg.Logger.Error("oidc: sign access token", "err", err)

@@ -55,6 +55,10 @@ func validChallenge(c string) bool {
 
 func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	var fapiOK bool
+	if r, q, fapiOK = p.fapiAuthorize(w, r, q); !fapiOK { // fapi.go: PAR / JAR / RAR / dpop_jkt
+		return
+	}
 	name := r.PathValue("realm")
 	rl, ok := p.realm(r.Context(), name)
 	if !ok {
@@ -198,6 +202,9 @@ func (p *Provider) issueCode(w http.ResponseWriter, r *http.Request, ar *authzRe
 		return
 	}
 	code := randToken(32)
+	if !p.fapiBindCode(w, r, ar, HashSecret(code)) { // fapi.go: authorization_details, dpop_jkt, single-use login context
+		return
+	}
 	err := p.cfg.Store.PutAuthCode(ctx, core.AuthCode{
 		CodeHash: HashSecret(code), Realm: rl.Name, ClientID: ar.client.ClientID, UserID: u.ID,
 		RedirectURI: ar.redirect, Scope: ar.scope, Nonce: ar.nonce,

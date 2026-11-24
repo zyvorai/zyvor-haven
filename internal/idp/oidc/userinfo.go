@@ -193,6 +193,9 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 		if cnf, ok := c["cnf"]; ok { // DPoP-bound: the resource server checks the proof against cnf.jkt
 			out["cnf"], out["token_type"] = cnf, "DPoP"
 		}
+		if ad, ok := c["authorization_details"]; ok { // RFC 9396, section 9.2
+			out["authorization_details"] = ad
+		}
 		if v, ok := claimNum(c, "exp"); ok {
 			out["exp"] = v
 		}
@@ -219,6 +222,15 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 		"iss": p.issuer(name)}
 	if cnf != nil {
 		out["cnf"] = cnf
+	}
+	ad, aerr := p.fapiRefreshDetails(r.Context(), tok)
+	if aerr != nil { // cannot tell what it grants: fail closed
+		p.cfg.Logger.Error("oidc: introspect authorization_details", "err", aerr)
+		writeJSON(w, http.StatusOK, inactive)
+		return
+	}
+	if ad != nil {
+		out["authorization_details"] = ad
 	}
 	writeJSON(w, http.StatusOK, out)
 }

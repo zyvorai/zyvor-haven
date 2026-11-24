@@ -357,3 +357,15 @@ that already exists is 409 and never adopted. Pg migrations `0015_workload_ident
 Events (admin events flag): `WORKLOAD_IDENTITY_CREATE|ENABLE|DISABLE|DELETE`, `AGENT_CREATE|ENABLE|DISABLE|DELETE`,
 `AGENT_CREDENTIAL_ISSUED`, `AGENT_CREDENTIAL_REVOKED`. Token endpoint events (auth events flag):
 `WORKLOAD_TOKEN`, `WORKLOAD_TOKEN_ERROR`, `AGENT_TOKEN`, `AGENT_TOKEN_ERROR`.
+
+## FAPI building blocks: PAR, JAR, RAR, require-PAR / require-DPoP (`docs/fapi-par-jar-rar.md`)
+
+Optional store extension `core.FAPIStore`; a store without it answers 501. Pg migration `0018_fapi.sql`
+(`client_fapi`, `fapi_requests`, `fapi_bindings`). Request bodies reject unknown fields. `{id}` is the client's UUID.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/clients/{id}/fapi` | `{requirePar, requireDpop, requireSignedRequest, jwks, authorizationDetailTypes[]}`; all off / `null` / `[]` when never set. 404 unknown client. |
+| `PUT /realms/{r}/clients/{id}/fapi` | Replaces the settings (missing fields = off). 400: `requirePar` or `requireSignedRequest` on a public client (the PAR endpoint authenticates the client), `requireSignedRequest` without `jwks`, a `jwks` that is not a JWKS with at least one usable public key (EC P-256, or RSA 2048-8192 bits; a key with private members does not count), more than 20 or malformed (`^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$`) `authorizationDetailTypes`. Duplicate types are removed. Audit `ADMIN_UPDATE "client-fapi <clientId>"` (no key material). |
+
+Auth events: `PAR` (a request was pushed), `PAR_ERROR` and `LOGIN_ERROR` with detail `invalid_request_object`; never the request.
