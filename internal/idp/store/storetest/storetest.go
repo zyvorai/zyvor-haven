@@ -41,6 +41,10 @@ func Run(t *testing.T, newStore func(t *testing.T) core.Store) {
 		{"RefreshReuse", refreshReuse},
 		{"RefreshReuseConcurrent", refreshConcurrent},
 		{"RefreshFamilyRevocation", refreshFamily},
+		{"RevokeUserRefreshTokens", revokeUserRefresh},
+		{"ActionTokenSingleUse", actionTokenSingleUse},
+		{"ActionTokenDeleteCount", actionTokenDeleteCount},
+		{"ActionTokenPurgeCascade", actionTokenPurgeCascade},
 		{"Events", events},
 		{"Purge", purge},
 		{"CascadeDeleteRealm", cascade},
@@ -524,6 +528,144 @@ func refreshFamily(t *testing.T, s core.Store) {
 	// Revoking an unknown family is a no-op, and idempotent.
 	ok(t, s.RevokeRefreshFamily(ctx, "nope"))
 	ok(t, s.RevokeRefreshFamily(ctx, "famA"))
+}
+
+func revokeUserRefresh(t *testing.T, s core.Store) {
+	mkRealm(t, s, "acme")
+	mkRealm(t, s, "other")
+	for _, h := range []string{"a1", "a2"} {
+		ok(t, s.PutRefreshToken(ctx, mkRefresh(h, "famA")))
+	}
+	other := mkRefresh("b1", "famB")
+	other.UserID = "u-2"
+	ok(t, s.PutRefreshToken(ctx, other))
+	otherRealm := mkRefresh("c1", "famC")
+	otherRealm.Realm = "other"
+	ok(t, s.PutRefreshToken(ctx, otherRealm))
+	pre := mkRefresh("a3", "famA")
+	pre.Revoked = true
+	ok(t, s.PutRefreshToken(ctx, pre))
+
+	n, err := s.RevokeUserRefreshTokens(ctx, "acme", "u-1")
+	ok(t, err)
+	eq(t, n, 2) // a3 was already revoked
+	for h, want := range map[string]bool{"a1": true, "a2": true, "a3": true, "b1": false, "c1": false} {
+		tok, err := s.GetRefreshToken(ctx, h)
+		ok(t, err)
+		eq(t, tok.Revoked, want)
+	}
+	n, err = s.RevokeUserRefreshTokens(ctx, "acme", "u-1")
+	ok(t, err)
+	eq(t, n, 0)
+	n, err = s.RevokeUserRefreshTokens(ctx, "acme", "nobody")
+	ok(t, err)
+	eq(t, n, 0)
+}
+
+func mkAction(hash, purpose string) core.ActionToken {
+	return core.ActionToken{TokenHash: hash, Realm: "acme", UserID: "u-1", Purpose: purpose,
+		Email: "a@example.com", CreatedAt: t0, ExpiresAt: t0.Add(time.Hour)}
+}
+
+func actionTokenSingleUse(t *testing.T, s core.Store) {
+	mkRealm(t, s, "acme")
+	in := mkAction("h1", core.ActionVerifyEmail)
+	ok(t, s.PutActionToken(ctx, in))
+	is(t, s.PutActionToken(ctx, in), idp.ErrConflict)
+	got, err := s.ConsumeActionToken(ctx, "h1")
+	ok(t, err)
+	eq(t, got, in)
+	_, err = s.ConsumeActionToken(ctx, "h1")
+	is(t, err, idp.ErrNotFound)
+	_, err = s.ConsumeActionToken(ctx, "never")
+	is(t, err, idp.ErrNotFound)
+
+	ghost := mkAction("h2", core.ActionVerifyEmail)
+	ghost.Realm = "ghost"
+	is(t, s.PutActionToken(ctx, ghost), idp.ErrNotFound)
+
+	// A zero CreatedAt is stamped.
+	z := mkAction("h3", core.ActionResetPassword)
+	z.CreatedAt = time.Time{}
+	ok(t, s.PutActionToken(ctx, z))
+	got, err = s.ConsumeActionToken(ctx, "h3")
+	ok(t, err)
+	if got.CreatedAt.IsZero() {
+		t.Fatal("CreatedAt not stamped")
+	}
+}
+
+func actionTokenDeleteCount(t *testing.T, s core.Store) {
+	mkRealm(t, s, "acme")
+	mkRealm(t, s, "other")
+	put := func(hash, realm, user, purpose string, created time.Time) {
+		a := mkAction(hash, purpose)
+		a.Realm, a.UserID, a.CreatedAt = realm, user, created
+		a.ExpiresAt = created.Add(time.Hour)
+		ok(t, s.PutActionToken(ctx, a))
+	}
+	count := func(realm, user, purpose string, since time.Time) int {
+		t.Helper()
+		n, err := s.CountActionTokens(ctx, realm, user, purpose, since)
+		ok(t, err)
+		return n
+	}
+	put("v-old", "acme", "u-1", core.ActionVerifyEmail, t0)
+	put("v-new", "acme", "u-1", core.ActionVerifyEmail, t0.Add(10*time.Minute))
+	put("r-1", "acme", "u-1", core.ActionResetPassword, t0.Add(10*time.Minute))
+	put("v-u2", "acme", "u-2", core.ActionVerifyEmail, t0.Add(10*time.Minute))
+	put("v-other", "other", "u-1", core.ActionVerifyEmail, t0.Add(10*time.Minute))
+
+	eq(t, count("acme", "u-1", core.ActionVerifyEmail, t0.Add(-time.Hour)), 2)
+	eq(t, count("acme", "u-1", core.ActionVerifyEmail, t0), 2) // since is inclusive
+	eq(t, count("acme", "u-1", core.ActionVerifyEmail, t0.Add(time.Minute)), 1)
+	eq(t, count("acme", "u-1", core.ActionVerifyEmail, t0.Add(time.Hour)), 0)
+	eq(t, count("acme", "u-1", core.ActionResetPassword, t0), 1)
+	eq(t, count("acme", "nobody", core.ActionVerifyEmail, t0), 0)
+
+	n, err := s.DeleteActionTokens(ctx, "acme", "u-1", core.ActionVerifyEmail)
+	ok(t, err)
+	eq(t, n, 2)
+	n, err = s.DeleteActionTokens(ctx, "acme", "u-1", core.ActionVerifyEmail)
+	ok(t, err)
+	eq(t, n, 0)
+	// Other purpose, user and realm are untouched.
+	for _, h := range []string{"r-1", "v-u2", "v-other"} {
+		_, err := s.ConsumeActionToken(ctx, h)
+		ok(t, err)
+	}
+	for _, h := range []string{"v-old", "v-new"} {
+		_, err := s.ConsumeActionToken(ctx, h)
+		is(t, err, idp.ErrNotFound)
+	}
+}
+
+func actionTokenPurgeCascade(t *testing.T, s core.Store) {
+	mkRealm(t, s, "acme")
+	mkRealm(t, s, "keep")
+	now := t0.Add(time.Hour)
+	old, live := mkAction("a-old", core.ActionVerifyEmail), mkAction("a-live", core.ActionVerifyEmail)
+	old.ExpiresAt, live.ExpiresAt = now.Add(-time.Second), now.Add(time.Minute)
+	ok(t, s.PutActionToken(ctx, old))
+	ok(t, s.PutActionToken(ctx, live))
+	n, err := s.PurgeExpired(ctx, now)
+	ok(t, err)
+	eq(t, n, 1)
+	_, err = s.ConsumeActionToken(ctx, "a-old")
+	is(t, err, idp.ErrNotFound)
+	// Re-put the live one (consume above not run on it) and cascade.
+	for _, r := range []string{"acme", "keep"} {
+		a := mkAction("c-"+r, core.ActionResetPassword)
+		a.Realm = r
+		ok(t, s.PutActionToken(ctx, a))
+	}
+	ok(t, s.DeleteRealm(ctx, "acme"))
+	_, err = s.ConsumeActionToken(ctx, "a-live")
+	is(t, err, idp.ErrNotFound)
+	_, err = s.ConsumeActionToken(ctx, "c-acme")
+	is(t, err, idp.ErrNotFound)
+	_, err = s.ConsumeActionToken(ctx, "c-keep")
+	ok(t, err)
 }
 
 func events(t *testing.T, s core.Store) {
