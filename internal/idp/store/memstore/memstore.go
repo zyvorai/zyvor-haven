@@ -168,9 +168,10 @@ func (s *Store) DeleteRealm(_ context.Context, name string) error {
 	delete(s.realms, lc(name))
 	n := r.Name
 	s.pkDrop(n, "")
-	s.fedDropRealm(n)    // federation.go
-	s.stepUpDropRealm(n) // stepup.go
-	s.scimDropRealm(n)   // scim.go
+	s.fedDropRealm(n)     // federation.go
+	s.stepUpDropRealm(n)  // stepup.go
+	s.scimDropRealm(n)    // scim.go
+	s.consentDropRealm(n) // consent.go
 	for k, v := range s.sess {
 		if v.Realm == n {
 			delete(s.sess, k)

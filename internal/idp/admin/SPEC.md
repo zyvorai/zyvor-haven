@@ -415,3 +415,22 @@ Pg migration `0021_shared_signals.sql`. Request bodies reject unknown fields.
 
 Admin events: `ADMIN_CREATE|DELETE|UPDATE` with resources `ssf-receiver`, `ssf-receiver-token`, `ssf-receiver-disabled`,
 `ssf-stream`, `ssf-credential-compromise`. Auth event `SSF_STREAM_CREATE` (receiver name in the detail).
+## MCP clients and consent (`docs/mcp-clients-and-consent.md`)
+
+Optional store extension `core.ConsentStore`; a store without it answers 501. Bodies reject unknown fields. Pg
+migration `0017_mcp_consent.sql`. All under `/realms/{r}`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /consent-policy` | `{cimdEnabled, cimdHosts[], requireAll, skipClients[], rememberCimd, grantTtlSeconds}`; defaults when never set (CIMD off, 90 days) |
+| `PUT /consent-policy` | replaces the whole policy (omitted = off/empty/default). 400: host not lower-case host name, more than 100 hosts or skip clients, empty skip entry, ttl outside 0..one year. Audit `ADMIN_UPDATE "consent-policy <realm>"` |
+| `GET /consent-grants[?userId=&clientId=&includeEnded=true&limit=1..1000]` | `[{id,userId,clientId,clientName,scopes,resources,createdAt,updatedAt,expiresAt,revokedAt?,revokedBy?}]`, newest first |
+| `DELETE /consent-grants/{id}` | `204`; ends the grant, revokes that user's refresh tokens for the client, appends a `revoke` receipt (actor `admin:<subject>`). 404 unknown, 409 already ended. Audit `ADMIN_DELETE "consent-grant <id>"` |
+| `GET /consent-clients` | CIMD clients seen: `[{clientId,source,name,clientUri,redirectUris,fetchedAt,expiresAt}]` |
+| `GET /consent-receipts[?userId=&afterSeq=&limit=]` | hash-chained receipts, oldest first |
+| `GET /consent-receipts/verify` | `{ok:true,count,headSeq,headHash}` or `{ok:false,count,error}` (first broken seq) |
+| `GET /consent-blocks` | `[{clientId,reason,by,at}]` |
+| `POST /consent/kill` | `{clientId` xor `agentId, reason?}`; blocks the client, disables it, revokes grants and refresh tokens, disables the agent and revokes its credentials, appends a `kill` receipt. `200 {clientId,clientDisabled,grantsRevoked,refreshTokensRevoked,agentDisabled,agentCredentialsRevoked,receiptSeq}`; idempotent; 500 with the partial result if a step failed (repeat it); 404 unknown agent, 501 agent id without agent support. Audit `ADMIN_ACTION "consent-kill <clientId>"` |
+| `POST /consent/unkill` | `{clientId` xor `agentId}`; `204`, removes the block and re-enables the client row only. 404 when not blocked |
+
+Auth events: `CONSENT_GRANT`, `CONSENT_DENY`, `CONSENT_REVOKE`. User-facing: `GET/POST /realms/{r}/account/consents`.

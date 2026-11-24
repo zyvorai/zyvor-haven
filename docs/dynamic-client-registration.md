@@ -177,3 +177,8 @@ tokens stay in the list until you delete them.
 - No registration access token rotation, and no way to ask for one.
 - A device client registered through DCR gets the same fixed code lifetime and poll interval as any device client; there is no per-client override.
 - Expired initial access tokens are not purged automatically.
+
+## Consent
+
+A client created through registration always goes through the consent screen before it is issued a code, and its
+grants are remembered and revocable; see [mcp-clients-and-consent.md](mcp-clients-and-consent.md).
