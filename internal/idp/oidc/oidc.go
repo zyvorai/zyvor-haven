@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/zyvorai/haven/internal/idp"
+	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/obs"
 )
@@ -52,6 +53,10 @@ type Config struct {
 	// CSRFKey keys the login-form CSRF tokens. Random per process if empty;
 	// set it when several replicas serve the same login form.
 	CSRFKey []byte
+	// Actions enables self-service email verification and password reset.
+	// Nil (or a Service without a Mailer) disables both: the pages answer 404
+	// and the login page shows no "Forgot password" link.
+	Actions *actions.Service
 	// Obs receives protocol and security signals (enums and realm names
 	// only). Nil records nothing.
 	Obs obs.Recorder
@@ -68,6 +73,9 @@ type Provider struct {
 
 	dummyOnce sync.Once
 	dummyHash string
+
+	bg     sync.WaitGroup // in-flight background emails
+	forgot limiter
 
 	mu       sync.Mutex
 	ensured  map[string]bool
@@ -121,6 +129,13 @@ func New(cfg Config) *Provider {
 	p.mux.HandleFunc("POST "+r+oidcPath+"/logout", p.logout)
 	p.mux.HandleFunc("POST "+r+oidcPath+"/revoke", p.revoke)
 	p.mux.HandleFunc("POST "+r+oidcPath+"/token/introspect", p.introspect)
+	la := r + "/login-actions"
+	p.mux.HandleFunc("GET "+la+"/forgot-password", p.forgotPassword)
+	p.mux.HandleFunc("POST "+la+"/forgot-password", p.forgotPassword)
+	p.mux.HandleFunc("GET "+la+"/reset-password", p.resetPassword)
+	p.mux.HandleFunc("POST "+la+"/reset-password", p.resetPassword)
+	p.mux.HandleFunc("GET "+la+"/verify-email", p.verifyEmail)
+	p.mux.HandleFunc("POST "+la+"/verify-email", p.verifyEmail)
 	return p
 }
 

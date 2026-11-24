@@ -227,11 +227,27 @@ button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
 <label for="u">Username or email</label><input id="u" name="username" value="{{.Username}}" autocomplete="username" autofocus required maxlength="256">
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required maxlength="1024">
 <button type="submit">Sign in</button></form>
+{{if .ForgotURL}}<p class="sub"><a href="{{.ForgotURL}}">Forgot your password?</a></p>{{end}}
+{{else if .Form}}<h1>{{.Title}}</h1>
+{{if .Message}}<p class="sub">{{.Message}}</p>{{end}}
+{{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
+<form method="post" action="{{.Action}}">
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+{{if eq .Form "forgot"}}<label for="u">Username or email</label><input id="u" name="username" autocomplete="username" autofocus required maxlength="256">
+<button type="submit">Send reset link</button>
+{{else if eq .Form "reset"}}<input type="hidden" name="token" value="{{.Token}}">
+<label for="p">New password</label><input id="p" name="password" type="password" autocomplete="new-password" autofocus required maxlength="1024">
+<label for="c">Repeat new password</label><input id="c" name="confirm" type="password" autocomplete="new-password" required maxlength="1024">
+<button type="submit">Set password</button>
+{{else}}<input type="hidden" name="token" value="{{.Token}}">
+<button type="submit">Confirm email address</button>{{end}}
+</form>
 {{else}}<h1>{{.Title}}</h1><p>{{.Message}}</p>{{end}}
 </main></body></html>`))
 
 type pageData struct {
 	Title, Nonce, Realm, Client, Error, Username, CSRF, Action, Message string
+	Token, Form, ForgotURL                                              string
 	Login                                                               bool
 }
 
@@ -262,7 +278,7 @@ func (p *Provider) loginPage(w http.ResponseWriter, r *http.Request, ar *authzRe
 	}
 	w.WriteHeader(http.StatusOK)
 	_ = pageTmpl.Execute(w, pageData{Title: "Sign in", Nonce: nonce, Login: true, Realm: disp, Client: cn,
-		Error: errMsg, Username: username, CSRF: csrf,
+		Error: errMsg, Username: username, CSRF: csrf, ForgotURL: p.forgotURL(ar.realm.Name),
 		Action: r.URL.Path + "?" + r.URL.RawQuery})
 }
 
@@ -360,7 +376,11 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 	if rl.EmailVerificationRequired && !u.EmailVerified {
 		p.cfg.Obs.Login(rl.Name, "unverified")
 		p.event(ctx, rl, "LOGIN_ERROR", u.ID, ar.client.ClientID, ip, "email_not_verified")
-		p.loginPage(w, r, ar, "Your email address has not been verified. Verify it before signing in.", username)
+		msg := "Your email address has not been verified. Verify it before signing in."
+		if p.sendAsync(rl, u, core.ActionVerifyEmail) {
+			msg = "Your email address has not been verified. We sent a verification link to the address on file: open it, then sign in."
+		}
+		p.loginPage(w, r, ar, msg, username)
 		return
 	}
 	if rehash || u.FailedLogins != 0 || !u.LockedUntil.IsZero() {
