@@ -35,6 +35,17 @@ type UserMailer interface {
 	SendResetEmail(ctx context.Context, realm, userID string) error
 }
 
+// SessionManager is implemented by providers that can list and end SSO
+// sessions. It is optional, like UserMailer, and is not part of Provider.
+// Ending a session also revokes its non-offline refresh tokens and notifies
+// the clients that took part (back-channel logout). EndSession returns
+// ErrNotFound for an unknown session; EndUserSessions for an unknown user.
+type SessionManager interface {
+	ListSessions(ctx context.Context, realm, userID string) ([]Session, error)
+	EndSession(ctx context.Context, realm, sessionID string) error
+	EndUserSessions(ctx context.Context, realm, userID string) (int, error)
+}
+
 var (
 	// ErrEmailNotConfigured: the identity backend has no SMTP configured.
 	ErrEmailNotConfigured = errors.New("idp: email is not configured on the identity backend")

@@ -3,7 +3,24 @@
 
 package idp
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
+
+// Session is an SSO session as shown by the Admin API. It never carries the
+// cookie secret or its hash.
+type Session struct {
+	ID         string    `json:"id"`
+	UserID     string    `json:"userId"`
+	Username   string    `json:"username"` // empty when the user no longer exists
+	IPAddress  string    `json:"ipAddress,omitempty"`
+	UserAgent  string    `json:"userAgent,omitempty"`
+	Start      time.Time `json:"start"`
+	LastAccess time.Time `json:"lastAccess"`
+	Expires    time.Time `json:"expires"` // earlier of the idle and absolute expiry
+	Clients    []string  `json:"clients"`
+}
 
 type Realm struct {
 	ID                  string `json:"id,omitempty"`

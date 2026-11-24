@@ -119,6 +119,7 @@ func (a *api) routes() {
 	a.realmRoutes(m)
 	a.clientRoutes(m)
 	a.userRoutes(m)
+	a.sessionRoutes(m)
 	a.importRoutes(m)
 	a.roleGroupRoutes(m)
 	a.miscRoutes(m)

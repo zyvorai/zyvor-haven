@@ -86,6 +86,7 @@ nav:
       - Migrate from Keycloak: migrate-from-keycloak.md
       - Import a Keycloak realm: import-from-keycloak.md
       - Email and password reset: email-and-password-reset.md
+      - SSO sessions and single logout: sso-and-logout.md
       - Backups: backups.md
   - Design:
       - Architecture: architecture.md
