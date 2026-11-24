@@ -22,6 +22,7 @@ import (
 
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/mail"
 )
 
 const (
@@ -108,7 +109,9 @@ func cmdDev(args []string, out io.Writer) error {
 
 	base := fmt.Sprintf("http://127.0.0.1:%d", *port)
 	issuer := base + "/realms/" + *realm
+	outbox := mail.NewOutbox(100)
 	cfg := Config{
+		Mailer:            outbox,                             // no real email in dev: see /dev/mail
 		Listen:            fmt.Sprintf("127.0.0.1:%d", *port), // loopback only: this server is for development
 		BaseURL:           base,
 		Memory:            true,
@@ -131,6 +134,7 @@ func cmdDev(args []string, out io.Writer) error {
 			return nil
 		},
 		Mount: func(mux *http.ServeMux) {
+			mux.Handle("/dev/mail", devMailHandler(outbox))
 			if playgroundHandler != nil {
 				mux.Handle("/dev/", playgroundHandler(issuer, devPlaygroundClient))
 			}
@@ -158,6 +162,7 @@ func printDevBanner(w io.Writer, base, issuer, realm, user string, c devCreds, r
 	if playground {
 		p("  Playground   %s/dev/   sign in and inspect, verify and refresh tokens\n", base)
 	}
+	p("  Dev mailbox  %s/dev/mail   password-reset and verification emails land here\n", base)
 	p("  Test user    %s / %s\n", user, c.Password)
 	p("  Test client  %s (public, PKCE S256)  redirect: %s\n", devAppClient, strings.Join(redirects, ", "))
 	p("  Admin API    %s/admin/v1   (client haven-admin)\n", base)

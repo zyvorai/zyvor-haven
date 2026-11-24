@@ -11,14 +11,17 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/admin"
 	"github.com/zyvorai/haven/internal/idp/bootstrap"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/keys"
+	"github.com/zyvorai/haven/internal/idp/mail"
 	"github.com/zyvorai/haven/internal/idp/obs"
 	"github.com/zyvorai/haven/internal/idp/oidc"
 	"github.com/zyvorai/haven/internal/idp/password"
@@ -239,7 +242,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	}
 	oidcCfg := oidc.Config{
 		Actions: act,
-		Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL, Logger: log,
+		Store:   st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL, Logger: log,
 		TrustProxy: cfg.TrustProxy,
 		CSRFKey:    []byte(cfg.CSRFKey),
 	}
