@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	networkingv1 "k8s.io/api/networking/v1"
 	"net/url"
 	"sort"
 	"strings"
@@ -353,4 +354,58 @@ func IdPEnvLeaks(env []corev1.EnvVar, secret string) bool {
 		}
 	}
 	return false
+}
+
+// DefaultCNPGNamespace is where the CloudNativePG operator runs unless the
+// controller is told otherwise (HAVEN_CNPG_NAMESPACE).
+const DefaultCNPGNamespace = "cnpg-system"
+
+// DBNetworkPolicyName is the name of the database NetworkPolicy.
+func DBNetworkPolicyName(plane string) string { return DBClusterName(plane) + "-ingress" }
+
+// DBNetworkPolicy restricts who may open connections to the plane's PostgreSQL
+// pods. It is INGRESS ONLY on purpose: haven-idp itself must keep reaching the
+// outside (federation upstreams, back-channel logout, SMTP), so no egress rule is
+// ever generated.
+//
+// Allowed sources, and nothing else:
+//   - the plane's haven-idp pods (5432);
+//   - the other members of the same CNPG cluster (5432 replication, 8000 status);
+//   - the CloudNativePG operator's namespace (5432 and 8000: the operator reads
+//     instance status and manages the cluster).
+//
+// Nil when the plane has network policies switched off.
+func DBNetworkPolicy(plane *v1alpha1.IdentityPlane, operatorNamespace string) *networkingv1.NetworkPolicy {
+	if operatorNamespace == "" {
+		operatorNamespace = DefaultCNPGNamespace
+	}
+	tcp := corev1.ProtocolTCP
+	port := func(n int32) networkingv1.NetworkPolicyPort {
+		p := intstr.FromInt32(n)
+		return networkingv1.NetworkPolicyPort{Protocol: &tcp, Port: &p}
+	}
+	cluster := map[string]string{"cnpg.io/cluster": DBClusterName(plane.Name)}
+	return &networkingv1.NetworkPolicy{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "networking.k8s.io/v1", Kind: "NetworkPolicy"},
+		ObjectMeta: metav1.ObjectMeta{Name: DBNetworkPolicyName(plane.Name), Namespace: plane.Namespace, Labels: planeLabels(plane.Name)},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{MatchLabels: cluster},
+			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From:  []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{MatchLabels: IdPSelectorLabels(plane.Name)}}},
+					Ports: []networkingv1.NetworkPolicyPort{port(5432)},
+				},
+				{
+					From:  []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{MatchLabels: cluster}}},
+					Ports: []networkingv1.NetworkPolicyPort{port(5432), port(8000)},
+				},
+				{
+					From: []networkingv1.NetworkPolicyPeer{{NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"kubernetes.io/metadata.name": operatorNamespace}}}},
+					Ports: []networkingv1.NetworkPolicyPort{port(5432), port(8000)},
+				},
+			},
+		},
+	}
 }

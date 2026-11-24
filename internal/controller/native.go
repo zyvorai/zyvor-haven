@@ -18,6 +18,7 @@ import (
 	"github.com/zyvorai/haven/internal/render"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -111,6 +112,7 @@ func (r *IdentityPlaneReconciler) reconcileNative(ctx context.Context, orig *hav
 		}
 		note("idp secret", r.ensureIdPSecret(ctx, plane))
 		note("idp workload", r.ensureIdPWorkload(ctx, plane, &spec))
+		note("db network policy", r.ensureDBNetworkPolicy(ctx, plane, &spec))
 	}
 
 	status := r.projectNativeStatus(ctx, orig, plane, spec, hasCNPG, hasCert)
@@ -446,4 +448,31 @@ func carryTransitionTimes(old, cur []metav1.Condition) {
 			}
 		}
 	}
+}
+
+// ensureDBNetworkPolicy keeps the database NetworkPolicy in step with
+// spec.expose.networkPolicy (defaulted per profile). Turning it off removes the
+// policy this controller created, and only that one: a policy of the same name
+// that the controller does not own is left alone.
+func (r *IdentityPlaneReconciler) ensureDBNetworkPolicy(ctx context.Context, plane *havenv1.IdentityPlane, spec *havenv1.IdentityPlaneSpec) error {
+	want := spec.Expose.NetworkPolicy != nil && *spec.Expose.NetworkPolicy && !plane.Spec.Suspend
+	if want {
+		desired := render.DBNetworkPolicy(plane, r.CNPGNamespace)
+		obj := &networkingv1.NetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: desired.Name, Namespace: desired.Namespace}}
+		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, obj, func() error {
+			obj.Labels = mergeLabels(obj.Labels, desired.Labels)
+			obj.Spec = desired.Spec
+			return controllerutil.SetControllerReference(plane, obj, r.Scheme)
+		})
+		return err
+	}
+	var stale networkingv1.NetworkPolicy
+	err := r.Get(ctx, types.NamespacedName{Name: render.DBNetworkPolicyName(plane.Name), Namespace: plane.Namespace}, &stale)
+	if err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	if !metav1.IsControlledBy(&stale, plane) {
+		return nil
+	}
+	return client.IgnoreNotFound(r.Delete(ctx, &stale))
 }

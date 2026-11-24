@@ -595,6 +595,9 @@ var needed = []struct {
 	{"", "services", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 	{"", "serviceaccounts", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 	{"policy", "poddisruptionbudgets", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+	// The database NetworkPolicy (spec.expose.networkPolicy): created, updated and removed again
+	// when the setting is switched off.
+	{"networking.k8s.io", "networkpolicies", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 	{"", "secrets", []string{"get", "list", "watch", "create", "update", "patch"}},
 	{"", "pods", []string{"get", "list"}},
 	{"", "namespaces", []string{"get", "patch"}},

@@ -57,6 +57,8 @@ func main() {
 	if err := (&controller.IdentityPlaneReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		// Namespace of the CloudNativePG operator, which the database NetworkPolicy lets in.
+		CNPGNamespace: os.Getenv("HAVEN_CNPG_NAMESPACE"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller")
 		os.Exit(1)

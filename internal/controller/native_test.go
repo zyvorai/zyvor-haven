@@ -221,6 +221,8 @@ func TestNewPlaneCreatesExactlyTheNativeObjects(t *testing.T) {
 		"create Secret/platform-db-app", "create Secret/platform-idp-db", "create Cluster/platform-db",
 		"create Secret/platform-idp", "create ServiceAccount/platform-idp", "create Service/platform-idp",
 		"create Deployment/platform-idp", "create PodDisruptionBudget/platform-idp",
+		// staging defaults expose.networkPolicy on: the database ingress policy.
+		"create NetworkPolicy/platform-db-ingress",
 	}
 	got := append([]string(nil), e.writes...)
 	for i := range got {

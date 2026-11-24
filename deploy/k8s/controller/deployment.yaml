@@ -48,6 +48,10 @@ rules:
   - apiGroups: [policy]
     resources: [poddisruptionbudgets]
     verbs: [get, list, watch, create, update, patch, delete]
+  # Database NetworkPolicy (spec.expose.networkPolicy).
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [""]
     resources: [services, serviceaccounts]
     verbs: [get, list, watch, create, update, patch, delete]

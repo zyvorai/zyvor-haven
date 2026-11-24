@@ -48,6 +48,9 @@ type IdentityPlaneReconciler struct {
 	APIReader client.Reader
 	// IdPImage is the default haven-idp image; empty reads HAVEN_IDP_IMAGE.
 	IdPImage string
+	// CNPGNamespace is where the CloudNativePG operator runs; the database
+	// NetworkPolicy lets it in. Empty means render.DefaultCNPGNamespace.
+	CNPGNamespace string
 
 	cnpgOK *bool
 	kcOK   *bool
