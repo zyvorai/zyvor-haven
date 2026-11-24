@@ -140,3 +140,20 @@ because the server stores only a hash and `GET .../secret` is 501. The console's
 create-client handler uses it for confidential clients and returns
 `201 {"id","secret"}` with `Cache-Control: no-store`; the UI must show the secret
 once. Providers that can read secrets back (Keycloak) keep the old 201-with-no-body response.
+
+## MFA (TOTP) routes (`admin/mfa.go`, docs/mfa-totp.md)
+Needs `HAVEN_IDP_SECRET_KEY` (`Config.SecretBox`) and a store implementing
+`core.MFAStore`. Without the key every route below answers
+`409 {"error":"HAVEN_IDP_SECRET_KEY is not set: TOTP is disabled ..."}`; a store
+without support answers 501. Neither a seed nor a recovery code is ever returned.
+
+| Method & path | Body / result |
+|---|---|
+| GET `/realms/{r}/users/{id}/mfa` | `{"totpEnrolled":bool,"totpPending":bool,"recoveryCodesRemaining":int}` (`totpPending`: setup started, not confirmed; the remaining count is 0 unless enrolled). 404 unknown user. |
+| DELETE `/realms/{r}/users/{id}/mfa` | `204`. Deletes the credential and every recovery code (lost device) and ends all of the user's SSO sessions (`Sessions.EndUser`). Idempotent. Audit: `ADMIN_ACTION "user-mfa <username>"` and, when the realm logs auth events, `TOTP_RESET` (user id, detail `admin`). Metrics `AdminOp(realm,"user-mfa","delete",ok)`. |
+| GET `/realms/{r}/mfa-policy` | `{"requireMfa":bool}` (default false) |
+| PUT `/realms/{r}/mfa-policy` | body `{"requireMfa":bool}` (required, unknown fields rejected); returns the stored policy. When true, a user without a confirmed TOTP credential must enroll during login. Audit `ADMIN_UPDATE "mfa-policy <realm>"`. Metrics `AdminOp(realm,"mfa-policy","update",ok)`. |
+
+Auth events written by the login/account flows (never contain codes): `TOTP_ENROLLED`
+(detail `login`|`account`), `TOTP_DISABLED`, `RECOVERY_USED`, `RECOVERY_REGENERATED`,
+`MFA_FAILED` (detail `invalid_code` or `reauth`).

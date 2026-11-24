@@ -306,6 +306,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		Store:    st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL, Logger: log,
 		TrustProxy: cfg.TrustProxy,
 		CSRFKey:    []byte(cfg.CSRFKey),
+		SecretBox:  box,
 	}
 	adminCfg := admin.Config{}
 

@@ -74,7 +74,7 @@ webhook, dashboards and alert rules), and #7's email transport: self-service ema
 password reset (SMTP, single-use links; see
 [email-and-password-reset.md](email-and-password-reset.md)), and SSO sessions with single logout
 (`haven_sso` cookie, `prompt`/`max_age`, `sid`, RP-initiated and back-channel logout, Admin session
-routes; see [sso-and-logout.md](sso-and-logout.md)).
+routes; see [sso-and-logout.md](sso-and-logout.md)), and TOTP two-step verification with recovery codes (login step, enforced enrollment via a per-realm `requireMfa` policy, account page, Admin reset; see [mfa-totp.md](mfa-totp.md)); not done there: QR code, `amr`/`acr` claims, a link to the account page.
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:
