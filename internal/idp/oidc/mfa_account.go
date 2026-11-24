@@ -47,16 +47,16 @@ const acctBody = `{{with .Data}}{{if .Codes}}` + `<p class="err"><strong>Save th
 <label for="cc">6-digit code from your app</label><input id="cc" name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="16">
 <button type="submit">Confirm</button></form>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="start">` + acctPW + `
-<button type="submit">Start over with a new secret</button></form>
+<button type="submit" class="secondary">Start over with a new secret</button></form>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="disable">` + acctPW + `
-<button type="submit">Cancel setup</button></form>
+<button type="submit" class="secondary">Cancel setup</button></form>
 {{else}}<p>Two-step verification is <strong>on</strong>. Recovery codes left: <strong>{{.Remaining}}</strong>.</p>
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="regenerate">
 <label for="rc">Current code or a recovery code</label><input id="rc" name="code" autocomplete="one-time-code" required maxlength="64">` + acctPW + `
 <button type="submit">Generate new recovery codes</button></form>
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="disable">
 <label for="dc">Current code or a recovery code</label><input id="dc" name="code" autocomplete="one-time-code" required maxlength="64">` + acctPW + `
-<button type="submit">Turn off two-step verification</button></form>
+<button type="submit" class="secondary">Turn off two-step verification</button></form>
 {{end}}{{end}}{{end}}`
 
 func (p *Provider) accountTOTP(w http.ResponseWriter, r *http.Request) {

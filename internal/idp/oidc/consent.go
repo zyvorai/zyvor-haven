@@ -232,7 +232,7 @@ const consentBody = `{{with .Data}}<p><strong>{{.ClientName}}</strong> is asking
 <p class="sub">You can review and revoke this later on your account page: <code>{{.AccountURL}}</code></p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="consent_proof" value="{{.Proof}}">
 <button type="submit" name="consent_decision" value="allow">Allow</button>
-<button type="submit" name="consent_decision" value="deny">Deny</button></form>{{end}}`
+<button type="submit" name="consent_decision" value="deny" class="secondary">Deny</button></form>{{end}}`
 
 func (p *Provider) consentPage(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, s core.Session, subj consentSubject, scopes, resources []string, errMsg string, status int) {
 	rl := ar.realm
@@ -409,10 +409,10 @@ type consentAcct struct {
 
 const consentAcctBody = `{{with .Data}}{{if .Info}}<p class="sub">{{.Info}}</p>{{end}}
 {{if not .Grants}}<p>No applications currently have remembered access to your account.</p>{{end}}
-{{range .Grants}}<div><p><strong>{{.ClientName}}</strong><br><code>{{.ClientID}}</code><br>
+{{range .Grants}}<div class="item"><p><strong>{{.ClientName}}</strong><br><code>{{.ClientID}}</code><br>
 <span class="sub">Scopes: {{.Scopes}}{{if .Resources}}<br>Services: {{.Resources}}{{end}}<br>Allowed {{.Granted}}, expires {{.Expires}}</span></p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="revoke"><input type="hidden" name="grant_id" value="{{.ID}}">
-<button type="submit">Revoke access</button></form></div>{{end}}
+<button type="submit" class="secondary">Revoke access</button></form></div>{{end}}
 {{if .History}}<p class="sub"><strong>Recent activity</strong></p><ul>{{range .History}}<li class="sub">{{.When}}: {{.Type}} {{.Client}}{{if .Scopes}} ({{.Scopes}}){{end}}{{if .By}} by {{.By}}{{end}}</li>{{end}}</ul>{{end}}{{end}}`
 
 func (p *Provider) accountConsents(w http.ResponseWriter, r *http.Request) {

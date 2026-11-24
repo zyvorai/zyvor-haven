@@ -499,21 +499,11 @@ type cibaView struct {
 	Approved                                 bool
 }
 
-var cibaTmpl = template.Must(template.New("ciba").Parse(`<!doctype html>
+var cibaTmpl = template.Must(template.New("ciba").Parse(withTheme(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
-<style nonce="{{.Nonce}}">
-body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
-main{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.15);width:min(28rem,92vw)}
-h1{font-size:1.25rem;margin:0 0 1rem}
-button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
-.row{display:flex;gap:.75rem}.row form{flex:1}.sub{color:#555;font-size:.9rem}
-.warn{background:#fff4e5;border:1px solid #f0b95b;padding:.6rem;border-radius:4px;font-size:.9rem;margin:1rem 0}
-blockquote{margin:.5rem 0;padding:.5rem .75rem;border-left:4px solid #888;background:#f4f5f7;word-break:break-word}
-dl{font-size:.9rem;margin:.5rem 0}dt{color:#555;margin-top:.4rem}dd{margin:0;word-break:break-word}
-ul{margin:.25rem 0 .5rem;padding-left:1.2rem;font-size:.95rem;word-break:break-word}
-.deny{background:#fff;border:1px solid #888}
-</style></head><body><main>
+<!--theme--></head><body><main>
+{{if eq .Mode "done"}}{{if .Approved}}<!--hero:check-->{{else}}<!--hero:compass-->{{end}}{{else}}<!--hero:bell-->{{end}}
 <h1>{{.Title}}</h1>
 {{if eq .Mode "approve"}}
 <p><strong>{{.Client}}</strong> is asking to act for <strong>{{.User}}</strong> in {{.Realm}}.</p>
@@ -532,7 +522,7 @@ ul{margin:.25rem 0 .5rem;padding-left:1.2rem;font-size:.95rem;word-break:break-w
 {{if .Approved}}<p>You approved the request. You can close this window.</p>
 {{else}}<p>You denied the request. Nothing was shared. You can close this window.</p>{{end}}
 {{end}}
-</main></body></html>`))
+</main></body></html>`)))
 
 func (p *Provider) cibaRender(w http.ResponseWriter, rl core.Realm, status int, v cibaView) {
 	nonce := randToken(16)

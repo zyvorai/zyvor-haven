@@ -15,21 +15,17 @@ import (
 
 func (p *Provider) logoutPath(realm string) string { return "/realms/" + realm + oidcPath + "/logout" }
 
-var logoutTmpl = template.Must(template.New("logout").Parse(`<!doctype html>
+var logoutTmpl = template.Must(template.New("logout").Parse(withTheme(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sign out</title>
-<style nonce="{{.Nonce}}">
-body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
-main{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.15);width:min(22rem,90vw)}
-h1{font-size:1.25rem;margin:0 0 1rem}
-button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
-</style></head><body><main>
+<!--theme--></head><body><main>
+<!--hero:door-->
 <h1>Sign out of {{.Realm}}?</h1>
 <form method="post" action="{{.Action}}">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 {{range .Hidden}}<input type="hidden" name="{{.K}}" value="{{.V}}">
 {{end}}<button type="submit">Sign out</button></form>
-</main></body></html>`))
+</main></body></html>`)))
 
 type hiddenField struct{ K, V string }
 

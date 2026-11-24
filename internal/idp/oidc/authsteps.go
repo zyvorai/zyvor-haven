@@ -143,14 +143,8 @@ type StepData struct {
 const stepLayout = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
-<style nonce="{{.Nonce}}">
-body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
-main{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.15);width:min(24rem,92vw)}
-h1{font-size:1.25rem;margin:0 0 1rem}label{display:block;margin:.75rem 0 .25rem;font-size:.9rem}
-input{width:100%;box-sizing:border-box;padding:.5rem;font-size:1rem}
-button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
-.err{color:#b00020;margin:.5rem 0}.sub{color:#555;font-size:.9rem}code{word-break:break-all}
-</style></head><body><main>
+<!--theme--></head><body><main>
+<!--hero-->
 <h1>{{.Title}}</h1>
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 {{template "body" .}}
@@ -167,7 +161,7 @@ func stepTemplate(body string) *template.Template {
 	if t, ok := stepCache[body]; ok {
 		return t
 	}
-	t := template.Must(template.Must(template.New("step").Parse(stepLayout)).Parse(`{{define "body"}}` + body + `{{end}}`))
+	t := template.Must(template.Must(template.New("step").Parse(withTheme(strings.Replace(stepLayout, "<!--hero-->", "<!--hero:"+heroForBody(body)+"-->", 1)))).Parse(`{{define "body"}}` + body + `{{end}}`))
 	stepCache[body] = t
 	return t
 }

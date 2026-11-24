@@ -364,18 +364,11 @@ func (p *Provider) pkAccountPost(w http.ResponseWriter, r *http.Request, rl core
 	}
 }
 
-var pkAcctTmpl = template.Must(template.New("pkacct").Parse(`<!doctype html>
+var pkAcctTmpl = template.Must(template.New("pkacct").Parse(withTheme(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Passkeys</title>
-<style nonce="{{.Nonce}}">
-body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
-main{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.15);width:min(36rem,94vw);margin:1rem}
-h1{font-size:1.25rem;margin:0 0 .5rem}h2{font-size:1rem;margin:1.5rem 0 .5rem}
-input{padding:.4rem;font-size:1rem;box-sizing:border-box}button{padding:.45rem .8rem;font-size:.95rem;cursor:pointer}
-.err{color:#b00020;margin:.5rem 0}.ok{color:#146c2e;margin:.5rem 0}.sub{color:#555;font-size:.9rem}
-li{list-style:none;border-top:1px solid #e3e5e8;padding:.6rem 0}ul{padding:0;margin:0}
-form.row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin:.3rem 0}
-</style></head><body><main>
+<!--theme--></head><body><main class="wide">
+<!--hero:fingerprint-->
 <h1>Passkeys for {{.Username}}</h1>
 <p class="sub">Realm {{.Realm}}. A passkey lets you sign in without a password, or confirm a password sign-in.</p>
 {{if .Msg}}<p class="ok" role="status">{{.Msg}}</p>{{end}}
@@ -399,4 +392,4 @@ form.row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin:.3rem 0
 <p class="sub">Your sign-in is older than 10 minutes. Confirm your password to add or remove passkeys.</p>
 <form class="row" method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="reauth">
 <input name="password" type="password" autocomplete="current-password" required maxlength="1024" aria-label="Password"><button type="submit">Confirm</button></form>{{end}}
-</main></body></html>`))
+</main></body></html>`)))

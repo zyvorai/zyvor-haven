@@ -49,7 +49,7 @@ type Fallback struct {
 // altFragment is appended to the passkey and TOTP step bodies; Data must
 // carry an Alt *Fallback.
 const altFragment = `
-{{if .Data.Alt}}<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="fb_token" value="{{.Data.Alt.Token}}"><button type="submit">{{.Data.Alt.Label}}</button></form>{{end}}`
+{{if .Data.Alt}}<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="fb_token" value="{{.Data.Alt.Token}}"><button type="submit" class="secondary">{{.Data.Alt.Label}}</button></form>{{end}}`
 
 // methodReady reports whether the user has the method enrolled and the
 // feature for it is on. Errors count as "not ready".

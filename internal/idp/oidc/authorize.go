@@ -311,18 +311,11 @@ func (p *Provider) pageHeaders(w http.ResponseWriter, nonce string) {
 	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'nonce-"+nonce+"'; base-uri 'none'; frame-ancestors 'none'")
 }
 
-var pageTmpl = template.Must(template.New("page").Parse(`<!doctype html>
+var pageTmpl = template.Must(template.New("page").Parse(withTheme(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
-<style nonce="{{.Nonce}}">
-body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
-main{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.15);width:min(22rem,90vw)}
-h1{font-size:1.25rem;margin:0 0 1rem}label{display:block;margin:.75rem 0 .25rem;font-size:.9rem}
-input{width:100%;box-sizing:border-box;padding:.5rem;font-size:1rem}
-button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
-.err{color:#b00020;margin:.5rem 0}.sub{color:#555;font-size:.9rem}
-a.fed{display:block;margin-top:.75rem;padding:.6rem;border:1px solid #888;border-radius:4px;text-align:center;color:inherit;text-decoration:none}
-</style></head><body><main>
+<!--theme--></head><body><main>
+{{if .Login}}<!--hero:lock-->{{else if eq .Form "forgot"}}<!--hero:envelope-->{{else if eq .Form "reset"}}<!--hero:lock-->{{else if .Form}}<!--hero:envelope-->{{else}}<!--hero:compass-->{{end}}
 {{if .Login}}<h1>Sign in to {{.Realm}}</h1>
 <p class="sub">to continue to {{.Client}}</p>
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
@@ -350,7 +343,7 @@ a.fed{display:block;margin-top:.75rem;padding:.6rem;border:1px solid #888;border
 <button type="submit">Confirm email address</button>{{end}}
 </form>
 {{else}}<h1>{{.Title}}</h1><p>{{.Message}}</p>{{end}}
-</main></body></html>`))
+</main></body></html>`)))
 
 type pageData struct {
 	Title, Nonce, Realm, Client, Error, Username, CSRF, Action, Message string
