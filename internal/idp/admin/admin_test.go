@@ -599,7 +599,9 @@ func TestMiscRoutes(t *testing.T) {
 	if string(bytes.TrimSpace(e.api(200, "GET", r+"/identity-providers", nil))) != "[]" {
 		t.Fatal("identity providers must be an empty list")
 	}
-	e.api(501, "POST", r+"/identity-providers", map[string]any{"alias": "x"})
+	// Federation is served now (see internal/idp/upstream/e2e_test.go); an
+	// invalid provider is a 400, not the old 501.
+	e.api(400, "POST", r+"/identity-providers", map[string]any{"alias": "x"})
 	e.api(404, "DELETE", r+"/identity-providers/x", nil)
 	var ks []map[string]any
 	_ = json.Unmarshal(e.api(200, "GET", r+"/keys", nil), &ks)

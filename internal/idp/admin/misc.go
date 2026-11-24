@@ -15,13 +15,7 @@ import (
 func (a *api) miscRoutes(m *http.ServeMux) {
 	p := pathPrefix + "/realms/{r}"
 	m.HandleFunc("GET "+p+"/client-scopes", a.clientScopes)
-	m.HandleFunc("GET "+p+"/identity-providers", a.listIdPs)
-	m.HandleFunc("POST "+p+"/identity-providers", func(w http.ResponseWriter, _ *http.Request) {
-		notImplemented(w, "identity federation is not implemented")
-	})
-	m.HandleFunc("DELETE "+p+"/identity-providers/{alias}", func(w http.ResponseWriter, _ *http.Request) {
-		writeErr(w, http.StatusNotFound, "not found")
-	})
+	// identity-providers: federation.go
 	m.HandleFunc("GET "+p+"/events", a.events)
 	m.HandleFunc("GET "+p+"/keys", a.keys)
 	m.HandleFunc("GET "+p+"/export", a.export)
@@ -37,13 +31,6 @@ func (a *api) clientScopes(w http.ResponseWriter, r *http.Request) {
 		out = append(out, idp.ClientScope{ID: n, Name: n})
 	}
 	writeJSON(w, http.StatusOK, out)
-}
-
-func (a *api) listIdPs(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.realmOf(w, r); !ok {
-		return
-	}
-	writeJSON(w, http.StatusOK, []idp.IdentityProvider{})
 }
 
 func (a *api) events(w http.ResponseWriter, r *http.Request) {

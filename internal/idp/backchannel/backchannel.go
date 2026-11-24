@@ -15,23 +15,21 @@ package backchannel
 import (
 	"context"
 	"crypto/rand"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/safehttp"
 )
 
 const (
@@ -95,66 +93,14 @@ func New(cfg Config) *Notifier {
 }
 
 // errBlocked marks a destination refused by the IP policy.
-var errBlocked = errors.New("backchannel: destination address not allowed")
+var errBlocked = safehttp.ErrBlocked
 
 func newClient(cfg Config) *http.Client {
-	d := &net.Dialer{Timeout: cfg.Timeout}
-	if !cfg.AllowPrivate {
-		d.Control = func(_, address string, _ syscall.RawConn) error {
-			ap, err := netip.ParseAddrPort(address)
-			if err != nil {
-				return errBlocked
-			}
-			if blockedIP(ap.Addr()) {
-				return errBlocked
-			}
-			return nil
-		}
-	}
-	tr := &http.Transport{
-		Proxy:                 nil, // never from the environment
-		DialContext:           d.DialContext,
-		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: cfg.RootCAs},
-		TLSHandshakeTimeout:   cfg.Timeout,
-		ResponseHeaderTimeout: cfg.Timeout,
-		DisableKeepAlives:     true,
-	}
-	return &http.Client{
-		Transport:     tr,
-		Timeout:       cfg.Timeout,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
+	return safehttp.New(safehttp.Options{AllowPrivate: cfg.AllowPrivate, RootCAs: cfg.RootCAs, Timeout: cfg.Timeout}).HTTP
 }
-
-var blockedPrefixes = func() []netip.Prefix {
-	var out []netip.Prefix
-	for _, s := range []string{
-		"100.64.0.0/10", // CGNAT
-		"64:ff9b::/96",  // NAT64 (embeds an arbitrary IPv4)
-		"fc00::/7",      // ULA
-		"192.0.0.0/24",  // IETF protocol assignments
-		"198.18.0.0/15", // benchmarking
-		"240.0.0.0/4",   // reserved
-	} {
-		out = append(out, netip.MustParsePrefix(s))
-	}
-	return out
-}()
 
 // blockedIP reports whether a destination address is off limits.
-func blockedIP(a netip.Addr) bool {
-	a = a.Unmap()
-	if !a.IsValid() || a.IsLoopback() || a.IsPrivate() || a.IsLinkLocalUnicast() || a.IsLinkLocalMulticast() ||
-		a.IsInterfaceLocalMulticast() || a.IsMulticast() || a.IsUnspecified() {
-		return true
-	}
-	for _, p := range blockedPrefixes {
-		if p.Contains(a) {
-			return true
-		}
-	}
-	return false
-}
+func blockedIP(a netip.Addr) bool { return safehttp.BlockedIP(a) }
 
 // ValidateURI checks a back-channel logout URI syntactically: length, scheme,
 // host, no userinfo, no fragment. The IP policy is enforced at dial time.
@@ -194,14 +140,7 @@ func ValidateURI(raw string, allowPrivate bool) error {
 	return nil
 }
 
-func isLoopbackHost(h string) bool {
-	h = strings.ToLower(strings.TrimSuffix(h, "."))
-	if h == "localhost" || strings.HasSuffix(h, ".localhost") {
-		return true
-	}
-	a, err := netip.ParseAddr(h)
-	return err == nil && a.Unmap().IsLoopback()
-}
+func isLoopbackHost(h string) bool { return safehttp.IsLoopbackHost(h) }
 
 // Drain waits for in-flight deliveries (tests, graceful shutdown).
 func (n *Notifier) Drain() { n.wg.Wait() }

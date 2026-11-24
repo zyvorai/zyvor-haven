@@ -19,7 +19,7 @@
     "client_roles": 1,
     "client_scopes": 3,
     "events": 1,
-    "identity_providers": 2,
+    "identity_providers": 1,
     "internationalization": 1,
     "protocol_mappers": 3,
     "required_actions": 1,
@@ -42,6 +42,7 @@
     "client.wildcard_redirect": 2,
     "group.role_mappings_dropped": 1,
     "group.subgroups_dropped": 1,
+    "identity_provider.secret_required": 1,
     "notmigrated.authentication_flows": 1,
     "notmigrated.authorization_services": 1,
     "notmigrated.client_roles": 1,
@@ -178,6 +179,11 @@
       "message": "2 sub-group(s) dropped (nested group paths are unsupported)"
     },
     {
+      "code": "identity_provider.secret_required",
+      "where": "google",
+      "message": "converted but DISABLED: the client secret is masked in Keycloak exports and was not migrated. Create it with POST /admin/v1/realms/{realm}/identity-providers (body in identity-providers.json), set config.clientSecret and enabled:true; check linkExistingByEmail/autoCreateUsers (not carried over: both default to false)"
+    },
+    {
       "code": "notmigrated.authentication_flows",
       "message": "not migrated: authentication flows (2 in the export)"
     },
@@ -199,7 +205,7 @@
     },
     {
       "code": "notmigrated.identity_providers",
-      "message": "not migrated: identity providers (2 in the export)"
+      "message": "not migrated: identity providers (1 in the export)"
     },
     {
       "code": "notmigrated.internationalization",

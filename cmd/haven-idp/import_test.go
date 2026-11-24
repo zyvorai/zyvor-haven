@@ -68,6 +68,15 @@ func TestImportKeycloakOutDir(t *testing.T) {
 	if !strings.Contains(out, "haven-idp apply -f") {
 		t.Errorf("no next-step hint: %s", out)
 	}
+	// The fixture's Google identity provider is converted (disabled, no secret).
+	ib, err := os.ReadFile(filepath.Join(dir, "identity-providers.json"))
+	if err != nil {
+		t.Fatalf("identity-providers.json: %v", err)
+	}
+	var ips []idp.IdentityProvider
+	if err := json.Unmarshal(ib, &ips); err != nil || len(ips) != 1 || ips[0].Alias != "google" || ips[0].Enabled || ips[0].Config["clientSecret"] != "" {
+		t.Errorf("identity-providers.json: %v %+v", err, ips)
+	}
 	yb, _ := os.ReadFile(yp)
 	if _, err := configcode.Parse(bytes.NewReader(yb)); err != nil {
 		t.Errorf("realm.yaml does not parse: %v", err)

@@ -125,6 +125,7 @@ func cmdDev(args []string, out io.Writer) error {
 		ConsoleClientID:         devPlaygroundClient,
 		ConsoleRedirects:        []string{base + "/dev/"},
 		BackchannelAllowPrivate: true, // dev: loopback IdP, apps on localhost
+		FederationAllowPrivate:  true, // dev: upstream providers may be local haven-idp instances
 		PostBootstrap: func(ctx context.Context, st core.Store, _ core.PasswordHasher) error {
 			err := st.CreateClient(ctx, core.Client{
 				Realm: *realm, ClientID: devAppClient, Name: "Demo app", Enabled: true,

@@ -301,6 +301,7 @@ h1{font-size:1.25rem;margin:0 0 1rem}label{display:block;margin:.75rem 0 .25rem;
 input{width:100%;box-sizing:border-box;padding:.5rem;font-size:1rem}
 button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
 .err{color:#b00020;margin:.5rem 0}.sub{color:#555;font-size:.9rem}
+a.fed{display:block;margin-top:.75rem;padding:.6rem;border:1px solid #888;border-radius:4px;text-align:center;color:inherit;text-decoration:none}
 </style></head><body><main>
 {{if .Login}}<h1>Sign in to {{.Realm}}</h1>
 <p class="sub">to continue to {{.Client}}</p>
@@ -312,6 +313,8 @@ button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
 <button type="submit">Sign in</button></form>
 {{if .Passkey}}{{template "passkey" .}}{{end}}
 {{if .ForgotURL}}<p class="sub"><a href="{{.ForgotURL}}">Forgot your password?</a></p>{{end}}
+{{range .Providers}}<a class="fed" href="{{.URL}}">Continue with {{.Name}}</a>
+{{end}}
 {{else if .Form}}<h1>{{.Title}}</h1>
 {{if .Message}}<p class="sub">{{.Message}}</p>{{end}}
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
@@ -334,6 +337,7 @@ type pageData struct {
 	Token, Form, ForgotURL                                              string
 	Login                                                               bool
 	Passkey                                                             *PasskeyLogin // set by passkeys.go via loginPageHook
+	Providers                                                           []fedButton   // federation.go
 }
 
 func (p *Provider) errorPage(w http.ResponseWriter, status int, msg string) {
@@ -363,7 +367,7 @@ func (p *Provider) loginPage(w http.ResponseWriter, r *http.Request, ar *authzRe
 	}
 	pd := pageData{Title: "Sign in", Nonce: nonce, Login: true, Realm: disp, Client: cn,
 		Error: errMsg, Username: username, CSRF: csrf, ForgotURL: p.forgotURL(ar.realm.Name),
-		Action: r.URL.Path + "?" + r.URL.RawQuery}
+		Action: r.URL.Path + "?" + r.URL.RawQuery, Providers: p.loginProviders(r, ar.realm)}
 	if loginPageHook != nil {
 		loginPageHook(p, w, ar, nonce, &pd) // passkeys: adds the button and its nonce'd script
 	}

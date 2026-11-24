@@ -55,6 +55,9 @@ type Config struct {
 	Sessions *sessions.Service
 	// Guard gates realm and client writes with Haven Guard (guard.go).
 	Guard GuardConfig
+	// AllowPrivateUpstreams lets identity-provider issuers use http on
+	// loopback. Dev and tests only; pair it with the same flag on oidc.Config.
+	AllowPrivateUpstreams bool
 }
 
 type api struct {

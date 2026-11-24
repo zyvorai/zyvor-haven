@@ -26,10 +26,12 @@ import (
 	"github.com/zyvorai/haven/internal/idp/obs"
 	"github.com/zyvorai/haven/internal/idp/oidc"
 	"github.com/zyvorai/haven/internal/idp/password"
+	"github.com/zyvorai/haven/internal/idp/safehttp"
 	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"github.com/zyvorai/haven/internal/idp/sessions"
 	"github.com/zyvorai/haven/internal/idp/store/memstore"
 	"github.com/zyvorai/haven/internal/idp/store/pgstore"
+	"github.com/zyvorai/haven/internal/idp/upstream"
 )
 
 // Config is everything serve needs. `serve` builds it from the environment;
@@ -96,6 +98,9 @@ type Config struct {
 	// BackchannelAllowPrivate lifts the SSRF policy of back-channel logout
 	// (loopback/private targets, http to localhost). Dev only.
 	BackchannelAllowPrivate bool
+	// FederationAllowPrivate lifts the SSRF policy for upstream identity
+	// providers (loopback/private issuers, http to localhost). Dev only.
+	FederationAllowPrivate bool
 
 	OnMetricsReady func(addr string) // called once the metrics listener is bound
 }
@@ -316,6 +321,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		CSRFKey:    []byte(cfg.CSRFKey),
 		SecretBox:  box,
 		WebAuthn:   oidc.WebAuthnConfig{RPID: cfg.WebAuthnRPID, Origins: cfg.WebAuthnOrigins},
+		Federation: upstream.NewManager(safehttp.Options{AllowPrivate: cfg.FederationAllowPrivate}, nil),
 	}
 	adminCfg := admin.Config{}
 
@@ -330,7 +336,8 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		adminCfg = admin.Config{
 			Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL,
 			AdminRealm: adminRealm, Logger: log, Actions: act, SecretBox: box, Sessions: sess,
-			Guard: guardConfigFromEnv(),
+			Guard:                 guardConfigFromEnv(),
+			AllowPrivateUpstreams: cfg.FederationAllowPrivate,
 		}
 		if err := adminCfg.Guard.Validate(time.Now()); err != nil {
 			return err

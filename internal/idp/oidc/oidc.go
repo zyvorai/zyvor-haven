@@ -27,6 +27,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/obs"
 	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"github.com/zyvorai/haven/internal/idp/sessions"
+	"github.com/zyvorai/haven/internal/idp/upstream"
 )
 
 const (
@@ -72,6 +73,10 @@ type Config struct {
 	// Obs receives protocol and security signals (enums and realm names
 	// only). Nil records nothing.
 	Obs obs.Recorder
+	// Federation performs the upstream OIDC calls of identity brokering. Nil
+	// builds one with the default SSRF policy (federation.go); dev and tests
+	// pass one with AllowPrivate / test RootCAs.
+	Federation *upstream.Manager
 }
 
 // Provider is the http.Handler for all realms.

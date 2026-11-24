@@ -87,6 +87,7 @@ nav:
       - Migrate from Keycloak: migrate-from-keycloak.md
       - Import a Keycloak realm: import-from-keycloak.md
       - Email and password reset: email-and-password-reset.md
+      - Federation (Sign in with Google, Entra, OIDC): federation.md
       - SSO sessions and single logout: sso-and-logout.md
       - Guard as an admission gate: guard-gate.md
       - Time-boxed access (JIT roles): time-boxed-access.md
