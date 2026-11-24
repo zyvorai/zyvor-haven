@@ -13,26 +13,30 @@ Operator guide: install, deploy, day-2 operations, and incident response.
 ## Install operators (once per cluster)
 
 ```bash
-./deploy/operators/install.sh
+./deploy/operators/install.sh      # CloudNativePG + cert-manager
 make crds
 ```
 
-Creates/uses namespace `keycloak` for the Keycloak Operator. Planes live in `identity`.
+Planes live in the `identity` namespace.
 
 ---
 
 ## Deployment paths
 
-### Path A — product CR (controller later) {#path-a}
+<a id="path-a"></a>
+
+### Path A: IdentityPlane + controller
 
 ```bash
 kubectl apply -f config/samples/identityplane-dev.yaml
 ./cli/haven doctor -n identity
 ```
 
-Until the controller image exists, Path A only **stores intent**. Use Path B to actually run Keycloak + Postgres.
+The controller (`haven-controller`, see [install-helm.md](install-helm.md)) builds the CloudNativePG cluster, the secrets, the `haven-idp` Deployment and the certificate from the plane. Full walkthrough: [deploy-native.md](deploy-native.md).
 
-### Path B — compose today (supported in v0) {#path-b}
+<a id="path-b"></a>
+
+### Path B: dev overlay (no controller)
 
 ```bash
 make dev
@@ -42,17 +46,18 @@ make admin
 
 | Item | Value |
 |---|---|
-| Admin secret | `platform-initial-admin` (Keycloak Operator bootstrap) |
-| Admin Console | `http://auth.127.0.0.1.nip.io/admin` |
-| First realm | `make realm-import` |
+| Admin secret | `platform-idp`, key `admin-password` (namespace `identity`) |
+| Issuer | `http://auth.127.0.0.1.nip.io/realms/platform` |
 
 ```bash
-./cli/haven admin -n identity    # print credentials
+./cli/haven admin -n identity    # prints the kubectl command that reads the password
 ```
 
-`kubectl apply -k deploy/overlays/dev` no longer includes a Haven `RealmBundle`, so the compose path does not require Haven CRDs. `make dev` still applies them so samples work later.
+`make dev` applies the Haven CRDs and `deploy/overlays/dev`, which renders the same objects as the controller with `CHANGE_ME_DEV_ONLY` placeholder secrets. Dev only.
 
-### Path C — production shape {#path-c}
+<a id="path-c"></a>
+
+### Path C: production shape
 
 Follow [production-overlay.md](production-overlay.md):
 
@@ -60,25 +65,17 @@ Follow [production-overlay.md](production-overlay.md):
 ./hack/gen-prod-secrets.sh
 make prod
 kubectl -n identity wait cluster/platform-db --for=condition=Ready --timeout=600s
-./hack/sync-cnpg-ca.sh
+kubectl -n identity rollout status deployment/platform-idp
 # then issue platform-tls and configure backups
 ```
 
 Do not apply a `ScheduledBackup` until an ObjectStore plugin or volume snapshot class exists.
 
-### Path D — Haven console on lab host {#path-d}
+<a id="path-d"></a>
 
-```bash
-./scripts/deploy-remote.sh <ephemeral-ip> operator
-```
+### Path D: console
 
-| Service | URL |
-|---|---|
-| Console | [http://<ephemeral-ip>:30742/login](http://<ephemeral-ip>:30742/login) |
-| Keycloak admin | [http://<ephemeral-ip>:30180/admin](http://<ephemeral-ip>:30180/admin) |
-| OIDC issuer | `http://<ephemeral-ip>:30180/realms/master` |
-
-Secret: `haven-keycloak-admin` in `haven-ui`. Details: [lab-host.md](lab-host.md), [console.md](console.md).
+The console talks to `haven-idp` through the Admin API. With the Helm chart it defaults to `http://platform-idp.identity.svc:8081` and reads its admin client secret from secret `platform-idp`: see [deploy-native.md](deploy-native.md#2-controller-and-console). For a lab machine see [lab-host.md](lab-host.md); for routes and auth modes see [console.md](console.md).
 
 ---
 
@@ -86,15 +83,14 @@ Secret: `haven-keycloak-admin` in `haven-ui`. Details: [lab-host.md](lab-host.md
 
 | Action | How |
 |---|---|
-| Sign in to console | `/login` — admin credentials or lab `demo`/`demo` |
+| Sign in to console | `/login`: admin credentials, or sign in through the plane's own realm |
 | Change console password | Settings → Passwords (persist via secret for restarts) |
-| Change Keycloak admin password | Settings → Passwords → Keycloak admin |
 | Set realm user password | Realm Studio → Users → Set password |
-| Scale Keycloak | `kubectl -n identity patch keycloak platform --type merge -p '{"spec":{"instances":5}}'` |
-| Scale Postgres | patch CNPG `spec.instances` |
+| Scale haven-idp | `kubectl -n identity scale deployment/platform-idp --replicas=3` (or `spec.idp.replicas`) |
+| Scale Postgres | patch `spec.database.instances` on the plane (or the CNPG `spec.instances`) |
 | Backup now | `./cli/haven backup platform -n identity --now` (volumeSnapshot) |
-| Upgrade Keycloak | bump `KEYCLOAK_OPERATOR_REF` in `versions.env`, re-run `install.sh` |
-| Suspend auth | scale Keycloak instances to 0; leave DB |
+| Upgrade haven-idp | bump the image (`spec.idp.image` or the Helm `idp.image.tag`); migrations run at start under an advisory lock. Take a CNPG backup first |
+| Suspend auth | `spec.suspend` on the plane; the database is left alone |
 | Restore | CNPG recover into a *new* Cluster, point a new plane at it |
 
 Console recipes: [tutorials.md](tutorials.md). CLI reference: [cli.md](cli.md).
@@ -105,11 +101,12 @@ Console recipes: [tutorials.md](tutorials.md). CLI reference: [cli.md](cli.md).
 
 | Symptom | Look at |
 |---|---|
-| Keycloak CrashLoop `Unable to migrate database` | CNPG not ready, password mismatch between Secrets, TLS verify without `platform-db-ca` |
-| Ingress 404 | Service is `<cr-name>-service` → `platform-service` |
-| Issuer discovery fails | hostname / `proxy.headers` / TLS SAN |
-| Slow logins | pool size vs `max_connections`, lag on primary |
-| After node death, auth 5xx | Keycloak instances < 2, no PDB |
+| `haven-idp` pod not ready / restarting | `kubectl -n identity logs deploy/platform-idp`; CNPG not ready, wrong DSN in `platform-idp-db`, or a changed `secret-key` |
+| Plane stuck in `ProvisioningDatabase` | `DatabaseReady` condition: CNPG CRDs missing or cluster not healthy |
+| Ingress 404 | the Ingress backend must point at the Service `platform-idp` on port 8081 |
+| Issuer discovery fails | hostname, forwarded headers (`HAVEN_IDP_TRUST_PROXY=1` is set by the controller), TLS SAN |
+| Slow logins | database pool size vs `max_connections`, lag on the primary |
+| After node death, auth 5xx | fewer than 2 `haven-idp` replicas, no PDB (replicas above 1 get one) |
 | `ScheduledBackup` rejected | Cluster has no object store / plugin |
 
 **First step in any incident:** `./cli/haven doctor`
@@ -118,9 +115,9 @@ Console recipes: [tutorials.md](tutorials.md). CLI reference: [cli.md](cli.md).
 
 ## Related docs
 
-- [Getting started](getting-started.md) — choose a path
-- [Architecture](architecture.md) — reconcile order and profiles
-- [CLI](cli.md) — commands and Makefile targets
+- [Getting started](getting-started.md): choose a path
+- [Architecture](architecture.md): reconcile order and profiles
+- [CLI](cli.md): commands and Makefile targets
 
 ## Gateway API alternative (Setura)
 

@@ -9,37 +9,39 @@ hero:
 | Requirement | Notes |
 |-------------|--------|
 | Kubernetes / k3s | kubectl access |
-| Keycloak Admin URL **or** Haven compose operators | Existing Keycloak or Deploy wizard |
+| CloudNativePG and cert-manager | Installed once per cluster (`./deploy/operators/install.sh`) |
 | Browser | Console NodePort (default **30742**) |
 
-## 1. Lab deploy (remote)
+## 1. Deploy
 
 ```bash
 git clone https://github.com/zyvorai/haven.git
 cd haven
-./scripts/deploy-remote.sh <host> <user>
-./scripts/deploy-remote.sh <host> <user> --quick   # skip image rebuild
+./deploy/operators/install.sh
+make dev && make wait
 ```
 
-Open `http://<host>:30742/login`.
+This runs `haven-idp` and Postgres on your cluster; the full walkthrough, including the controller and console, is in [Deploy haven-idp (native)](../deploy-native.md). To try the identity server with no cluster, run `haven-idp dev`. For a console on a shared lab machine see [Lab host](../lab-host.md).
+
+Open the console at its host, `/login`.
 
 ## 2. Sign in
 
 | Account | Credentials | When |
 |---------|-------------|------|
 | Lab demo | `demo` / `demo` | `HAVEN_LAB_LOGIN` enabled |
-| Admin | Keycloak admin user/password | Synced into `haven-keycloak-admin` |
+| Plane admin (OIDC) | `admin` in realm `platform`; password from secret `platform-idp`, key `admin-password` | Console OIDC sign-in against the plane |
 | Local console | `HAVEN_CONSOLE_USER` / `PASSWORD` | Role `admin` |
 
 Full login UX: [Login](pages/auth/login.md).
 
 ## 3. Orient yourself (UX)
 
-1. **Command Deck** (`/deck`) — Keycloak connected? Phase Ready?
+1. **Command Deck** (`/deck`) — identity server connected? Phase Ready?
 2. **Planes** — fleet card for your IdentityPlane.
-3. **Atlas** — Console → Ingress → Keycloak → Postgres path.
+3. **Atlas** — Console → Ingress → haven-idp → Postgres path.
 4. **Realm Studio** — list/create realms; open detail for users/clients.
-5. **Settings** — **Test & connect** until the green banner appears.
+5. **Settings** — confirm the identity-server connection is healthy.
 
 Command palette: `⌘K` / `Ctrl+K`.
 

@@ -7,7 +7,7 @@ register itself as a client instead of an admin clicking through the console.
 **Registration always needs an initial access token issued by an admin. There is no anonymous mode, and
 this version has no setting to turn one on.**
 
-The paths are Keycloak-compatible:
+The registration paths are:
 
 | Call | Path | Authenticated by |
 |---|---|---|

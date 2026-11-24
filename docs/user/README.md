@@ -4,7 +4,7 @@ hero:
   title: Haven — User Documentation
 ---
 
-**Haven** is identity for the private cloud — Keycloak + Postgres as one plane, operated from the Haven console.
+**Haven** is identity for the private cloud — its own OpenID Connect identity server (`haven-idp`) + HA Postgres as one plane, operated from the Haven console.
 
 | You want to… | Open |
 |--------------|------|
@@ -30,8 +30,7 @@ Output lands in [`pdf/`](pdf/).
 ```text
   Console   →  http://<host>:30742/          (NodePort UI + /api/v1)
   Login     →  http://<host>:30742/login
-  Keycloak  →  http://<host>:30180/admin     (typical NodePort)
-  Issuer    →  http://<host>:30180/realms/master
+  Issuer    →  https://<auth-host>/realms/<realm>   (your plane's hostname)
   Health    →  GET /api/v1/health
 ```
 

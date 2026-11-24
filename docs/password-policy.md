@@ -1,7 +1,7 @@
 # Password policy
 
 haven-idp checks new passwords (admin reset, emailed-link reset, bootstrap)
-against a realm policy string, a Keycloak-style list of terms joined by
+against a realm policy string, a list of terms joined by
 ` and `:
 
 ```
@@ -9,7 +9,7 @@ length(12) and digits(1) and notCommon() and notPersonal() and notBreached()
 ```
 
 Terms with a number are numeric minimums. Unknown or malformed terms are
-ignored (so a policy imported from Keycloak never breaks); an empty policy
+ignored (so a policy string imported from another server never breaks); an empty policy
 accepts everything. Checks run in the order written and the first failure is
 returned.
 

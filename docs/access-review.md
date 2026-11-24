@@ -5,7 +5,7 @@ hero:
   lead: >-
     Find privileged and stale accounts in a realm, check break-glass
     coverage, and record who certified or revoked each account. Haven records
-    decisions; it never changes Keycloak access.
+    decisions; it never changes access in the identity server.
 ---
 
 Access Review reads the same data as [Time Machine](identity-ops.md): users,
@@ -58,7 +58,7 @@ A campaign covers every account that holds roles or groups. Decisions are
 authenticated session user. A decision can be changed until the campaign
 closes; earlier decisions stay in the append-only history. A campaign closes
 only when every account is certified or revoked. The response lists
-`revokeWorkItems`: the accounts an administrator must change in Keycloak.
+`revokeWorkItems`: the accounts an administrator must change in the identity server (Admin API or console).
 
 Campaigns are JSON files (mode 0600) under `HAVEN_DATA_DIR/access-reviews`,
 capped at 500 stored campaigns and 20,000 users per realm. Without

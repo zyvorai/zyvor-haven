@@ -14,16 +14,11 @@ Step-by-step console recipes for operators. User-facing manuals also live on zyv
 
 ## Verify deploy
 
-Deploy (or refresh) the console on the lab host and walk through the main surfaces:
-
-```bash
-./scripts/deploy-remote.sh <ephemeral-ip> operator
-open http://<ephemeral-ip>:30742/login
-```
+Open the console (locally `http://localhost:5173` from `make ui-dev`, or the console host of your plane) and walk through the main surfaces:
 
 Sign in → **Command Deck** (connected + Ready) → **Planes** → **Atlas**.
 
-Endpoints and SSH: [lab-host.md](lab-host.md). Auth modes: [console.md](console.md#authentication).
+Lab machine notes: [lab-host.md](lab-host.md). Auth modes: [console.md](console.md#authentication).
 
 ---
 
@@ -33,7 +28,7 @@ Endpoints and SSH: [lab-host.md](lab-host.md). Auth modes: [console.md](console.
 2. Open realm → **Users** → **Invite user** (optional temp password)
 3. **Set password** for a permanent credential
 
-Production profile (future): realm changes may route through Approvals — see [ux.md](ux.md).
+Production profile (future): realm changes may route through Approvals; see [ux.md](ux.md).
 
 ---
 
@@ -42,7 +37,7 @@ Production profile (future): realm changes may route through Approvals — see [
 1. Realm → **Clients** → **Mint client** (confidential)
 2. **Secret** or **Rotate** → copy once
 
-For public PKCE clients (no secret), register redirect URIs in Keycloak directly. OIDC wiring example: [lab-host.md → Wire OIDC clients](lab-host.md#wire-oidc-clients).
+For public PKCE clients (no secret), register the exact redirect URIs on the client in Realm Studio, with an [`OIDCClient`](oidcclient-crd.md) manifest, or with the [add-an-app wizard](add-an-app.md). OIDC wiring example: [lab-host.md → Wire OIDC clients](lab-host.md#wire-oidc-clients).
 
 ---
 
@@ -51,10 +46,9 @@ For public PKCE clients (no secret), register redirect URIs in Keycloak directly
 | What | Where |
 |---|---|
 | Console sign-in | Settings → Passwords → Change console password |
-| Keycloak master admin | Settings → Passwords → Change Keycloak admin |
 | Realm user | Realm → Users → Set password |
 
-Persist console / Keycloak admin changes in `haven-keycloak-admin` (or `HAVEN_CONSOLE_*`) before pod restart.
+Persist console password changes in `HAVEN_CONSOLE_*` (or its secret) before a pod restart.
 
 ---
 

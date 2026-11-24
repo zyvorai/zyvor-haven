@@ -1,7 +1,6 @@
 # Deploy haven-idp on Kubernetes
 
-haven-idp is Haven's own OIDC server and the default identity engine
-(`spec.engine: native`). This page takes a cluster that already has
+haven-idp is Haven's own OIDC server. This page takes a cluster that already has
 [CloudNativePG](https://cloudnative-pg.io) and [cert-manager](https://cert-manager.io)
 to a running plane. Names and labels used here are fixed by
 `internal/render/IDP_CONTRACT.md`.
@@ -15,13 +14,11 @@ to a running plane. Names and labels used here are fixed by
 ## 1. Operators and CRDs
 
 ```bash
-./deploy/operators/install.sh      # CNPG + cert-manager. Keycloak operator is NOT installed.
+./deploy/operators/install.sh      # CNPG + cert-manager
 make crds
 ```
 
-`INSTALL_KEYCLOAK_OPERATOR=1 ./deploy/operators/install.sh` additionally installs the
-deprecated Keycloak operator; you only need it while migrating
-([migrate-from-keycloak.md](migrate-from-keycloak.md)).
+Migrating from another identity server? See [migrate-from-keycloak.md](migrate-from-keycloak.md).
 
 ## 2. Controller and console
 
@@ -47,7 +44,6 @@ apiVersion: identity.haven.dev/v1alpha1
 kind: IdentityPlane
 metadata: {name: platform, namespace: identity}
 spec:
-  engine: native
   profile: dev
   hostname: auth.127.0.0.1.nip.io
   consoleHostname: haven.127.0.0.1.nip.io
@@ -65,9 +61,7 @@ make doctor
 The controller creates the CNPG cluster `platform-db` (database and owner `haven_idp`), the
 Secrets `platform-idp` and `platform-idp-db` (32 random bytes each, generated once and never
 overwritten on later reconciles), and the Deployment, Service, ServiceAccount and
-PodDisruptionBudget `platform-idp`. `spec.engine` omitted resolves to `keycloak` if a
-Keycloak CR for the plane already exists, otherwise `native`: an existing plane is never
-switched silently.
+PodDisruptionBudget `platform-idp`.
 
 !!! tip "No cluster controller"
     `make dev` applies `deploy/overlays/dev`, which renders the same objects with

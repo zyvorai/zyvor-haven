@@ -6,13 +6,13 @@ hero:
 
 ## Purpose
 
-Traffic path to identity — Console → Ingress → Keycloak → Postgres.
+Traffic path to identity — Console → Ingress → haven-idp → Postgres.
 
 ## When to use it
 
 - Operate **Atlas** when your job matches this screen
 - Prefer **Command Deck** after login if you are unsure where to start
-- Confirm Keycloak connected in the sidebar status chip
+- Confirm the identity server shows as connected in the sidebar status chip
 
 ## How to get there
 
@@ -25,9 +25,9 @@ Traffic path to identity — Console → Ingress → Keycloak → Postgres.
 2. Walk the path diagram; confirm each hop looks healthy.
 3. Use this before debugging OIDC redirect or login failures.
 4. **Empty / fail:** Broken hop → Settings connection or ingress NodePorts.
-5. **Success:** Path matches your deploy (console 30742 → Keycloak 30180 typical).
+5. **Success:** Path matches your deploy (console NodePort 30742 on the lab machine → ingress → haven-idp).
 
-Console: `http://<host>:30742/` · Keycloak admin often `http://<host>:30180/admin` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
+Console: `http://<host>:30742/` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
 
 ## Related pages
 

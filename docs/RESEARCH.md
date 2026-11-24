@@ -1,7 +1,7 @@
 # Identity-platform research for Haven
 
 Scope: what comparable identity products and standards offer that matters to
-Haven (Keycloak + CloudNativePG as one private-cloud plane), what Haven lacks,
+Haven (its own identity server and CloudNativePG as one private-cloud plane), what Haven lacks,
 and which gaps fit Haven's boundaries. Date of research: 2026-11-23.
 
 Evidence labels. A claim without a label was read from a page fetched during
@@ -10,9 +10,8 @@ that was not re-read from a fetched page; verify before relying on it.
 
 ## Haven's boundaries (from the repository)
 
-- Haven is a packaging and operations layer over the official Keycloak
-  Operator and CloudNativePG. It is not a replacement IdP and not a Keycloak
-  fork (README).
+- Haven ships its own identity server, `haven-idp`, and operates it together
+  with a CloudNativePG database as one plane (README).
 - Secrets: snapshots, diffs and reports never carry client secrets, passwords
   or credential payloads (docs/identity-ops.md, Credential Center).
 - Honesty: README maturity table and "deterministic" Guard rules. Features
@@ -22,23 +21,15 @@ that was not re-read from a fetched page; verify before relying on it.
 
 ## What the field does
 
-### Keycloak itself
+### Realm export and GitOps
 
-- `kc.sh export` / `import` run with the server stopped; exports are JSON,
-  can split users into files, and do not include events, persisted sessions or
-  revoked tokens. The docs call the process limited as a backup mechanism and
-  say Admin Console partial exports mask secrets with `*`.
-  <https://www.keycloak.org/server/importExport>
-  Implication for Haven: realm JSON in Git is the practical GitOps artefact,
-  and a reviewer needs a readable, secret-safe diff of it. Haven had a
-  fingerprint ("something changed") and Time Machine diff ("which objects
-  changed") but no field-level diff of two exports.
-- Keycloak realm settings Guard could evaluate but did not: SSL requirement,
-  password policy, token and session lifetimes, event storage, refresh-token
-  revocation. [U] (setting names from the Admin REST `RealmRepresentation`;
-  the Server Admin Guide fetch returned only a table of contents.)
-- The Keycloak Operator's `KeycloakRealmImport` CR imports a realm once and
-  does not reconcile later changes. [U]
+- Realm JSON or YAML in Git is the practical GitOps artefact, and a reviewer
+  needs a readable, secret-safe diff of it. Haven had a fingerprint
+  ("something changed") and Time Machine diff ("which objects changed") but no
+  field-level diff of two exports.
+- Realm settings Guard could evaluate but did not: SSL requirement, password
+  policy, token and session lifetimes, event storage, refresh-token
+  revocation. [U] (setting names from the realm representation Guard reads.)
 
 ### Authentik
 
@@ -58,8 +49,8 @@ that was not re-read from a fetched page; verify before relying on it.
   Dex is an OIDC/OAuth2 identity broker, not an identity manager. [U]
   FusionAuth offers "Kickstart" file-based provisioning and a Terraform
   provider. [U]
-  Takeaway: audit-event streaming is table stakes; Haven's Keycloak plane can
-  only stream if events are enabled, which Guard did not check.
+  Takeaway: audit-event streaming is table stakes; a plane can only stream if
+  events are enabled, which Guard did not check.
 
 ### Microsoft Entra ID (admin tooling)
 
@@ -87,11 +78,10 @@ that was not re-read from a fetched page; verify before relying on it.
   rotation, and verifiers must offer a phishing-resistant option at AAL2.
   <https://pages.nist.gov/800-63-4/sp800-63b.html> Guard now flags password
   policies below 12 characters or absent (HAVEN015/016).
-- SCIM 2.0 (RFC 7643/7644) is the standard provisioning protocol; Keycloak
-  has no first-party SCIM server. [U]
+- SCIM 2.0 (RFC 7643/7644) is the standard provisioning protocol. [U]
 - OpenID Connect conformance suite and FAPI profiles for certification. [U]
-- WebAuthn/passkeys: Keycloak 26 supports passkeys, including conditional UI.
-  [U]
+- WebAuthn/passkeys are the phishing-resistant option NIST asks verifiers to
+  offer. [U]
 
 ## What Haven lacked
 
@@ -104,8 +94,10 @@ that was not re-read from a fetched page; verify before relying on it.
 4. No recertification workflow: Time Machine stores who holds which role, but
    nothing flags privileged or stale access, checks break-glass coverage, or
    records reviewer decisions.
-5. No audit-event streaming, SCIM, conformance testing or realm-import
-   reconciliation.
+5. At the time of this research: no audit-event streaming, SCIM, conformance
+   testing or realm-import reconciliation. `haven-idp` has since added an audit
+   stream, SCIM 2.0 and config as code (see
+   [own-idp-roadmap.md](own-idp-roadmap.md)); conformance testing is still open.
 
 ## Ranked ideas
 
@@ -113,18 +105,18 @@ that was not re-read from a fetched page; verify before relying on it.
 |---|---|---|---|---|
 | 1 | Realm hardening rules in Guard (HAVEN014-023) | Cheapest, deterministic, standards-backed (RFC 9700, NIST 800-63B-4); closes the biggest blind spot | Same engine, same CI | Built |
 | 2 | Policy as code (`haven-audit --policy`) | Lets each tenant encode its own baseline; no code execution, bounded input | Offline, deterministic, no secrets | Built |
-| 3 | Access Review campaigns + break-glass check | Recertification and emergency-access hygiene are the governance gap vs Entra; reuses Time Machine data | Records decisions only, never mutates Keycloak | Built (API, CLI, console page) |
+| 3 | Access Review campaigns + break-glass check | Recertification and emergency-access hygiene are the governance gap vs Entra; reuses Time Machine data | Records decisions only, never mutates the identity server | Built (API, CLI, console page) |
 | 4 | Secret-safe realm diff (`haven-audit diff`) | Makes realm JSON in Git reviewable; complements fingerprint drift | Pure function, redaction by construction | Built |
-| 5 | Audit-event streaming sink (Keycloak event listener to webhook/OTLP) | Table stakes elsewhere | Needs an in-cluster component and a real Keycloak to test; HAVEN019/020 only check that events are on | Rejected for now |
-| 6 | SCIM provisioning | Standard for HR/SaaS lifecycle | Keycloak has no SCIM server; a bridge is a product of its own and needs a live IdP to validate | Rejected for now |
-| 7 | Realm import reconciliation controller (apply realm JSON, then keep it in sync) | Closes the `KeycloakRealmImport` one-shot gap | Large controller change, cannot be tested without Kubernetes and Keycloak | Rejected for now |
+| 5 | Audit-event streaming sink (webhook/OTLP) | Table stakes elsewhere | Needs an in-cluster component to test; HAVEN019/020 only check that events are on | Rejected at the time; since built into `haven-idp` (audit stream) |
+| 6 | SCIM provisioning | Standard for HR/SaaS lifecycle | A bridge would be a product of its own and needs a live IdP to validate | Rejected at the time; since built into `haven-idp` ([scim.md](scim.md)) |
+| 7 | Realm reconciliation (apply a realm file, then keep it in sync) | Closes the one-shot-import gap | Large controller change, cannot be tested without Kubernetes | Rejected at the time; `haven-idp plan` / `apply` ([config-as-code.md](config-as-code.md)) covers declarative apply and drift check |
 | 8 | OIDC/SAML conformance runner | Certification evidence | Needs a running IdP and the conformance suite | Rejected for now |
 
 ## Honest limits of this work
 
-- Nothing here was run against a real Keycloak, PostgreSQL, Kubernetes or a
-  browser. Rules read the standard `RealmRepresentation` field names; the
-  live API path is covered by unit tests with synthetic data only.
+- Nothing here was run against a real PostgreSQL, Kubernetes or a browser.
+  Rules read standard realm-representation field names; the live API path is
+  covered by unit tests with synthetic data only.
 - Guard treats a setting a source omits as unknown, not as a finding. A
   realm export produced by a tool that strips settings will therefore look
   cleaner than it is.

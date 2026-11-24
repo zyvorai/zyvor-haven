@@ -43,7 +43,7 @@ Apply an IdentityPlane (or other) manifest:
 
 ### `status`
 
-Print IdentityPlane status (if present), Keycloak and CNPG objects, and the admin secret path:
+Print IdentityPlane status (if present), the `haven-idp` Deployment, Service and PodDisruptionBudget, the CNPG cluster, the issuer URL and the command that reads the admin secret:
 
 ```bash
 ./cli/haven status
@@ -52,7 +52,7 @@ Print IdentityPlane status (if present), Keycloak and CNPG objects, and the admi
 
 ### `open`
 
-Print Keycloak, admin, and console URLs from the CR or ingress:
+Print the issuer, account and console URLs from the CR or ingress, and the CNPG phase:
 
 ```bash
 ./cli/haven open
@@ -60,7 +60,7 @@ Print Keycloak, admin, and console URLs from the CR or ingress:
 
 ### `doctor`
 
-Preflight: CRDs, operator deployments, objects and pods in the namespace, CNPG phase. Exits non-zero if required CRDs are missing.
+Preflight: CRDs, operator deployments, objects and pods in the namespace, the `IdentityProviderReady` condition, CNPG phase. Exits non-zero if required CRDs are missing.
 
 ```bash
 ./cli/haven doctor
@@ -70,7 +70,7 @@ Run this first during any incident — see [Runbook → Failure cheatsheet](runb
 
 ### `admin`
 
-Print Keycloak bootstrap credentials from the operator secret (`<name>-initial-admin`):
+Print the bootstrap admin user (`admin`) and the `kubectl` command that reads its password from secret `<name>-idp` (key `admin-password`). Pass `--show-secret` to print the password itself:
 
 ```bash
 ./cli/haven admin
@@ -101,11 +101,9 @@ Volume snapshots require a StorageClass with a snapshotter. For object-store bac
 | `make prod` | Apply prod overlay (read prod README first) |
 | `make wait` | Wait for plane readiness |
 | `make doctor` | `./cli/haven doctor platform -n identity` |
-| `make admin` | Print bootstrap admin credentials |
-| `make realm-import` | Apply sample KeycloakRealmImport |
-| `make samples-dev` | Apply dev IdentityPlane sample (intent only) |
+| `make admin` | Print how to read the bootstrap admin password |
+| `make samples-dev` | Apply the dev IdentityPlane sample (needs the controller) |
 | `make secrets-prod` | Generate production secrets |
-| `make sync-ca` | Sync CNPG CA into Keycloak namespace |
 | `make ui-install` | `npm install` in `ui/web` |
 | `make ui-dev` | Vite dev server |
 | `make ui-build` | Build SPA into `cmd/haven-console/dist` |
@@ -117,18 +115,6 @@ Volume snapshots require a StorageClass with a snapshotter. For object-store bac
 
 ## Remote deploy script
 
-Deploy the console to a remote k3s host:
+`./scripts/deploy-remote.sh <host> [user] [--quick] [--uninstall]` deploys the console to a remote k3s host over NodePort (`HAVEN_NODE_PORT` default `30742`, `HAVEN_IMAGE_TAG` default `dev`). It predates `haven-idp`: it is not wired to the identity server's Admin API settings and has not been verified against a haven-idp plane. For a plane with the console, use the Helm path in [deploy-native.md](deploy-native.md).
 
-```bash
-./scripts/deploy-remote.sh <host> [user] [--quick] [--uninstall]
-```
-
-Lab example:
-
-```bash
-./scripts/deploy-remote.sh <ephemeral-ip> operator
-```
-
-Environment variables: `HAVEN_NODE_PORT` (default `30742`), `KEYCLOAK_NODE_PORT` (default `30180`), `HAVEN_IMAGE_TAG` (default `dev`).
-
-See [lab-host.md](lab-host.md) for endpoints.
+See [lab-host.md](lab-host.md).

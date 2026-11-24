@@ -38,7 +38,7 @@ live in that one file; `make crds` applies it) and is copied byte for byte to
 
 | Field | Default | Meaning |
 |---|---|---|
-| `planeRef.name` | required | The `IdentityPlane` hosting the client. Must use the native engine. |
+| `planeRef.name` | required | The `IdentityPlane` hosting the client. Must run `haven-idp`. |
 | `planeRef.namespace` | the OIDCClient's namespace | Another namespace is honoured only if the plane allows yours, see [Cross-namespace](#cross-namespace-references). |
 | `realm` | the plane's `spec.bootstrap.firstRealm` | Realm to create the client in. Immutable. |
 | `clientId` | `metadata.name` | OIDC `client_id`. Immutable. `haven-admin` and `haven-console` are reserved. Pattern `^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$`. |
@@ -286,7 +286,7 @@ admin secret are read cluster-wide, as for the rest of the controller.
   by unit tests and a test against the real `haven-idp`; see [deploy-native.md](deploy-native.md)
   for the in-cluster run. The CRD has no CEL immutability rules (the controller enforces
   immutability instead, reporting `ImmutableFieldChanged`).
-- Native planes only. A plane on the Keycloak engine gets `PlaneNotNative`.
+- Native planes only: a plane that does not run `haven-idp` gets `PlaneNotNative`.
 - Redirects: https or loopback http only. No custom-scheme (native app) redirects, no
   wildcards, by design.
 - Flows: authorization code (+PKCE) and client credentials. The Admin API rejects the

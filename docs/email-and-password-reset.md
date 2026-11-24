@@ -39,7 +39,7 @@ fails closed. Audit events `UPDATE_EMAIL_REQUEST`, `UPDATE_EMAIL` and `UPDATE_EM
 No database migration is needed: the pending change is an ordinary action token.
 
 Administrators can send either link on demand (see [Admin routes](#admin-routes)). This is also how
-users imported from Keycloak with unverified addresses get unblocked
+users imported from another server with unverified addresses get unblocked
 (see [import-from-keycloak.md](import-from-keycloak.md#unverified-emails-check-this-before-cut-over)).
 
 ## Security properties

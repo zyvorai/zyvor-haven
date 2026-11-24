@@ -6,7 +6,7 @@ validates the result and then issues its own session and tokens, exactly as for 
 Your applications keep talking only to haven-idp.
 
 Supported upstreams: **Google**, **Microsoft Entra ID**, and any **generic OIDC provider** (Okta,
-Auth0, Keycloak, another haven-idp...). Flow: authorization code with PKCE (S256) and a nonce.
+Auth0, another haven-idp...). Flow: authorization code with PKCE (S256) and a nonce.
 
 Not supported (see the end): SAML, GitHub, account-linking UI, storing upstream tokens,
 IdP-initiated login.
@@ -64,7 +64,7 @@ Google account can sign in.
 * Request `email` and `profile` scopes (the default) and, if you use `roleMappings` with `groups`,
   configure the groups claim in the app registration.
 
-### Generic OIDC (Okta, Auth0, Keycloak, haven-idp...)
+### Generic OIDC (Okta, Auth0, haven-idp...)
 
 ```json
 {"alias":"okta","displayName":"Okta","providerId":"oidc","enabled":true,
@@ -207,14 +207,12 @@ kind=`) and in the `LOGIN_ERROR` events (`federated:<alias>:<kind>`):
 
 The provider must request the `email` scope for email linking; `profile` for names.
 
-## Importing from Keycloak
+## Importing identity providers from another server
 
 `haven-idp import-keycloak` converts OIDC, Google and Microsoft identity providers to the Admin API
-shape (`identity-providers.json` in `--out-dir`). Keycloak masks client secrets in exports, so the
-converted providers are **disabled and without secret**: re-enter `config.clientSecret` and enable
-them. `linkExistingByEmail` and `autoCreateUsers` are not carried over (both default to false).
-GitHub, SAML, other types, identity provider mappers and users' federated identities are reported as
-not migrated.
+shape (`identity-providers.json` in `--out-dir`). Exports mask client secrets, so the converted
+providers are **disabled and without secret**: re-enter `config.clientSecret` and enable them. See
+[Import a Keycloak realm](import-from-keycloak.md) for the full procedure and what is not migrated.
 
 ## Not yet
 

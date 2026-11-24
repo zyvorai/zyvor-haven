@@ -6,13 +6,13 @@ hero:
 
 ## Purpose
 
-Create and manage Keycloak realms as tenant boundaries.
+Create and manage realms as tenant boundaries.
 
 ## When to use it
 
 - Operate **Realm Studio** when your job matches this screen
 - Prefer **Command Deck** after login if you are unsure where to start
-- Confirm Keycloak connected in the sidebar status chip
+- Confirm the identity server shows as connected in the sidebar status chip
 
 ## How to get there
 
@@ -25,10 +25,10 @@ Create and manage Keycloak realms as tenant boundaries.
 2. **+ Create realm** → name → Create.
 3. Open a row → `/realms/:realm` for users/clients tabs.
 4. Delete realm only with confirm (destructive).
-5. **Empty / fail:** No realms → create one; Keycloak offline → Settings.
+5. **Empty / fail:** No realms → create one; identity server offline → Settings.
 6. **Success:** Realm listed and openable in detail.
 
-Console: `http://<host>:30742/` · Keycloak admin often `http://<host>:30180/admin` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
+Console: `http://<host>:30742/` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
 
 ## Related pages
 

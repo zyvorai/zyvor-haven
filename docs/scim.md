@@ -129,7 +129,7 @@ A filter that is exactly one `userName eq`, `id eq` or `externalId eq` is an ind
 * Bulk, sorting, `attributes=` projection, `not` and comparison operators in filters, filter on value paths.
 * Group deletion and rename (needs store support), nested groups.
 * Password sync (deliberately), `roles`, enterprise extension, multiple emails, phone numbers, addresses.
-* Outbound provisioning (haven-idp pushing to other SCIM servers) and SCIM against the Keycloak backend.
+* Outbound provisioning (haven-idp pushing to other SCIM servers).
 * Separate scopes per token (one token per realm, read-only or read-write), token expiry.
 * A row version in the store for cross-replica `If-Match`.
 * Dev-store persistence (`dev-persist`) does not yet include SCIM tokens or external ids; issue the token again

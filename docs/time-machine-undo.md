@@ -3,7 +3,7 @@
 [Time Machine](identity-ops.md#time-machine) takes recovery points of a realm and shows what changed since
 (`GET /api/v1/time-machine/snapshots/{id}/diff`). Undo turns a **selected part of that change set** back,
 against a haven-idp realm, through the Admin API. It is available only when the console runs on the native
-backend; on Keycloak it answers 501.
+backend; on any other backend it answers 501.
 
 ## What counts as a change, and what undo does
 

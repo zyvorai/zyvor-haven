@@ -46,7 +46,7 @@ make doctor
 make admin
 ```
 
-Keycloak Admin Console: `http://auth.127.0.0.1.nip.io/admin`
+Issuer: `http://auth.127.0.0.1.nip.io/realms/platform`. No cluster needed to try the identity server itself: `go run ./cmd/haven-idp dev`.
 
 ### Console (Go + React)
 
@@ -113,7 +113,7 @@ Published site (after merge to `main`): **https://zyvorai.github.io/haven/**
    - **Why** (motivation or bug)
    - **Test plan** (commands run, screenshots for UI)
 
-Commit messages: imperative mood, concise subject (`docs: add MkDocs site`, `fix: sync CNPG CA before Keycloak apply`).
+Commit messages: imperative mood, concise subject (`docs: add MkDocs site`, `fix: wait for the CNPG cluster before starting haven-idp`).
 
 ---
 

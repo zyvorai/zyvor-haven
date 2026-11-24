@@ -8,7 +8,7 @@ Technical design: CRDs, reconciliation, profiles, and trust boundaries. For oper
 
 ## Goal
 
-Make Keycloak + PostgreSQL deployable and operable as a **private-cloud product**, with UX quality comparable to [Zyvor Zeus OS](https://zyvor.dev): one console, one intent object, day-2 operations that do not require reading three operators' docs.
+Make an identity server and its PostgreSQL database deployable and operable as a **private-cloud product**, with UX quality comparable to [Zyvor Zeus OS](https://zyvor.dev): one console, one intent object, day-2 operations that do not require reading several operators' docs.
 
 ## System context
 
@@ -23,22 +23,22 @@ Make Keycloak + PostgreSQL deployable and operable as a **private-cloud product*
 │                     Haven controller                            │
 │          ┌───────────────────┼───────────────────┐              │
 │          ▼                   ▼                   ▼              │
-│   postgresql.cnpg.io    k8s.keycloak.org    cert-manager        │
-│   Cluster               Keycloak            Certificate         │
+│   postgresql.cnpg.io    Deployment          cert-manager        │
+│   Cluster               platform-idp        Certificate         │
 │          │                   │                   │              │
 │          ▼                   ▼                   ▼              │
-│   Postgres HA           Keycloak pods        TLS secret         │
+│   Postgres HA           haven-idp pods       TLS secret         │
 │   backups / PITR        realms / clients     Gateway / Ingress  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Haven is a **composition operator**. It does not replace Keycloak. It owns the *plane*: database, identity server, exposure, bootstrap, backup coupling, and the console that talks to both.
+Haven is a **composition operator** around its own identity server, `haven-idp`. It owns the *plane*: database, identity server, exposure, bootstrap, backup coupling, and the console that talks to both. The server itself is described in [own-idp-roadmap.md](own-idp-roadmap.md); the exact object names and environment the controller renders are fixed by `internal/render/IDP_CONTRACT.md`.
 
 ## Custom resources
 
 ### IdentityPlane
 
-The root object. One plane ≈ one Keycloak cluster + one PostgreSQL cluster + how the world reaches them.
+The root object. One plane is one `haven-idp` Deployment + one PostgreSQL cluster + how the world reaches them.
 
 ```yaml
 apiVersion: identity.haven.dev/v1alpha1
@@ -51,21 +51,17 @@ spec:
   hostname: auth.cloud.internal
   consoleHostname: haven.cloud.internal
   database:
-    vendor: postgres           # only postgres in v1
+    vendor: postgres           # only postgres
     instances: 3
     storage: 50Gi
     storageClass: ceph-block
     backup:
       destination: s3://haven-backups/platform
-      schedule: "0 2 * * *"
+      schedule: "0 0 2 * * *"
       retention: 14d
-  keycloak:
-    instances: 3
-    version: "26.3.3"
-    features: [persistent-user-sessions, opentelemetry]
-    resources:
-      requests: { cpu: "1", memory: 1250Mi }
-      limits:   { cpu: "4", memory: 2250Mi }
+  idp:
+    replicas: 3                # defaults from the profile
+    # image: ghcr.io/zyvorai/haven-idp:0.1.0   # defaults to HAVEN_IDP_IMAGE
   expose:
     class: gateway             # ingress | gateway | none
     tls:
@@ -74,136 +70,105 @@ spec:
   bootstrap:
     adminEmail: platform@cloud.internal
     firstRealm: platform
-    clients:
-      - name: zeus-os
-        type: public
-        redirects: ["https://zeus.cloud.internal/*"]
-      - name: kubernetes
-        type: confidential
-        audiences: ["https://kubernetes.default.svc"]
+  observability:
+    metrics: true
+    tracing: true
 status:
   phase: Ready
-  endpoints:
-    keycloak: https://auth.cloud.internal
-    console: https://haven.cloud.internal
-    account: https://auth.cloud.internal/realms/platform/account
-  database:
-    primary: platform-db-rw.identity.svc
-    replicas: 2
-    lastBackup: "2026-08-27T02:00:11Z"
   conditions:
     - type: DatabaseReady
       status: "True"
-    - type: KeycloakReady
+    - type: CertificateReady
       status: "True"
-    - type: EndpointReady
+    - type: IdentityProviderReady
       status: "True"
 ```
 
-### RealmBundle
-
-Declarative realm (users optional, clients, roles, IdPs, theme). Applied via Keycloak Realm Import CR plus a small Haven overlay for things the import job does not cover (client secrets stored as K8s secrets, rotation).
+Status also carries `endpoints` (issuer, console, account), `database` (primary, replicas, last backup), `idp` (instances, ready, version) and `tls`. Phases are `Pending`, `ProvisioningDatabase`, `ProvisioningIdP`, `Bootstrapping`, `Ready`, `Degraded`, `Failed` and `Suspending`.
 
 ### OIDCClient
 
-A client that belongs to a realm and must exist for platform SSO. Controller ensures the client in Keycloak and writes a Secret the workload can mount (`client-id`, `client-secret`, `issuer`). For native planes this is implemented: see [OIDCClient CRD](oidcclient-crd.md).
+A client that belongs to a realm and must exist for platform SSO. The controller creates the client in `haven-idp` and writes a Secret the workload can mount (`client-id`, `client-secret`, `issuer`). See [OIDCClient CRD](oidcclient-crd.md) and [Ingress registration](ingress-registration.md).
+
+The CRD file also defines a `RealmBundle` type, but nothing in the controller reconciles it today. Declare realm settings, roles and groups with [config as code](config-as-code.md) instead.
 
 ## Reconciliation order
 
-1. Namespace + NetworkPolicies (default-deny + DNS + CNPG + Keycloak + ingress controller).
-2. CloudNativePG `Cluster` + `ScheduledBackup` + bootstrap roles (`keycloak` app user, `haven` ops user).
-3. Wait `Cluster.status.phase == Cluster in healthy state`.
-4. Copy CA of the Postgres cluster into a ConfigMap in the Keycloak namespace; create JDBC user secret.
-5. Issue TLS cert for hostname (cert-manager).
-6. Apply `Keycloak` CR: vendor postgres, TLS verify-server, pool sizes from profile, instances, metrics.
-7. Wait Keycloak StatefulSet/Deployment ready; read `-initial-admin` secret.
-8. Apply `RealmBundle` for `bootstrap.firstRealm` + platform `OIDCClient` list.
-9. Deploy Haven console (OAuth against that realm).
-10. Mark `Ready`. Subsequent reconciles are drift-correct only.
+1. Resolve the profile defaults (replicas, storage, resources, NetworkPolicy).
+2. Generate the database password and the secrets `platform-db-app`, `platform-idp-db` and `platform-idp` (each value is created once and **never overwritten** on later reconciles).
+3. CloudNativePG `Cluster` `platform-db` (database and owner `haven_idp`), plus the backup settings from `spec.database.backup`.
+4. Issue the TLS certificate for the hostname (cert-manager), or consume `spec.expose.tls.secretName`.
+5. Deployment, Service, ServiceAccount and (for more than one replica) a PodDisruptionBudget, all named `<plane>-idp`. Schema migrations run inside `haven-idp` at start-up under an advisory lock, so there is no migration Job.
+6. The database NetworkPolicy: only the plane's `haven-idp` pods, the cluster's own members and the CloudNativePG operator namespace may reach Postgres.
+7. Project status: conditions `DatabaseReady`, `CertificateReady`, `IdentityProviderReady`, and the phase. Subsequent reconciles are drift-correct only, requeued every 60 seconds once Ready (20 seconds before).
 
-Failure at any step is a Condition with a human reason, surfaced on the Command Deck — not a crash-loop of YAML.
+Failure at any step is a Condition with a human reason (for example `CNPGMissing`, `DatabaseNotReady`, `DeploymentMissing`, or the pod's waiting reason such as `ImagePullBackOff`), surfaced on the Command Deck, not a crash-loop of YAML. `spec.suspend` scales `haven-idp` to zero and leaves the database alone.
 
 ## Profiles
 
 | | `dev` | `staging` | `production` |
 |---|---|---|---|
 | Postgres instances | 1 | 2 | 3 |
-| Keycloak instances | 1 | 2 | 3 |
-| Storage | 8Gi | 20Gi | 50Gi+ |
+| `haven-idp` replicas | 1 | 2 | 3 |
+| Storage | 8Gi | 20Gi | 50Gi |
 | TLS | self-signed / nip.io | cert-manager | private CA or public |
-| Backups | off | daily | daily + PITR |
-| NetworkPolicy | optional | on | on |
-| Pool size | 8 | 16 | 30 |
-| PDB / anti-affinity | off | on | on |
+| Backups | off | required | required |
+| NetworkPolicy | off | on | on |
+| PDB / anti-affinity | off (1 replica) | on | on |
 
 Profiles are starting points. Every field is overridable.
 
 ## Why CloudNativePG
 
-Keycloak's own HA guides use CloudNativePG. It gives:
+It gives:
 
 - Primary + streaming replicas without Patroni sidecar folklore
 - Operator-driven failover
 - Native backups / WAL archiving / PITR
-- TLS between Keycloak and Postgres (`db-tls-mode: verify-server`)
-- Status on the Kubernetes API — Haven can project it into the console
+- TLS between `haven-idp` and Postgres (the DSN uses `sslmode=require`)
+- Status on the Kubernetes API, which Haven projects into the console
 
-Haven never talks SQL as the source of truth. It talks the CNPG API.
-
-## Why the official Keycloak Operator
-
-- `Keycloak` and `KeycloakRealmImport` CRDs (`k8s.keycloak.org/v2beta1` from Operator 26.6+; `v2alpha1` still served)
-- Rolling updates, health, ServiceMonitor
-- Version-aligned images
-- Multi-AZ scheduling in recent releases
-
-Haven generates those CRs. Advanced Keycloak knobs (`additionalOptions`, custom image, cache) pass through `spec.keycloak.raw` so we do not invent a parallel config language.
+`haven-idp` keeps all of its state in Postgres, so a CNPG backup is a `haven-idp` backup, and its replicas stay stateless. Haven's controller never treats SQL as the source of truth for the plane; it talks the CNPG API.
 
 ## Trust and exposure
 
 ```
-browser ──TLS──► Gateway / Ingress ──► Keycloak service :8443
+browser ──TLS──► Gateway / Ingress ──► haven-idp service :8081
                       │
-                      └──► Haven console :8080  (OIDC to Keycloak)
+                      └──► Haven console :8080  (OIDC to haven-idp)
 
-Keycloak pods ──TLS──► CNPG rw service :5432
+haven-idp pods ──TLS──► CNPG rw service :5432
+Prometheus ──► haven-idp :9100 (metrics)
 ```
 
-- Passthrough TLS preferred in production so Keycloak sees the client cert path cleanly.
-- `proxy.headers: xforwarded` when edge-terminating.
-- NetworkPolicy: only ingress controller and Haven console may reach Keycloak HTTP; only Keycloak and Haven may reach Postgres.
+- `haven-idp` always sits behind the ingress/gateway, so the controller sets `HAVEN_IDP_TRUST_PROXY=1`.
+- The pod runs as non-root (uid 65532) with a read-only root filesystem, all capabilities dropped, a `RuntimeDefault` seccomp profile and no service-account token mounted.
+- NetworkPolicy (production overlay): ingress to `haven-idp` only from the gateway namespace and the console, plus Prometheus on the metrics port; only `haven-idp`, the cluster members and the operator may reach Postgres.
 
 ## Observability
 
-When Prometheus Operator CRDs exist, Haven asks both operators to emit ServiceMonitors:
-
-- Keycloak: `metrics-enabled`, user event metrics
-- CNPG: PodMonitor (field `monitoring.enablePodMonitor` is deprecated in 1.27.1 — prefer a hand-written PodMonitor)
-- Haven controller: reconcile latency, plane phase, backup age
-
-The Command Deck graphs those as Orbit cards: **login RPS**, **DB lag**, **session cache hit**, **backup age**, **certificate days-to-expiry**.
+`haven-idp` serves Prometheus metrics on a separate port (9100), writes a hash-chained audit stream as JSON lines to stdout, and supports W3C tracing with OTLP export. Dashboards, alert rules and a `ServiceMonitor` live in `deploy/observability/`; see [observability.md](observability.md). The Command Deck graphs plane state from the IdentityPlane status.
 
 ## Multi-cluster / multi-site (v2)
 
-Not in v1 controller, designed in:
+Not built, designed in:
 
 - One IdentityPlane per site
-- Shared logical realm via Keycloak multi-site HA guides (stateless feature + shared DB *or* active-passive CNPG replica cluster)
+- Shared logical realm across sites with active-passive CNPG replica clusters
 - Haven status aggregates both sites for the console
 
-v1 is single-cluster, multi-AZ.
+Today a plane is single-cluster, multi-AZ.
 
 ## Security model
 
-- Controller SA can create CNPG/Keycloak/Certificate objects only in namespaces labeled `haven.identity/managed=true`.
-- Bootstrap admin password is a Secret; console shows it **once**.
-- Realm mutations from the UI create a `RealmBundle` diff and, in production profile, an Approval.
-- No Keycloak master password in Git. Ever.
+- The controller's ClusterRole is scoped to what the plane needs (Deployments, Services, Secrets, CNPG clusters, certificates); see `internal/controller/RBAC.md`.
+- The bootstrap admin password is generated into a Secret (`platform-idp`, key `admin-password`); `./cli/haven admin` prints the command that reads it.
+- Secrets (`csrf-key`, `secret-key`, `admin-client-secret`) are generated once and never overwritten. Rotating one is a deliberate operator action. `secret-key` encrypts TOTP seeds and upstream IdP secrets; losing it makes them unreadable.
+- No admin password in Git. Ever.
 - `spec.reclaimPolicy` defaults to `Orphan`. Deleting an IdentityPlane must not drop PostgreSQL.
 
-## Non-goals (v1)
+## Non-goals
 
-- Replacing the Keycloak Admin Console for every last SPI
 - Managing LDAP servers
 - Being a general Postgres platform
-- Multi-Keycloak-version on one cluster (upstream operator limitation)
+- SAML and LDAP federation (not started; see [own-idp-roadmap.md](own-idp-roadmap.md))
