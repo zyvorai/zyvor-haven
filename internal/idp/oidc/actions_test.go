@@ -499,3 +499,41 @@ func TestNotifyErrors(t *testing.T) {
 		t.Error("mailer error swallowed")
 	}
 }
+
+// failRL makes the shared limiter fail while everything else works.
+type failRL struct{ core.Store }
+
+func (failRL) HitRateLimit(context.Context, string, time.Time, time.Duration, int) (bool, error) {
+	return false, context.DeadlineExceeded
+}
+
+// replica builds another provider over the same store, as a second process.
+func (e *aenv) replica(st core.Store) *Provider {
+	clock := func() time.Time { return e.now }
+	return New(Config{Store: st, Signer: fakeSigner{now: clock}, Hasher: fakeHasher{},
+		BaseURL: "https://idp.example", Clock: clock, CSRFKey: []byte("0123456789abcdef0123456789abcdef"),
+		Actions: &actions.Service{Store: e.st, Mailer: e.mail, BaseURL: "https://idp.example", Clock: clock}})
+}
+
+func TestForgotLimitSharedAcrossReplicasAndFailsClosed(t *testing.T) {
+	e := newAEnv(t, true)
+	for i := 0; i < forgotLimit; i++ {
+		e.forgot("dora")
+	}
+	// A second replica sharing the store sees the exhausted budget.
+	e.h = e.replica(e.st)
+	e.forgot("alice")
+	if n := len(e.mail.all()); n != 0 {
+		t.Errorf("second replica allowed a request past the shared limit (%d mails)", n)
+	}
+	// A store error behaves as rate limited, with the generic answer.
+	e3 := newAEnv(t, true)
+	e3.h = e3.replica(failRL{e3.st})
+	w := e3.forgot("alice")
+	if n := len(e3.mail.all()); n != 0 {
+		t.Errorf("limiter store error did not fail closed (%d mails)", n)
+	}
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Check your email") {
+		t.Errorf("fail-closed answer not generic: %d %s", w.Code, w.Body)
+	}
+}

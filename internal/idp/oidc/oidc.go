@@ -74,8 +74,7 @@ type Provider struct {
 	dummyOnce sync.Once
 	dummyHash string
 
-	bg     sync.WaitGroup // in-flight background emails
-	forgot limiter
+	bg sync.WaitGroup // in-flight background emails
 
 	mu       sync.Mutex
 	ensured  map[string]bool

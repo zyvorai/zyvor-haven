@@ -599,13 +599,32 @@ func (s *Store) CountActionTokens(ctx context.Context, realm, userID, purpose st
 	return n, mapErr(err)
 }
 
-// PurgeExpired deletes auth codes, refresh tokens and action tokens that
-// expired at or before now.
+// HitRateLimit is one atomic upsert: a new key or an ended window starts a
+// fresh window at now with count 1; otherwise count is incremented (capped at
+// max+1 so denied hits do not grow it). No read-then-write race.
+func (s *Store) HitRateLimit(ctx context.Context, key string, now time.Time, window time.Duration, max int) (bool, error) {
+	var n int
+	err := s.pool.QueryRow(ctx, `INSERT INTO rate_limits AS r (key, window_start, count, expires_at)
+		VALUES ($1, $2, 1, $3)
+		ON CONFLICT (key) DO UPDATE SET
+			window_start = CASE WHEN r.expires_at <= $2 THEN $2 ELSE r.window_start END,
+			expires_at   = CASE WHEN r.expires_at <= $2 THEN $3 ELSE r.expires_at END,
+			count        = CASE WHEN r.expires_at <= $2 THEN 1 ELSE LEAST(r.count + 1, $4::int + 1) END
+		RETURNING count`, key, now, now.Add(window), max).Scan(&n)
+	if err != nil {
+		return false, mapErr(err)
+	}
+	return n <= max, nil
+}
+
+// PurgeExpired deletes auth codes, refresh tokens, action tokens and rate-limit
+// windows that expired at or before now.
 func (s *Store) PurgeExpired(ctx context.Context, now time.Time) (int, error) {
 	var n int
 	err := s.pool.QueryRow(ctx, `WITH c AS (DELETE FROM auth_codes WHERE expires_at <= $1 RETURNING 1),
 		t AS (DELETE FROM refresh_tokens WHERE expires_at <= $1 RETURNING 1),
-		a AS (DELETE FROM action_tokens WHERE expires_at <= $1 RETURNING 1)
-		SELECT (SELECT count(*) FROM c) + (SELECT count(*) FROM t) + (SELECT count(*) FROM a)`, now).Scan(&n)
+		a AS (DELETE FROM action_tokens WHERE expires_at <= $1 RETURNING 1),
+		l AS (DELETE FROM rate_limits WHERE expires_at <= $1 RETURNING 1)
+		SELECT (SELECT count(*) FROM c) + (SELECT count(*) FROM t) + (SELECT count(*) FROM a) + (SELECT count(*) FROM l)`, now).Scan(&n)
 	return n, mapErr(err)
 }

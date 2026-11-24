@@ -6,12 +6,13 @@ package oidc
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/zyvorai/haven/internal/idp"
@@ -28,30 +29,23 @@ const (
 	invalidLink  = "This link is invalid or has expired. Request a new one."
 )
 
-// limiter is a small per-key sliding-window counter.
-type limiter struct {
-	mu sync.Mutex
-	m  map[string][]time.Time
+// forgotKey is the opaque limiter key: sha256 hex of "forgot|realm|ip", so
+// raw client IPs never reach the store.
+func forgotKey(realm, ip string) string {
+	h := sha256.Sum256([]byte("forgot|" + realm + "|" + ip))
+	return hex.EncodeToString(h[:])
 }
 
-func (l *limiter) allow(key string, now time.Time, max int, win time.Duration) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.m == nil || len(l.m) > 10000 {
-		l.m = map[string][]time.Time{}
-	}
-	keep := l.m[key][:0]
-	for _, t := range l.m[key] {
-		if now.Sub(t) < win {
-			keep = append(keep, t)
-		}
-	}
-	if len(keep) >= max {
-		l.m[key] = keep
+// forgotAllowed reports whether this client may request another reset. The
+// counter lives in the store so it is shared by every replica and survives
+// restarts. A store error fails closed (treated as limited) and is logged.
+func (p *Provider) forgotAllowed(ctx context.Context, realm, ip string) bool {
+	ok, err := p.cfg.Store.HitRateLimit(ctx, forgotKey(realm, ip), p.now(), forgotWindow, forgotLimit)
+	if err != nil {
+		p.cfg.Logger.Error("forgot-password rate limit store error; treating as limited", "err", err)
 		return false
 	}
-	l.m[key] = append(keep, now)
-	return true
+	return ok
 }
 
 func (p *Provider) actionsOn() bool { return p.cfg.Actions.Enabled() }
@@ -177,7 +171,7 @@ func (p *Provider) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	// Same answer whatever happens below: this page must not reveal which
 	// accounts exist, are enabled, or were rate limited.
 	done := func() { p.simplePage(w, http.StatusOK, "Check your email", sentMsg) }
-	if id == "" || len(id) > 256 || !p.forgot.allow(ip, p.now(), forgotLimit, forgotWindow) {
+	if id == "" || len(id) > 256 || !p.forgotAllowed(ctx, rl.Name, ip) {
 		done()
 		return
 	}
