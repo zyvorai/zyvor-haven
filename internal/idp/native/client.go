@@ -562,6 +562,31 @@ func (c *Client) sendMail(ctx context.Context, realm, userID, route string) erro
 	return err
 }
 
+var _ idp.SessionManager = (*Client)(nil)
+
+// ListSessions lists the live SSO sessions of the realm; userID "" lists all.
+func (c *Client) ListSessions(ctx context.Context, realm, userID string) ([]idp.Session, error) {
+	path := realmPath(realm) + "/sessions"
+	if userID != "" {
+		path = userPath(realm, userID) + "/sessions"
+	}
+	return list[idp.Session](ctx, c, path)
+}
+
+// EndSession ends one session (refresh tokens revoked, clients notified).
+func (c *Client) EndSession(ctx context.Context, realm, sessionID string) error {
+	return c.call(ctx, http.MethodDelete, realmPath(realm)+"/sessions/"+esc(sessionID), nil, nil)
+}
+
+// EndUserSessions ends every session of a user and returns how many there were.
+func (c *Client) EndUserSessions(ctx context.Context, realm, userID string) (int, error) {
+	var out struct {
+		Ended int `json:"ended"`
+	}
+	err := c.call(ctx, http.MethodDelete, userPath(realm, userID)+"/sessions", nil, &out)
+	return out.Ended, err
+}
+
 // ImportUsers sends users in batches of 500 and sums the results. Per-user
 // errors are kept (at most 100 in total). If a request fails, the result so
 // far is returned together with the error.

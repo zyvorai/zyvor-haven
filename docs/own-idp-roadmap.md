@@ -72,7 +72,9 @@ playground, the first slice of #2), #3 config as code (`validate`/`plan`/`apply`
 W3C tracing with OTLP export, hash-chained audit stream to stdout/file/signed
 webhook, dashboards and alert rules), and #7's email transport: self-service email verification and
 password reset (SMTP, single-use links; see
-[email-and-password-reset.md](email-and-password-reset.md)).
+[email-and-password-reset.md](email-and-password-reset.md)), and SSO sessions with single logout
+(`haven_sso` cookie, `prompt`/`max_age`, `sid`, RP-initiated and back-channel logout, Admin session
+routes; see [sso-and-logout.md](sso-and-logout.md)).
 
 Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across

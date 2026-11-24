@@ -49,6 +49,10 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
 | GET, PUT, DELETE `/realms/{r}/users/{id}` | `idp.User`. PUT email rules: when the email changes (trimmed, case-insensitive compare; a case-only change is not a change) `emailVerified` becomes false unless the body explicitly contains `emailVerified:true` (admins may assert it); clearing the email also sets false. On any change all outstanding verify and reset links of the user are deleted (they were bound to the old address; this also resets the per-hour rate-limit count). If the result is unverified, the user is enabled and email is configured, a verification link is sent to the NEW address only, best effort in the background (30s context, errors logged, never failing the update); nothing is sent when email is not configured or the email was cleared. `VERIFY_EMAIL` is not added to `requiredActions` automatically. POST create is unchanged: an explicit `emailVerified` is honoured and no mail is sent (use `send-verify-email`). `users/import` is unchanged. |
 | PUT `/realms/{r}/users/{id}/password` | `idp.PasswordReset`; enforce realm password policy via `password.CheckPolicy`; `temporary:true` adds pending action `UPDATE_PASSWORD`; resets lockout |
 | POST `/realms/{r}/users/{id}/send-verify-email`, `.../send-reset-email` | emails a single-use link to the address on file (never returned); 204; 409 if email is not configured, 400 no address / disabled user, 429 after 3 per user per hour, 502 on delivery failure |
+| GET `/realms/{r}/sessions?userId=&max=` | `[]idp.Session` (`id,userId,username,ipAddress,userAgent,start,lastAccess,expires,clients`), live sessions only (not past the absolute or idle expiry, judged by the config clock), newest first; `max` default 100, cap 500, 400 on a bad `max`; `username` empty if the user is gone; never contains the cookie hash; 404 unknown realm |
+| GET `/realms/{r}/users/{id}/sessions` | same list for one user; `max` as above; 404 unknown user |
+| DELETE `/realms/{r}/sessions/{sid}` | ends the session via `Config.Sessions.End`: row removed, its non-offline refresh tokens revoked, clients notified (back-channel logout); 204; 404 when unknown or already ended (no second notification). Audit `ADMIN_ACTION` detail `session <sid>` |
+| DELETE `/realms/{r}/users/{id}/sessions` | `Config.Sessions.EndUser`; 200 `{"ended":n}` (0 when none); 404 unknown user. Audit `ADMIN_ACTION` detail `user-sessions <username>` |
 | GET, POST `/realms/{r}/users/{id}/roles` | `idp.RoleMappings` / `[]idp.Role` (match by name; unknown role -> 400) |
 | GET `/realms/{r}/users/{id}/groups` | `[]idp.Group` |
 | PUT `/realms/{r}/users/{id}/groups/{gid}` | join |
@@ -60,6 +64,13 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
 | GET `/realms/{r}/keys` | `[]idp.Key` (`providerId` "ecdsa-generated", `type` "EC", `status` ACTIVE/PASSIVE, `kid`) |
 | GET `/realms/{r}/export` | native export (below) |
 | POST `/realms/{r}/import` | native export; idempotent, conflicts are skipped, returns `{"imported":{"roles":n,"groups":n,"clients":n}}` |
+
+## Session side effects on users
+Through `Config.Sessions` (best effort, errors logged, never failing the call): PUT user
+with `enabled` going true to false ends all of the user's sessions; a successful
+`PUT .../password` ends them too; DELETE user ends them BEFORE the user is deleted so
+clients are notified. Optional Go interface `idp.SessionManager` (`ListSessions`,
+`EndSession`, `EndUserSessions`) is implemented by `native.Client`, not by `idp.Provider`.
 
 ## Mapping rules (`core` <-> `idp` wire)
 * Realm: `Realm`=Name; `RegistrationAllowed`=SelfRegistration; `VerifyEmail`=

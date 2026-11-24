@@ -165,6 +165,9 @@ func (a *api) updateUser(w http.ResponseWriter, r *http.Request) {
 	if changed {
 		a.emailChanged(rl, next)
 	}
+	if cur.Enabled && !next.Enabled {
+		a.dropUserSessions(r.Context(), rl.Name, next.ID)
+	}
 	a.audit(r, rl, "UPDATE", "user", next.Username)
 	noContent(w)
 }
@@ -205,6 +208,7 @@ func (a *api) deleteUser(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	a.dropUserSessions(r.Context(), rl.Name, cur.ID) // notify clients before the rows cascade away
 	if err := a.cfg.Store.DeleteUser(r.Context(), rl.Name, cur.ID); err != nil {
 		a.fail(w, r, err)
 		return
@@ -256,6 +260,7 @@ func (a *api) resetPassword(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	a.dropUserSessions(r.Context(), rl.Name, cur.ID)
 	a.audit(r, rl, "ACTION", "user-password", cur.Username)
 	if a.cfg.Actions.Enabled() && cur.Email != "" {
 		// Best-effort notification to the address on file; no link, no password.
