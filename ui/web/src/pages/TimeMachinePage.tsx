@@ -4,6 +4,9 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
+import { Art, EmptyState, SkeletonBlock } from '../components/graphics/Art';
+import { Sparkline } from '../components/graphics/Charts';
+import { SnapshotRail } from '../components/graphics/SnapshotRail';
 import { api, type Realm, type SnapshotDiff, type SnapshotSummary } from '../api/client';
 
 function changeCount(diff?: SnapshotDiff | null) {
@@ -22,6 +25,7 @@ export function TimeMachinePage() {
   const [targetRealm, setTargetRealm] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -32,6 +36,8 @@ export function TimeMachinePage() {
       setItems(await api.listSnapshots(active));
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Failed to load Time Machine');
+    } finally {
+      setLoaded(true);
     }
   }, [realm]);
 
@@ -66,17 +72,34 @@ export function TimeMachinePage() {
   };
 
   const counts = useMemo(() => changeCount(diff), [diff]);
+  const chrono = useMemo(() => [...items].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)), [items]);
 
   return (
     <ConsoleLayout>
       <div className="console-content"><div className="console-content-inner">
-        <ConsolePageHeader eyebrow="Recover" title="Time Machine" subtitle="Immutable realm recovery points, drift-aware diffs, and safe restore into an isolated realm." />
+        <ConsolePageHeader art="clock" eyebrow="Recover" title="Time Machine" subtitle="Immutable realm recovery points, drift-aware diffs, and safe restore into an isolated realm." />
 
-        <section className="ops-hero">
-          <div>
+        <section className="ops-hero ops-hero--tm">
+          <div className="ops-hero-main">
             <div className="ops-kicker">Recovery posture</div>
             <h2>{items.length ? `${items.length} recovery point${items.length === 1 ? '' : 's'}` : 'No recovery points yet'}</h2>
             <p>Snapshots exclude client secrets by design. Credential Center owns secret rotation separately.</p>
+            {chrono.length > 0 ? (
+              <>
+                <SnapshotRail items={chrono} selectedId={selected?.id} />
+                {chrono.length > 1 && (
+                  <Sparkline
+                    values={chrono.map((c) => c.users)}
+                    label={`Users per recovery point, from ${chrono[0].users} to ${chrono[chrono.length - 1].users}`}
+                    from={`${chrono[0].users} users`}
+                    to={`${chrono[chrono.length - 1].users} users`}
+                    tone="violet"
+                  />
+                )}
+              </>
+            ) : (
+              <div className="ops-hero-art"><Art name="clock" size={170} /></div>
+            )}
           </div>
           <div className="ops-actions">
             <label>Realm<select value={realm} onChange={(e: ChangeEvent<HTMLSelectElement>) => setRealm(e.target.value)}>{realms.map((r) => <option key={r.realm}>{r.realm}</option>)}</select></label>
@@ -97,7 +120,8 @@ export function TimeMachinePage() {
                   <span className="ops-meta">{item.clients} apps · {item.users} users</span>
                 </button>
               ))}
-              {!items.length && <div className="ops-empty">Create the first recovery point before your next production change.</div>}
+              {!loaded && <SkeletonBlock label="Loading recovery points" rows={2} />}
+              {loaded && !items.length && <EmptyState compact art="clock" title="Nothing to restore yet" body="Create the first recovery point before your next production change." />}
             </div>
           </section>
 
@@ -115,7 +139,7 @@ export function TimeMachinePage() {
                   <div className="ops-inline"><input value={targetRealm} onChange={(e: ChangeEvent<HTMLInputElement>) => setTargetRealm(e.target.value)} placeholder="platform-recovery" /><button className="btn btn-primary" onClick={() => void restore()} disabled={busy === 'restore'}>{busy === 'restore' ? 'Restoring…' : 'Restore to new realm'}</button></div>
                 </div>
               </>
-            ) : <div className="ops-empty">Select a recovery point to see drift and restore options.</div>}
+            ) : <EmptyState compact art="clock" title="Compare with live" body="Select a recovery point to see drift and restore options." />}
           </section>
         </div>
       </div></div>

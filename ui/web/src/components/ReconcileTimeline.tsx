@@ -3,6 +3,16 @@
 
 import type { PlaneCondition } from '../api/client';
 
+function StepGlyph({ kind }: { kind: 'ok' | 'pending' | 'warn' }) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {kind === 'ok' && <path d="m6 12.5 4 4 8-9" />}
+      {kind === 'pending' && <circle cx="12" cy="12" r="5" strokeDasharray="2.5 3.5" />}
+      {kind === 'warn' && <path d="M12 6.5v7M12 17.4v.1" />}
+    </svg>
+  );
+}
+
 const defaultSteps = [
   { id: 'database', label: 'PostgreSQL', sub: 'cluster health', type: 'DatabaseReady' },
   { id: 'keycloak', label: 'Keycloak', sub: 'instances ready', type: 'KeycloakReady' },
@@ -48,7 +58,8 @@ export function ReconcileTimeline({ conditions, phase }: Props) {
             <div key={step.id} style={{ display: 'contents' }}>
               <div className={`timeline-step ${pending ? 'timeline-step--pending' : ''}`}>
                 <div className={`timeline-step-icon ${ok ? 'ok' : pending ? 'pending' : 'warn'}`}>
-                  {ok ? '✓' : pending ? '○' : '!'}
+                  <StepGlyph kind={ok ? 'ok' : pending ? 'pending' : 'warn'} />
+                  <span className="sr-only">{ok ? 'Ready' : pending ? 'Pending' : 'Needs attention'}</span>
                 </div>
                 <div className="timeline-step-label">
                   <strong>{step.label}</strong>

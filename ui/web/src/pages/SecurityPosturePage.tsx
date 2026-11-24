@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'rea
 import { api, type SecurityFinding, type SecurityPostureReport } from '../api/client';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
+import { BarList, ScoreDial, StackBar, scoreBand, type Tone } from '../components/graphics/Charts';
+import { Art, SkeletonBlock } from '../components/graphics/Art';
+
+const sevTone: Record<string, Tone> = { critical: 'err', high: 'err', medium: 'warn', low: 'blue', info: 'muted' };
 
 const BASELINE_KEY = 'haven-guard-baseline';
 
@@ -115,24 +119,44 @@ export function SecurityPosturePage() {
           </div>
         </section>
 
-        {error && <div className="guard-error" role="alert">{error}</div>}
+        {error && (
+          <div className="guard-error" role="alert">
+            <Art name="offline" size={72} />
+            <div>
+              <strong>Guard could not complete the scan</strong>
+              <span>{error}</span>
+            </div>
+            <button type="button" className="secondary-btn" onClick={() => void load()}>Try again</button>
+          </div>
+        )}
+
+        {loading && !report && (
+          <section className="guard-summary-grid" aria-busy="true">
+            <SkeletonBlock card label="Scanning identity posture" rows={3} />
+            <SkeletonBlock card label="Loading severity counts" rows={3} />
+            <SkeletonBlock card label="Loading fingerprint" rows={3} />
+          </section>
+        )}
 
         {report && (
           <>
             <section className="guard-summary-grid">
               <article className="guard-score-card">
-                <div className={`guard-score grade-${report.grade.toLowerCase()}`}>
-                  <span>{report.score}</span>
-                  <small>/100</small>
-                </div>
+                <ScoreDial score={report.score} grade={report.grade} />
                 <div>
                   <p className="guard-kicker">Security grade</p>
                   <h2>{report.grade}</h2>
                   <p>{report.realmCount} realms · {report.clientCount} application clients</p>
+                  <p className={`guard-band guard-band--${scoreBand(report.score).name.replace(' ', '-')}`}>{scoreBand(report.score).name}</p>
                 </div>
               </article>
 
               <article className="guard-count-card">
+                <p className="guard-kicker">Findings by severity</p>
+                <StackBar
+                  label="Findings by severity"
+                  parts={(['critical', 'high', 'medium', 'low'] as const).map((k) => ({ label: k, value: report.counts[k], tone: sevTone[k] }))}
+                />
                 <div><span className="sev-dot critical" />Critical<strong>{report.counts.critical}</strong></div>
                 <div><span className="sev-dot high" />High<strong>{report.counts.high}</strong></div>
                 <div><span className="sev-dot medium" />Medium<strong>{report.counts.medium}</strong></div>
@@ -172,6 +196,7 @@ export function SecurityPosturePage() {
                 ))}
                 {!findings.length && (
                   <div className="guard-empty">
+                    <Art name="shield" size={150} />
                     <strong>Guard is clean.</strong>
                     <span>Authorization Code + PKCE, exact redirects, and trusted origins are in good shape.</span>
                   </div>
@@ -186,6 +211,13 @@ export function SecurityPosturePage() {
                   <h2>Score by tenant</h2>
                 </div>
               </div>
+              {report.realms.length > 0 && (
+                <BarList
+                  label="Score by tenant"
+                  max={100}
+                  data={report.realms.map((item) => ({ label: item.realm, value: item.score, tone: item.score >= 85 ? 'ok' : item.score >= 70 ? 'teal' : item.score >= 50 ? 'warn' : 'err' }))}
+                />
+              )}
               <div className="guard-realm-grid">
                 {report.realms.map((item) => (
                   <article key={item.realm} className="guard-realm-card">

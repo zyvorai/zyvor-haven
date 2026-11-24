@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
+import { EmptyState, SkeletonBlock } from '../components/graphics/Art';
+import { Donut } from '../components/graphics/Charts';
 import { api, type FederationTemplate, type IdentityProvider, type Realm } from '../api/client';
 
 export function FederationHubPage() {
@@ -16,6 +18,7 @@ export function FederationHubPage() {
   const [values, setValues] = useState<Record<string,string>>({});
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [loaded, setLoaded] = useState(false);
 
   const loadConnections = useCallback(async (r: string) => {
     if (!r) return;
@@ -27,7 +30,7 @@ export function FederationHubPage() {
     void Promise.all([api.federationCatalog(), api.listRealms()]).then(([c, rs]) => {
       setCatalog(c); const filtered = rs.filter((r) => r.realm !== 'master'); setRealms(filtered);
       const active = filtered.some((r) => r.realm === realm) ? realm : (filtered[0]?.realm ?? realm); setRealm(active); void loadConnections(active);
-    }).catch((e) => setMessage(e instanceof Error ? e.message : 'Failed to load federation'));
+    }).catch((e) => setMessage(e instanceof Error ? e.message : 'Failed to load federation')).finally(() => setLoaded(true));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void loadConnections(realm); }, [realm, loadConnections]);
 
@@ -53,10 +56,11 @@ export function FederationHubPage() {
   return (
     <ConsoleLayout>
       <div className="console-content"><div className="console-content-inner">
-        <ConsolePageHeader eyebrow="Operate" title="Federation Hub" subtitle="Connect enterprise identity providers without dropping operators into raw Keycloak configuration." actions={<label className="ops-realm-select">Realm<select value={realm} onChange={(e: ChangeEvent<HTMLSelectElement>) => setRealm(e.target.value)}>{realms.map((r) => <option key={r.realm}>{r.realm}</option>)}</select></label>} />
+        <ConsolePageHeader art="hub" eyebrow="Operate" title="Federation Hub" subtitle="Connect enterprise identity providers without dropping operators into raw Keycloak configuration." actions={<label className="ops-realm-select">Realm<select value={realm} onChange={(e: ChangeEvent<HTMLSelectElement>) => setRealm(e.target.value)}>{realms.map((r) => <option key={r.realm}>{r.realm}</option>)}</select></label>} />
 
+        {!loaded && <section className="ops-provider-grid" aria-busy="true">{[0, 1, 2, 3, 4].map((i) => <SkeletonBlock key={i} card rows={2} label="Loading provider catalog" />)}</section>}
         <section className="ops-provider-grid">
-          {catalog.map((t) => <button key={t.id} className={`ops-provider-card${selected?.id === t.id ? ' active' : ''}`} onClick={() => choose(t)}><span className="ops-provider-mark">{t.name.slice(0,2).toUpperCase()}</span><strong>{t.name}</strong><p>{t.description}</p>{connectedAliases.has(t.id) && <span className="ops-pill ok">Connected</span>}</button>)}
+          {catalog.map((t) => <button key={t.id} className={`ops-provider-card${selected?.id === t.id ? ' active' : ''}`} onClick={() => choose(t)}><span className={`ops-provider-mark ops-provider-mark--${(catalog.indexOf(t) % 6) + 1}`} aria-hidden>{t.name.slice(0,2).toUpperCase()}</span><strong>{t.name}</strong><p>{t.description}</p>{connectedAliases.has(t.id) && <span className="ops-pill ok">Connected</span>}</button>)}
         </section>
 
         {selected && <section className="ops-panel ops-form-panel"><div className="ops-panel-head"><div><div className="ops-kicker">New connection</div><h3>{selected.name}</h3></div><button className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button></div>
@@ -66,7 +70,7 @@ export function FederationHubPage() {
 
         {message && <div className="ops-message" role="status">{message}</div>}
 
-        <section className="ops-panel"><div className="ops-panel-head"><div><div className="ops-kicker">Live</div><h3>Connected providers</h3></div></div><div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>{connections.map((idp) => <tr key={idp.alias}><td><strong>{idp.displayName || idp.alias}</strong><small>{idp.alias}</small></td><td>{idp.providerId}</td><td><span className={`ops-pill ${idp.enabled ? 'ok' : 'warn'}`}>{idp.enabled ? 'Enabled' : 'Disabled'}</span></td><td className="ops-row-actions"><button className="btn btn-ghost" disabled={!!busy} onClick={() => void remove(idp)}>{busy === idp.alias ? 'Removing…' : 'Remove'}</button></td></tr>)}{!connections.length && <tr><td colSpan={4}><div className="ops-empty">No external identity providers connected to this realm.</div></td></tr>}</tbody></table></div></section>
+        <section className="ops-panel"><div className="ops-panel-head"><div><div className="ops-kicker">Live</div><h3>Connected providers</h3></div>{connections.length > 0 && <div className="ops-panel-chart"><Donut size={64} label="Providers by status" center={`${connections.length}`} parts={[{ label: 'enabled', value: connections.filter((c) => c.enabled).length, tone: 'ok' }, { label: 'disabled', value: connections.filter((c) => !c.enabled).length, tone: 'warn' }]} /></div>}</div><div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>Provider</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>{connections.map((idp) => <tr key={idp.alias}><td><strong>{idp.displayName || idp.alias}</strong><small>{idp.alias}</small></td><td>{idp.providerId}</td><td><span className={`ops-pill ${idp.enabled ? 'ok' : 'warn'}`}>{idp.enabled ? 'Enabled' : 'Disabled'}</span></td><td className="ops-row-actions"><button className="btn btn-ghost" disabled={!!busy} onClick={() => void remove(idp)}>{busy === idp.alias ? 'Removing…' : 'Remove'}</button></td></tr>)}{!connections.length && <tr><td colSpan={4}><EmptyState compact art="hub" title="No providers connected" body="No external identity providers connected to this realm." /></td></tr>}</tbody></table></div></section>
       </div></div>
     </ConsoleLayout>
   );

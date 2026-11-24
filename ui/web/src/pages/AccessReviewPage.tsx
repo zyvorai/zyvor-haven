@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
+import { EmptyState } from '../components/graphics/Art';
+import { Donut, StackBar } from '../components/graphics/Charts';
 import { api, type AccessReviewReport, type AccessReviewCampaignView } from '../api/client';
 
 const riskClass = (risk: string) => (risk === 'high' ? 'warn' : risk === 'medium' ? 'warn' : 'ok');
@@ -40,7 +42,7 @@ export function AccessReviewPage() {
   return (
     <ConsoleLayout>
       <div className="console-content"><div className="console-content-inner">
-        <ConsolePageHeader eyebrow="Govern" title="Access Review" subtitle="Find privileged and stale accounts, then record who certified or revoked each one. Haven records decisions; it never changes Keycloak access." />
+        <ConsolePageHeader art="people" eyebrow="Govern" title="Access Review" subtitle="Find privileged and stale accounts, then record who certified or revoked each one. Haven records decisions; it never changes Keycloak access." />
 
         <section className="ops-panel">
           <div className="ops-panel-head"><div><div className="ops-kicker">Scope</div><h3>Realm</h3></div>
@@ -53,7 +55,44 @@ export function AccessReviewPage() {
 
         {message && <div className="ops-message" role="status">{message}</div>}
 
+        {!report && !campaign && !message && (
+          <section className="ops-panel">
+            <EmptyState art="people" title="Ready to review" body="Choose a realm, then analyse it to see privileged and stale accounts, or start a recertification campaign." />
+          </section>
+        )}
+
         {report && !campaign && <>
+          <section className="ops-panel ops-chart-panel">
+            <div className="ops-panel-head"><div><div className="ops-kicker">Exposure</div><h3>Who holds access in {report.realm}</h3></div></div>
+            <div className="ops-chart-row">
+              <Donut
+                size={132}
+                center={`${report.summary.withAccess}`}
+                label="Accounts by access"
+                parts={[
+                  { label: 'privileged', value: report.summary.privileged, tone: 'err' },
+                  { label: 'stale', value: report.summary.staleAccess, tone: 'warn' },
+                  { label: 'other access', value: Math.max(0, report.summary.withAccess - report.summary.privileged - report.summary.staleAccess), tone: 'blue' },
+                ]}
+              />
+              <div className="ops-chart-main">
+                <p className="chart-caption">Risk across {report.summary.withAccess} accounts with access</p>
+                <StackBar
+                  label="Accounts by risk"
+                  parts={[
+                    { label: 'high', value: report.summary.highRisk, tone: 'err' },
+                    { label: 'medium', value: report.summary.mediumRisk, tone: 'warn' },
+                    { label: 'low', value: Math.max(0, report.summary.withAccess - report.summary.highRisk - report.summary.mediumRisk), tone: 'ok' },
+                  ]}
+                />
+                <ul className="chart-legend chart-legend--row" aria-hidden>
+                  <li><i style={{ background: 'var(--zy-chart-4)' }} />High {report.summary.highRisk}</li>
+                  <li><i style={{ background: 'var(--zy-chart-3)' }} />Medium {report.summary.mediumRisk}</li>
+                  <li><i style={{ background: 'var(--zy-chart-2)' }} />Low {Math.max(0, report.summary.withAccess - report.summary.highRisk - report.summary.mediumRisk)}</li>
+                </ul>
+              </div>
+            </div>
+          </section>
           <div className="ops-stat-grid">
             <div className="ops-stat"><span>With access</span><strong>{report.summary.withAccess}</strong></div>
             <div className="ops-stat"><span>Privileged</span><strong>{report.summary.privileged}</strong></div>
@@ -63,7 +102,7 @@ export function AccessReviewPage() {
           {report.breakGlass.warnings?.map((w) => <div className="ops-message" role="status" key={w}>Break-glass: {w}</div>)}
           <section className="ops-panel"><div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>User</th><th>Risk</th><th>Flags</th><th>Roles and groups</th></tr></thead><tbody>
             {report.items.map((it) => <tr key={it.username}><td><strong>{it.username}</strong>{!it.enabled && <small>disabled</small>}</td><td><span className={`ops-pill ${riskClass(it.risk)}`}>{it.risk}</span></td><td>{(it.flags ?? []).join(', ')}</td><td>{[...(it.realmRoles ?? []), ...(it.groups ?? [])].join(', ')}</td></tr>)}
-            {!report.items.length && <tr><td colSpan={4}><div className="ops-empty">No accounts hold access in this realm.</div></td></tr>}
+            {!report.items.length && <tr><td colSpan={4}><EmptyState compact art="people" title="No access to review" body="No accounts hold access in this realm." /></td></tr>}
           </tbody></table></div></section>
         </>}
 

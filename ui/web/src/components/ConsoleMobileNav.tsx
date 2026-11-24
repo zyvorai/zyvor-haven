@@ -9,6 +9,12 @@ const mobileLinks = [
   { path: '/planes', label: 'Planes' },
   { path: '/atlas', label: 'Atlas' },
   { path: '/realms', label: 'Realms' },
+  { path: '/clients', label: 'Clients' },
+  { path: '/federation', label: 'Federation' },
+  { path: '/credentials', label: 'Credentials' },
+  { path: '/security', label: 'Guard' },
+  { path: '/access-review', label: 'Access' },
+  { path: '/time-machine', label: 'Time Machine' },
   { path: '/settings', label: 'Settings' },
 ];
 

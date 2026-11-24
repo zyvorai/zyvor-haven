@@ -9,6 +9,7 @@ import { ConsoleTopbar } from './ConsoleTopbar';
 import { CommandPalette, useCommandPalette } from './CommandPalette';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { IconMoon, IconSun } from './NavIcons';
 
 type Props = {
   children: ReactNode;
@@ -66,7 +67,7 @@ export function ConsoleLayout({ children, realm, trailing, hideTopbar }: Props) 
                   aria-label={resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                   title={resolved === 'dark' ? 'Light mode' : 'Dark mode'}
                 >
-                  {resolved === 'dark' ? '☀' : '☾'}
+                  {resolved === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
                 </button>
               </>
             }

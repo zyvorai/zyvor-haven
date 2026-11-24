@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
+import { Art, SkeletonBlock } from '../components/graphics/Art';
 import { DataTable } from '../components/DataTable';
 import { api, type Client, type Realm } from '../api/client';
 import { platformCatalog, toCreateBody } from '../data/platformClients';
@@ -85,6 +86,7 @@ export function ClientsPage() {
         <div className="console-content">
           <div className="console-content-inner">
             <ConsolePageHeader
+              art="apps"
               eyebrow="Identity"
               title="Clients"
               subtitle="Platform catalog one-click mint, plus OIDC clients across realms."
@@ -152,13 +154,19 @@ export function ClientsPage() {
               )}
             </section>
 
-          {err && <p style={{ color: 'var(--zy-danger)' }}>{err}</p>}
+          {err && (
+            <div className="inline-error" role="alert">
+              <Art name="offline" size={84} />
+              <p>{err}</p>
+            </div>
+          )}
           {loading ? (
-            <p style={{ color: 'var(--zy-muted)' }}>Loading clients…</p>
+            <SkeletonBlock card label="Loading clients…" rows={3} />
           ) : (
             <DataTable
               rows={clients.filter((c) => !c.clientId.startsWith('account') && c.clientId !== 'broker' && c.clientId !== 'realm-management')}
               keyField={(c) => `${c.realm}-${c.id ?? c.clientId}`}
+              empty="No clients yet"
               columns={[
                 {
                   key: 'clientId',

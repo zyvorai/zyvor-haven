@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 import type { ReactNode } from 'react';
+import { EmptyState, type ArtName } from './graphics/Art';
 
 interface Column<T> {
   key: string;
@@ -15,6 +16,7 @@ interface DataTableProps<T> {
   keyField: (row: T) => string;
   onRowClick?: (row: T) => void;
   empty?: string;
+  emptyArt?: ArtName;
 }
 
 export function DataTable<T>({
@@ -23,32 +25,22 @@ export function DataTable<T>({
   keyField,
   onRowClick,
   empty = 'No records',
+  emptyArt = 'apps',
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return (
-      <div className="card" style={{ padding: 24, color: 'var(--zy-muted)', textAlign: 'center' }}>
-        {empty}
+      <div className="card data-table-empty">
+        <EmptyState compact art={emptyArt} title={empty} />
       </div>
     );
   }
   return (
-    <div className="card" style={{ overflow: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+    <div className="card data-table-wrap">
+      <table className="data-table">
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--zy-hairline)' }}>
+          <tr>
             {columns.map((c) => (
-              <th
-                key={c.key}
-                style={{
-                  textAlign: 'left',
-                  padding: '12px 16px',
-                  color: 'var(--zy-muted)',
-                  fontWeight: 500,
-                  fontSize: 12,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
+              <th key={c.key} scope="col">
                 {c.label}
               </th>
             ))}
@@ -59,19 +51,10 @@ export function DataTable<T>({
             <tr
               key={keyField(row)}
               onClick={() => onRowClick?.(row)}
-              style={{
-                borderBottom: '1px solid var(--zy-hairline)',
-                cursor: onRowClick ? 'pointer' : 'default',
-              }}
-              onMouseEnter={(e) => {
-                if (onRowClick) e.currentTarget.style.background = 'var(--zy-surface-2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-              }}
+              className={onRowClick ? 'is-clickable' : undefined}
             >
               {columns.map((c) => (
-                <td key={c.key} style={{ padding: '12px 16px' }}>
+                <td key={c.key}>
                   {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '')}
                 </td>
               ))}

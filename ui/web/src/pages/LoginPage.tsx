@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ZyvorLogo } from '../components/ZyvorLogo';
+import { Art, Mesh } from '../components/graphics/Art';
 
 const STATS = [
   { label: 'Realms', sub: 'tenant boundaries' },
@@ -66,9 +67,7 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-backdrop" aria-hidden>
-        <div className="login-grid" />
-        <div className="login-aurora login-aurora-a" />
-        <div className="login-aurora login-aurora-b" />
+        <Mesh />
       </div>
 
       <div className="login-shell">
@@ -113,6 +112,10 @@ export function LoginPage() {
                 </strong>
               </li>
             </ul>
+          </div>
+
+          <div className="login-art" aria-hidden>
+            <Art name="shield" size={260} />
           </div>
 
           <div className="login-stats">
