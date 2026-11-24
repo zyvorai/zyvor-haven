@@ -65,6 +65,27 @@ Parity merge -> 1, 3, 17 (foundation) -> 5, 6, 8 -> 7 -> 4, 2 -> 11, 12, 13 ->
 14, 15 -> 9, 10, 16 -> 18, 19, 20.
 
 ## Status (updated)
+
+At a glance (details in the paragraphs below and in each linked page). "Deployed" means run on a real
+Kubernetes cluster; everything else was verified by unit, handler and store-conformance tests, with
+most features also run live against the dev binary and the store suite run against PostgreSQL.
+
+| Area | State | Page |
+|---|---|---|
+| Core OIDC, Admin API, native provider, Postgres store, HA signing keys | deployed (k3s) | [deploy-native.md](deploy-native.md) |
+| Email, password reset, email change | live-tested | [email-and-password-reset.md](email-and-password-reset.md) |
+| SSO sessions, single logout | live-tested | [sso-and-logout.md](sso-and-logout.md) |
+| TOTP, passkeys, fallback, risk-based step-up | tested (software authenticators) | [mfa-totp.md](mfa-totp.md), [passkeys.md](passkeys.md), [login-fallback-and-stepup.md](login-fallback-and-stepup.md) |
+| Device flow and `haven` CLI (macOS Keychain optional) | live-tested | [device-flow.md](device-flow.md), [haven-cli.md](haven-cli.md) |
+| `OIDCClient` CRD | deployed (k3s) | [oidcclient-crd.md](oidcclient-crd.md) |
+| Ingress-annotation registration | fake client only | [ingress-registration.md](ingress-registration.md) |
+| Dynamic registration, client ID metadata documents, consent | live-tested | [dynamic-client-registration.md](dynamic-client-registration.md), [mcp-clients-and-consent.md](mcp-clients-and-consent.md) |
+| Resource indicators (RFC 8707), DPoP, PAR/JAR/RAR | live-tested; not FAPI certified | [mcp-resource-indicators.md](mcp-resource-indicators.md), [dpop.md](dpop.md), [fapi-par-jar-rar.md](fapi-par-jar-rar.md) |
+| Workload and agent identities, CIBA | live-tested with software tokens | [workload-identity.md](workload-identity.md), [agent-identities.md](agent-identities.md), [ciba.md](ciba.md) |
+| SCIM 2.0, Shared Signals (CAEP/RISC) | live-tested; no real Okta/Entra/receiver | [scim.md](scim.md), [shared-signals.md](shared-signals.md) |
+| Federation (OIDC upstreams), time-boxed access, Guard gate, Time Machine undo | tested | [federation.md](federation.md), [time-boxed-access.md](time-boxed-access.md), [guard-gate.md](guard-gate.md), [time-machine-undo.md](time-machine-undo.md) |
+| macOS: launchd service, Keychain, pkg/Homebrew templates | user LaunchAgent run for real; unsigned | [macos.md](macos.md) |
+| Not started | SAML, LDAP, organizations, i18n, mTLS client auth | |
 Done and verified end to end: parity (OIDC core, Admin API v1, native Provider,
 selectable console backend), #1 `haven-idp init` / `dev` (with a browser OIDC
 playground, the first slice of #2; the add-an-app wizard and Test login debugger are in [add-an-app.md](add-an-app.md)), #3 config as code (`validate`/`plan`/`apply`/
@@ -107,7 +128,7 @@ is shipped), wiring `CheckPolicyFor` into the handlers, and the
 
 #4 Kubernetes-native apps: the `OIDCClient` CRD is done (the controller creates the
 client and writes its secret to a Secret; see [oidcclient-crd.md](oidcclient-crd.md)). It has
-not been run on a real cluster. The Ingress annotation half of #4 is **not** done.
+not been run on a real cluster. The Ingress annotation half of #4 is implemented too (see [ingress-registration.md](ingress-registration.md)); it has only been tested against the fake client.
 
 macOS support: `haven-idp` and `haven` cross-build for darwin/arm64 and amd64 in CI, `haven-idp install-service` /
 `uninstall-service` / `service-status` manage a user LaunchAgent (run for real on one Mac) and generate a system
@@ -118,7 +139,7 @@ Intel hardware or a LaunchDaemon on a real system.
 
 Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across
-replicas); federation (identity brokering) covers upstream OIDC only (Google, Microsoft Entra ID, generic OIDC; see [federation.md](federation.md)) and does not cover SAML, GitHub, LDAP/SCIM, an account-linking UI, storing upstream tokens or IdP-initiated login; rotated-secret
+replicas); federation (identity brokering) covers upstream OIDC only (Google, Microsoft Entra ID, generic OIDC; see [federation.md](federation.md)) and does not cover SAML, GitHub, LDAP, an account-linking UI, storing upstream tokens or IdP-initiated login; rotated-secret
 overlap is unsupported; `--prune` removes clients only.
 
 SCIM 2.0 server (RFC 7643/7644) per realm at `/realms/{realm}/scim/v2`, with its own revocable bearer token (see [scim.md](scim.md)), is done and tested: Users and Groups (filter eq/ne/co/sw/ew/pr/and/or, pagination, PATCH, ETag/If-Match), discovery endpoints, no password sync; it is not done for bulk, sorting, group deletion/rename, nested groups, outbound provisioning, or cross-replica If-Match, and has not been run against a real Okta or Entra tenant.
