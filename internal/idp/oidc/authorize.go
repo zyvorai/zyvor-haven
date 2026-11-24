@@ -179,6 +179,9 @@ func (p *Provider) ssoReuse(w http.ResponseWriter, r *http.Request, ar *authzReq
 	if maxAge >= 0 && (maxAge == 0 || p.now().Sub(s.AuthTime) > time.Duration(maxAge)*time.Second) {
 		return false
 	}
+	if p.stepUpBlocksSSO(r, ar, u, s) { // stepup.go: risk policy asks for a real login
+		return false
+	}
 	p.touchSession(r, rl, s)
 	p.issueCode(w, r, ar, u, s, "sso")
 	return true
@@ -513,6 +516,9 @@ func (p *Provider) completeLogin(w http.ResponseWriter, r *http.Request, ar *aut
 		p.cfg.Logger.Error("oidc: start session", "err", err)
 		p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
 		return
+	}
+	if afterLoginHook != nil { // stepup.go: remember the device
+		afterLoginHook(p, w, r, ar, u)
 	}
 	p.issueCode(w, r, ar, u, sess, detail)
 }

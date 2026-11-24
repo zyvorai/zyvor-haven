@@ -94,6 +94,7 @@ nav:
       - Dynamic client registration: dynamic-client-registration.md
       - Two-step verification (TOTP): mfa-totp.md
       - Passkeys (WebAuthn): passkeys.md
+      - Login fallback and step-up: login-fallback-and-stepup.md
       - Password policy: password-policy.md
       - Device login (CLI, CI): device-flow.md
       - Add an app (wizard and Test login): add-an-app.md

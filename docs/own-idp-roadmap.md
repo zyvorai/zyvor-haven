@@ -85,6 +85,7 @@ admin-issued initial access tokens (no anonymous mode, no software statements or
 scope is recorded but not enforced at authorize; see [dynamic-client-registration.md](dynamic-client-registration.md)).
 TOTP two-step verification with recovery codes (login step, enforced enrollment via a per-realm `requireMfa` policy, account page, Admin reset; see [mfa-totp.md](mfa-totp.md)); not done there: QR code, `amr`/`acr` claims, a link to the account page.
 WebAuthn passkeys (first factor and second factor, account page, Admin API; hand-rolled verifier, attestation `none`/`packed` self only, tested with software authenticators and a headless-Chrome virtual authenticator, not with real hardware; see [passkeys.md](passkeys.md)).
+A per-realm "use another method" fallback between an enrolled passkey and TOTP, and risk-based step-up (new device cookie, network change, idle, sensitive scope, `max_age`; pure decision function, report-only mode, blocks silent SSO reuse and forces factor enrollment; see [login-fallback-and-stepup.md](login-fallback-and-stepup.md)); not done there: geo/ASN/reputation/fingerprint signals, per-client or per-user rules, `acr`/`amr`, step-up for federated logins or refresh tokens, a user-facing devices page; fallback was not exercised with a real hardware passkey.
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:

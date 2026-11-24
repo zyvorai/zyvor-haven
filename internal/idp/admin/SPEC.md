@@ -311,3 +311,15 @@ Responses always show every config key explicitly (defaults filled in) plus `iss
 
 Tables (pg migration `0011_federation.sql`): `fed_providers`, `fed_links (realm, alias, subject)
 unique`, `fed_login_states`.
+
+## Login fallback and step-up (migration `0013`)
+Needs a store implementing `core.StepUpStore`; otherwise every route answers 501. Docs: `docs/login-fallback-and-stepup.md`.
+| Route | Notes |
+|---|---|
+| GET `/realms/{r}/stepup-policy` | `{"allowFallback","enabled","enforce","onNewDevice","onIpChange":bool,"idleAfterSeconds":int,"onMaxAge":bool,"sensitiveScopes":[string],"sensitiveAuthMaxAgeSeconds":int}`; a realm never configured has everything off/0/`[]`. |
+| PUT `/realms/{r}/stepup-policy` | Replaces the whole policy (missing fields = false/0/`[]`; unknown fields rejected). 400: seconds outside 0..one year, more than 20 or malformed (`[A-Za-z0-9_.:-]{1,64}`) scopes, `enforce` without `enabled`. `enabled` without `enforce` is report-only: decisions are audited (`STEPUP_REPORT`) and devices learned, nothing is changed for users. Audit `ADMIN_UPDATE "stepup-policy <realm>"`. |
+| GET `/realms/{r}/users/{id}/devices` | `[{"id","firstSeen","lastSeen"}]`, most recent first (`id` is the sha256 of the device cookie; the cookie and the IP hash are never returned). 404 unknown user. |
+| DELETE `/realms/{r}/users/{id}/devices[/{hash}]` | `204`, idempotent; forgets all / one device of that user (the next login there counts as a new device). Audit `ADMIN_ACTION "user-devices <username>"`. |
+
+Auth events: `STEPUP_REQUIRED` / `STEPUP_REPORT` (detail `login:` or `sso:` plus comma separated reasons from `new_device,ip_changed,idle,sensitive_scope,max_age`), `MFA_FALLBACK` (detail `to:totp|passkey`).
+Tables (pg migration `0013_stepup.sql`): `realm_stepup_policy`, `known_devices`.

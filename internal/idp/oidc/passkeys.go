@@ -223,6 +223,7 @@ func pkSecondFactorStep(p *Provider, w http.ResponseWriter, r *http.Request, ar 
 type pkStepData struct {
 	Opts, Token string
 	Script      template.JS
+	Alt         *Fallback // "use another method" (fallback.go)
 }
 
 func (p *Provider) pkSecondFactorPage(w http.ResponseWriter, r *http.Request, ar *authzReq, rp webauthn.RP, userID string, creds []core.Passkey, errMsg string) {
@@ -231,7 +232,8 @@ func (p *Provider) pkSecondFactorPage(w http.ResponseWriter, r *http.Request, ar
 	// need a PIN or biometric, but it is used when the authenticator offers it.
 	opts := mustJSON(pkAssertionOptions{Challenge: b64(chal), RPID: rp.ID, Timeout: 60000,
 		UserVerification: "preferred", AllowCredentials: pkDescriptors(creds)})
-	p.stepPage(w, r, ar, http.StatusOK, "Use your passkey", errMsg, pkStepBody, pkStepData{Opts: opts, Token: tok, Script: pkScript})
+	p.stepPage(w, r, ar, http.StatusOK, "Use your passkey", errMsg, pkStepBody+altFragment,
+		pkStepData{Opts: opts, Token: tok, Script: pkScript, Alt: p.fallbackOffer(r, ar, userID, methodPasskey)})
 }
 
 // ---- assertion handling (both modes) ----

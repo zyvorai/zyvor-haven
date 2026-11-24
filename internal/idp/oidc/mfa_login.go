@@ -44,6 +44,7 @@ type mfaPageData struct {
 	URI        string
 	Codes      []string
 	RecoveryOK bool
+	Alt        *Fallback // "use another method" (fallback.go)
 }
 
 const verifyBody = `<p class="sub">Enter the 6-digit code from your authenticator app, or a recovery code.</p>
@@ -51,7 +52,7 @@ const verifyBody = `<p class="sub">Enter the 6-digit code from your authenticato
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input type="hidden" name="mfa_token" value="{{.Data.Token}}">
 <label for="c">Code</label><input id="c" name="code" autocomplete="one-time-code" autofocus required maxlength="64">
-<button type="submit">Verify</button></form>`
+<button type="submit">Verify</button></form>` + altFragment
 
 const enrollBody = `<p class="sub">{{.Realm}} requires a second factor. Add this account to an authenticator app, then enter the 6-digit code it shows.</p>
 <p>Secret key: <code>{{.Data.Secret}}</code></p>
@@ -89,7 +90,7 @@ func (p *Provider) mfaProof(ar *authzReq, r *http.Request, userID, mode, extra s
 
 func (p *Provider) verifyPage(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, status int, errMsg string) {
 	p.stepPage(w, r, ar, status, "Two-step verification", errMsg, verifyBody,
-		mfaPageData{Token: p.mfaProof(ar, r, u.ID, modeVerify, "", mfaProofTTL)})
+		mfaPageData{Token: p.mfaProof(ar, r, u.ID, modeVerify, "", mfaProofTTL), Alt: p.fallbackOffer(r, ar, u.ID, methodTOTP)})
 }
 
 // enrollPage shows the secret of the user's pending credential.
