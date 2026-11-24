@@ -518,6 +518,50 @@ const (
 
 var _ idp.UserImporter = (*Client)(nil)
 
+var _ idp.UserMailer = (*Client)(nil)
+
+// mailError reports a send-* rejection as a sentinel. The *idp.StatusError is
+// reachable with errors.As but deliberately does not match errors.Is
+// (a 409 here is "no mail configured", not ErrConflict).
+type mailError struct {
+	sentinel error
+	status   *idp.StatusError
+}
+
+func (e *mailError) Error() string { return e.sentinel.Error() }
+func (e *mailError) Unwrap() error { return e.sentinel }
+
+func (e *mailError) As(target any) bool {
+	if t, ok := target.(**idp.StatusError); ok {
+		*t = e.status
+		return true
+	}
+	return false
+}
+
+// SendVerifyEmail asks the backend to email the user a verification link.
+func (c *Client) SendVerifyEmail(ctx context.Context, realm, userID string) error {
+	return c.sendMail(ctx, realm, userID, "send-verify-email")
+}
+
+// SendResetEmail asks the backend to email the user a password-reset link.
+func (c *Client) SendResetEmail(ctx context.Context, realm, userID string) error {
+	return c.sendMail(ctx, realm, userID, "send-reset-email")
+}
+
+func (c *Client) sendMail(ctx context.Context, realm, userID, route string) error {
+	err := c.call(ctx, http.MethodPost, userPath(realm, userID)+"/"+route, nil, nil)
+	if se := idp.AsStatus(err); se != nil {
+		switch se.Code {
+		case http.StatusConflict:
+			return &mailError{idp.ErrEmailNotConfigured, se}
+		case http.StatusTooManyRequests:
+			return &mailError{idp.ErrRateLimited, se}
+		}
+	}
+	return err
+}
+
 // ImportUsers sends users in batches of 500 and sums the results. Per-user
 // errors are kept (at most 100 in total). If a request fails, the result so
 // far is returned together with the error.

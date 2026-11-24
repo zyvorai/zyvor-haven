@@ -21,6 +21,27 @@ type Backend interface {
 	Reconfigure(ctx context.Context, url, user, password string) error
 }
 
+// UserMailer is implemented by providers that can email a user a
+// single-use link: one to verify the address on file, one to reset the
+// password. The link goes only to that address and is never returned. It is
+// optional, like SecretCreator and UserImporter, and is not part of Provider.
+//
+// Errors: ErrEmailNotConfigured when the backend has no mail transport,
+// ErrRateLimited when the user was mailed too often recently; other
+// rejections (no address on file, disabled user: 400; unknown user: 404)
+// are a *StatusError.
+type UserMailer interface {
+	SendVerifyEmail(ctx context.Context, realm, userID string) error
+	SendResetEmail(ctx context.Context, realm, userID string) error
+}
+
+var (
+	// ErrEmailNotConfigured: the identity backend has no SMTP configured.
+	ErrEmailNotConfigured = errors.New("idp: email is not configured on the identity backend")
+	// ErrRateLimited: too many emails were sent to this user recently.
+	ErrRateLimited = errors.New("idp: too many emails sent to this user recently, try again later")
+)
+
 // ErrBackendFixed is returned by Reconfigure on a StaticBackend.
 var ErrBackendFixed = errors.New("backend is configured by the environment")
 

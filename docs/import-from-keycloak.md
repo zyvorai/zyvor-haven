@@ -111,13 +111,19 @@ actions `UPDATE_PASSWORD` and `VERIFY_EMAIL` are kept; others are dropped with a
 ### Unverified emails: check this before cut-over
 
 If the Keycloak realm has **Verify email** on (`verifyEmail: true`), Keycloak lets a user with an
-unverified address sign in and then verify by mail. haven-idp has **no email-verification flow yet**,
-and it refuses to sign in an unverified user whenever the realm requires verified email, so after the
-import those users could not sign in at all. The password check passes first; the refusal comes
-after it (the `haven_idp_logins_total{result="unverified"}` metric counts them).
+unverified address sign in and then verify by mail. haven-idp refuses to sign in an unverified user
+whenever the realm requires verified email. The password check passes first; the refusal comes after
+it (the `haven_idp_logins_total{result="unverified"}` metric counts them).
+
+What happens next depends on email:
+
+* **Email configured** (`HAVEN_IDP_SMTP_HOST`, `_PORT`, `_USER`, `_PASSWORD` or `_PASSWORD_FILE`,
+  `_FROM`, `_TLS`; see [email-and-password-reset.md](email-and-password-reset.md)): the user receives
+  a verification link at their next sign-in attempt, follows it, and can then sign in.
+* **No email configured:** they remain locked out.
 
 The report names every affected user (enabled, with a password, email not verified) with the code
-`user.email_unverified_blocked`. Your options:
+`user.email_unverified_blocked`. Besides configuring email, your options:
 
 * **Verify them out of band**, then re-export, or
 * **`--trust-emails`**: mark every imported email as verified. This asserts that each address really

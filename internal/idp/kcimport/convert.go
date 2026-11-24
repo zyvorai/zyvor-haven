@@ -600,8 +600,9 @@ func (c *converter) finish(o Options) (*Result, error) {
 }
 
 // emailVerification deals with unverified emails. Keycloak lets such a user sign
-// in and then verify by mail (a required action); haven-idp has no email flow
-// yet, so a realm that requires verified email would lock them out for good.
+// in and then verify by mail (a required action). haven-idp sends the link at
+// the user's next sign-in attempt, but only when SMTP is configured; without it
+// a realm that requires verified email locks them out.
 // It runs after the whole document is read, so JSON key order does not matter.
 func (c *converter) emailVerification(o Options) {
 	if o.TrustEmails {
@@ -625,7 +626,7 @@ func (c *converter) emailVerification(o Options) {
 		// Only users who could otherwise sign in: enabled, with a password.
 		if u.Enabled && u.PasswordHash != "" && !u.EmailVerified {
 			c.w.add("user.email_unverified_blocked", u.Username,
-				"email is not verified and the realm requires verified email: this user CANNOT sign in (haven-idp has no email-verification flow yet). Verify them out of band, import with --trust-emails, or set emailVerificationRequired: false")
+				"email is not verified and the realm requires verified email: this user cannot sign in until the address is verified. With email configured on haven-idp (HAVEN_IDP_SMTP_*) they receive a verification link at their next sign-in attempt; without email they stay locked out. Alternatives: verify them out of band, import with --trust-emails, or set emailVerificationRequired: false")
 		}
 	}
 }
