@@ -22,3 +22,10 @@ site/
 .venv-docs/
 .docs-tools/
 __pycache__/
+
+# Build artifacts: `go build ./cmd/X` run from the repo root writes the binary here.
+/haven
+/haven-idp
+/haven-audit
+/haven-controller
+/haven-console
