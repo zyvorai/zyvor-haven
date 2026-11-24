@@ -234,3 +234,19 @@ func TestIdPImage(t *testing.T) {
 }
 
 var _ = strings.Contains
+
+// A slow database makes the migrations at startup take minutes. Without a startup probe the
+// liveness probe kills the pod mid-migration and it never starts (seen on a real cluster).
+func TestIdPDeploymentHasAStartupProbeThatOutlastsLiveness(t *testing.T) {
+	p := testPlane(v1alpha1.ProfileProduction)
+	d := IdPDeployment(p, IdPImage(&p.Spec, ""), 2)
+	c := d.Spec.Template.Spec.Containers[0]
+	if c.StartupProbe == nil || c.StartupProbe.HTTPGet == nil || c.StartupProbe.HTTPGet.Path != "/healthz" {
+		t.Fatalf("no /healthz startup probe: %+v", c.StartupProbe)
+	}
+	startup := c.StartupProbe.PeriodSeconds * c.StartupProbe.FailureThreshold
+	liveness := c.LivenessProbe.InitialDelaySeconds + c.LivenessProbe.PeriodSeconds*c.LivenessProbe.FailureThreshold
+	if startup < 4*liveness || startup < 180 {
+		t.Fatalf("startup window %ds must clearly exceed the liveness window %ds and be at least 3 minutes", startup, liveness)
+	}
+}

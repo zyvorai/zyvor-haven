@@ -176,6 +176,15 @@
               "periodSeconds": 5,
               "failureThreshold": 3
             },
+            "startupProbe": {
+              "httpGet": {
+                "path": "/healthz",
+                "port": "http"
+              },
+              "timeoutSeconds": 3,
+              "periodSeconds": 5,
+              "failureThreshold": 60
+            },
             "securityContext": {
               "capabilities": {
                 "drop": [

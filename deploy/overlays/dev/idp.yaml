@@ -161,6 +161,11 @@ spec:
               value: ":9100"
             - name: HAVEN_IDP_AUDIT
               value: stdout
+          # Migrations run before the server listens; hold liveness off until it does.
+          startupProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
           livenessProbe:
             httpGet: {path: /healthz, port: http}
             periodSeconds: 10

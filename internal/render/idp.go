@@ -212,8 +212,12 @@ func IdPDeployment(plane *v1alpha1.IdentityPlane, image string, replicas int32) 
 				{Name: "http", ContainerPort: IdPPortHTTP, Protocol: corev1.ProtocolTCP},
 				{Name: "metrics", ContainerPort: IdPPortMetrics, Protocol: corev1.ProtocolTCP},
 			},
-			Env:            idpEnv(plane.Name, &spec),
-			Resources:      spec.IdP.Resources,
+			Env:       idpEnv(plane.Name, &spec),
+			Resources: spec.IdP.Resources,
+			// Startup runs the database migrations before the server listens, which can take
+			// minutes on a slow database. The startup probe holds liveness and readiness off until
+			// the server answers, so the kubelet does not kill the pod mid-migration (5 minutes).
+			StartupProbe:   probe("/healthz", 0, 5, 60),
 			LivenessProbe:  probe("/healthz", 10, 10, 3),
 			ReadinessProbe: probe("/readyz", 5, 5, 3),
 			SecurityContext: &corev1.SecurityContext{
