@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -118,65 +117,6 @@ func (p *Provider) userinfo(w http.ResponseWriter, r *http.Request) {
 		out["name"] = strings.TrimSpace(u.FirstName + " " + u.LastName)
 	}
 	writeJSON(w, http.StatusOK, out)
-}
-
-// logout implements RP-initiated logout. There is no SSO session in v0, so
-// the only job is to validate and honour post_logout_redirect_uri.
-func (p *Provider) logout(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("realm")
-	if _, ok := p.realm(r.Context(), name); !ok {
-		p.errorPage(w, http.StatusNotFound, "Unknown realm.")
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		p.errorPage(w, http.StatusBadRequest, "Invalid request.")
-		return
-	}
-	get := func(k string) string {
-		if v := r.PostForm.Get(k); v != "" {
-			return v
-		}
-		return r.URL.Query().Get(k)
-	}
-	hint, ru, clientID := get("id_token_hint"), get("post_logout_redirect_uri"), get("client_id")
-	if hint != "" {
-		c, err := p.cfg.Signer.Verify(r.Context(), name, hint)
-		if err != nil || claimStr(c, "iss") != p.issuer(name) {
-			p.errorPage(w, http.StatusBadRequest, "Invalid logout request.")
-			return
-		}
-		azp := claimStr(c, "azp")
-		if clientID != "" && clientID != azp {
-			p.errorPage(w, http.StatusBadRequest, "Invalid logout request.")
-			return
-		}
-		clientID = azp
-	}
-	if ru == "" {
-		p.simplePage(w, http.StatusOK, "Signed out", "You have been signed out.")
-		return
-	}
-	if clientID == "" {
-		p.errorPage(w, http.StatusBadRequest, "Invalid logout request.")
-		return
-	}
-	cl, err := p.cfg.Store.GetClientByClientID(r.Context(), name, clientID)
-	if err != nil || !cl.Enabled || !slices.Contains(cl.RedirectURIs, ru) || !safeRedirect(ru) {
-		p.errorPage(w, http.StatusBadRequest, "Invalid post-logout redirect URI.")
-		return
-	}
-	u, err := url.Parse(ru)
-	if err != nil {
-		p.errorPage(w, http.StatusBadRequest, "Invalid post-logout redirect URI.")
-		return
-	}
-	if s := get("state"); s != "" {
-		q := u.Query()
-		q.Set("state", s)
-		u.RawQuery = q.Encode()
-	}
-	noStore(w)
-	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 
 func (p *Provider) revoke(w http.ResponseWriter, r *http.Request) {
