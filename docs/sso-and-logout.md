@@ -61,7 +61,7 @@ The POST is `application/x-www-form-urlencoded` with one field, `logout_token`, 
 
 - `iss`: the realm issuer
 - `aud`: the client id
-- `iat` and `jti`
+- `iat`, `exp` (two minutes after `iat`) and `jti`
 - `sid`: the ended session
 - `sub`: the user id
 - `events`: `{"http://schemas.openid.net/event/backchannel-logout": {}}`
@@ -76,7 +76,8 @@ Delivery rules:
 - **Private-network targets are refused**: loopback (outside dev), link-local, RFC 1918 and similar
   addresses are not contacted, including after DNS resolution.
 - **5 second timeout** per attempt.
-- Failed deliveries are retried. A failure never blocks or fails the logout itself: the session is
+- Network errors, 5xx and 429 are retried twice (3 attempts in all) with a doubling backoff starting at
+  200 ms; other 4xx answers are not retried. A failure never blocks or fails the logout itself: the session is
   already gone.
 - Notification is best effort. A client that was down for all attempts is not told again; its own
   session lifetime is the backstop.
@@ -130,7 +131,7 @@ The Go `native` client implements the optional `idp.SessionManager` interface fo
 - `HttpOnly` keeps scripts from reading it; `SameSite=Lax` keeps it off cross-site POSTs.
 - Logout without a valid `id_token_hint` asks for confirmation, which stops logout CSRF.
 - `post_logout_redirect_uri` must be registered for the client; anything else is not followed.
-- Back-channel targets are https only and may not point at private networks, which keeps the logout
+- Back-channel targets are https only (plain http only for loopback in `haven-idp dev`) and may not point at private networks, which keeps the logout
   mechanism from being used to probe your internal network.
 - The `logout_token` is signed with the realm key and has no `nonce`, so it cannot be mistaken for an
   ID token.
