@@ -117,10 +117,20 @@ spec:
         app: haven-controller
     spec:
       serviceAccountName: haven-controller
+      # Pod Security "restricted" compliant (checked against a real API server
+      # in a namespace enforcing that level).
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: controller
           image: haven-controller:dev
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           args:
             - --leader-elect=true
             - --health-probe-bind-address=:8081
