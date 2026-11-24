@@ -6,7 +6,10 @@
 // share it so both follow the same rules:
 //
 //   - tokens are 256-bit random, stored only as a sha256 hash, single use;
-//   - one outstanding token per user and purpose (a new one replaces the old);
+//   - at most MaxPerHour emails per user and purpose per rolling hour; earlier
+//     links stay valid until one is redeemed (callers then call
+//     DeleteActionTokens), so a flooded inbox cannot be used to lock someone
+//     out of their own latest link;
 //   - tokens are bound to the address they were sent to, so changing the
 //     address on the account kills any link sent to the old one;
 //   - issuing is rate limited per user and purpose.
@@ -106,8 +109,7 @@ type SendOpts struct {
 }
 
 // Send issues a token for u and emails the link to the address on file.
-// It replaces any outstanding token for the same purpose. It never returns the
-// token or link.
+// It never returns the token or link.
 func (s *Service) Send(ctx context.Context, rl core.Realm, u core.User, purpose string, o SendOpts) error {
 	if !s.Enabled() {
 		return ErrDisabled
@@ -134,9 +136,6 @@ func (s *Service) Send(ctx context.Context, rl core.Realm, u core.User, purpose 
 		return err
 	}
 	raw := base64.RawURLEncoding.EncodeToString(rb)
-	if _, err := s.Store.DeleteActionTokens(ctx, rl.Name, u.ID, purpose); err != nil {
-		return err
-	}
 	err := s.Store.PutActionToken(ctx, core.ActionToken{
 		TokenHash: Hash(raw), Realm: rl.Name, UserID: u.ID, Purpose: purpose,
 		Email: email, CreatedAt: now, ExpiresAt: now.Add(ttl(purpose)),
@@ -157,7 +156,7 @@ func (s *Service) Send(ctx context.Context, rl core.Realm, u core.User, purpose 
 	msg.To = email
 	if err := s.Mailer.Send(ctx, msg); err != nil {
 		// Nobody can use a link that was never delivered.
-		_, _ = s.Store.DeleteActionTokens(ctx, rl.Name, u.ID, purpose)
+		_, _ = s.Store.ConsumeActionToken(ctx, Hash(raw))
 		return fmt.Errorf("actions: send: %w", err)
 	}
 	return nil
