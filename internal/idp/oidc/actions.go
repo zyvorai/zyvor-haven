@@ -17,6 +17,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/mail"
 	"github.com/zyvorai/haven/internal/idp/password"
 )
 
@@ -261,6 +262,18 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = p.cfg.Store.DeleteActionTokens(ctx, rl.Name, u.ID, core.ActionResetPassword)
 	p.event(ctx, rl, "RESET_PASSWORD", u.ID, "", p.clientIP(r), "")
+	// Best-effort security notification; never carries a link or the password.
+	if p.actionsOn() && u.Email != "" {
+		p.bg.Add(1)
+		go func(rl core.Realm, u core.User) {
+			defer p.bg.Done()
+			nctx, cancel := context.WithTimeout(context.Background(), mailTimeout)
+			defer cancel()
+			if err := p.cfg.Actions.Notify(nctx, rl, u, mail.KindPasswordChanged, "reset link"); err != nil {
+				p.cfg.Logger.Error("oidc: password change notification failed", "realm", rl.Name, "user", u.ID, "err", err)
+			}
+		}(rl, u)
+	}
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: p.actionCookiePath(rl.Name), MaxAge: -1})
 	p.simplePage(w, http.StatusOK, "Password updated",
 		"Your password was changed and all other sessions were signed out. Return to the application and sign in.")

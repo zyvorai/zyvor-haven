@@ -5,6 +5,7 @@ package oidc
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -402,5 +403,99 @@ func TestMailFailureLeavesNoLiveToken(t *testing.T) {
 	n, _ := e.st.CountActionTokens(context.Background(), "r", "u1", core.ActionResetPassword, e.now.Add(-time.Hour))
 	if n != 0 {
 		t.Errorf("%d token(s) left after a failed send", n)
+	}
+}
+
+func notices(e *aenv) []mail.Message {
+	var out []mail.Message
+	for _, m := range e.mail.all() {
+		if strings.Contains(m.Subject, "was changed") {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func mustTok(t *testing.T, link string) string {
+	t.Helper()
+	u, err := url.Parse(link)
+	if err != nil || u.Query().Get("token") == "" {
+		t.Fatalf("link %q", link)
+	}
+	return u.Query().Get("token")
+}
+
+func TestResetSendsPasswordChangedNotice(t *testing.T) {
+	e := newAEnv(t, true)
+	e.forgot("alice")
+	link := e.lastLink()
+	tok := mustTok(t, link)
+	before := len(e.mail.all())
+
+	// Rejected attempts send nothing.
+	e.reset(link, "newpassword1", "different")
+	e.reset(link, "short", "short")
+	e.reset("/realms/r/login-actions/reset-password?token=forged", "newpassword1", "newpassword1")
+	e.h.Drain()
+	if len(e.mail.all()) != before {
+		t.Fatalf("mail sent for a rejected attempt: %+v", e.mail.all())
+	}
+
+	if w := e.reset(link, "newpassword1", "newpassword1"); w.Code != 200 {
+		t.Fatalf("reset: %d", w.Code)
+	}
+	e.h.Drain()
+	ns := notices(e)
+	if len(ns) != 1 || len(e.mail.all()) != before+1 {
+		t.Fatalf("want exactly one notice, got %d (total %d, before %d)", len(ns), len(e.mail.all()), before)
+	}
+	m := ns[0]
+	if m.To != "alice@example.org" {
+		t.Errorf("sent to %q", m.To)
+	}
+	for _, s := range []string{m.Text, m.HTML, m.Subject} {
+		if strings.Contains(s, "newpassword1") || strings.Contains(s, tok) || strings.Contains(s, "http") {
+			t.Errorf("notice leaks token, link or password: %q", s)
+		}
+	}
+	if !strings.Contains(m.Text, "reset link") || !strings.Contains(m.Text, "2026-01-01 12:00:00 UTC") {
+		t.Errorf("text: %q", m.Text)
+	}
+	// A replayed link changes nothing and notifies nobody.
+	e.reset(link, "another-pass1", "another-pass1")
+	e.h.Drain()
+	if len(notices(e)) != 1 {
+		t.Error("replayed link produced a notice")
+	}
+}
+
+func TestNoticeNotSentWithoutMailer(t *testing.T) {
+	e := newAEnv(t, false)
+	if w := e.reset("/realms/r/login-actions/reset-password?token=x", "newpassword1", "newpassword1"); strings.Contains(w.Body.String(), "Password updated") {
+		t.Fatal("reset succeeded without mail")
+	}
+	e.h.Drain()
+	if n := len(e.mail.all()); n != 0 {
+		t.Fatalf("%d emails with mail disabled", n)
+	}
+}
+
+func TestNotifyErrors(t *testing.T) {
+	ctx := context.Background()
+	var nilSvc *actions.Service
+	if err := nilSvc.Notify(ctx, core.Realm{Name: "r"}, core.User{Email: "a@b.c"}, mail.KindPasswordChanged, ""); !errors.Is(err, actions.ErrDisabled) {
+		t.Errorf("nil service: %v", err)
+	}
+	e := newAEnv(t, true)
+	svc := e.h.cfg.Actions
+	if err := svc.Notify(ctx, core.Realm{Name: "r"}, core.User{}, mail.KindPasswordChanged, ""); !errors.Is(err, actions.ErrNoEmail) {
+		t.Errorf("no email: %v", err)
+	}
+	if err := svc.Notify(ctx, core.Realm{Name: "r"}, core.User{Email: "a@b.c"}, mail.KindPasswordChanged, "an administrator"); err != nil {
+		t.Errorf("notify: %v", err)
+	}
+	e.mail.err = errors.New("smtp down")
+	if err := svc.Notify(ctx, core.Realm{Name: "r"}, core.User{Email: "a@b.c"}, mail.KindPasswordChanged, ""); err == nil {
+		t.Error("mailer error swallowed")
 	}
 }

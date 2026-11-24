@@ -30,7 +30,28 @@ const htmlTmpl = `<!doctype html>
 </body></html>
 `
 
+const noticeTextTmpl = `{{.Intro}}
+{{if .When}}
+When: {{.When}}{{end}}{{if .Via}}
+How: {{.Via}}{{end}}
+
+If this was not you, contact your administrator or reset your password now.
+This email contains no link on purpose.
+`
+
+const noticeHTMLTmpl = `<!doctype html>
+<html><body>
+<p>{{.Intro}}</p>
+{{if .When}}<p>When: {{.When}}</p>
+{{end}}{{if .Via}}<p>How: {{.Via}}</p>
+{{end}}<p>If this was not you, contact your administrator or reset your password now.</p>
+<p>This email contains no link on purpose.</p>
+</body></html>
+`
+
 var (
+	nText = texttemplate.Must(texttemplate.New("ntext").Parse(noticeTextTmpl))
+	nHTML = htmltemplate.Must(htmltemplate.New("nhtml").Parse(noticeHTMLTmpl))
 	tText = texttemplate.Must(texttemplate.New("text").Parse(textTmpl))
 	tHTML = htmltemplate.Must(htmltemplate.New("html").Parse(htmlTmpl))
 )
@@ -45,6 +66,9 @@ type view struct {
 func Render(kind Kind, d TemplateData) (Message, error) {
 	if hasCtl(d.Realm) || hasCtl(d.Username) {
 		return Message{}, errors.New("mail: realm or username contains control characters")
+	}
+	if kind == KindPasswordChanged {
+		return renderNotice(d)
 	}
 	u, err := url.Parse(d.Link)
 	if err != nil || hasCtl(d.Link) || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
@@ -82,4 +106,29 @@ func Render(kind Kind, d TemplateData) (Message, error) {
 		return Message{}, err
 	}
 	return Message{Subject: subject, Text: tb.String(), HTML: hb.String()}, nil
+}
+
+// renderNotice builds a notification. It deliberately ignores Link: a
+// notification must never carry a live credential.
+func renderNotice(d TemplateData) (Message, error) {
+	if hasCtl(d.When) || hasCtl(d.Via) {
+		return Message{}, errors.New("mail: when or via contains control characters")
+	}
+	who := d.Username
+	if who == "" {
+		who = "there"
+	}
+	v := view{Intro: fmt.Sprintf("Hello %s, the password for your %s account was changed.", who, d.Realm)}
+	nv := struct {
+		view
+		When, Via string
+	}{v, d.When, d.Via}
+	var tb, hb bytes.Buffer
+	if err := nText.Execute(&tb, nv); err != nil {
+		return Message{}, err
+	}
+	if err := nHTML.Execute(&hb, nv); err != nil {
+		return Message{}, err
+	}
+	return Message{Subject: "Your password for " + d.Realm + " was changed", Text: tb.String(), HTML: hb.String()}, nil
 }

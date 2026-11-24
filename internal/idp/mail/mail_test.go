@@ -161,3 +161,50 @@ func TestLogSenderNoSecrets(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderPasswordChanged(t *testing.T) {
+	m, err := Render(KindPasswordChanged, TemplateData{Realm: "Acme", Username: "alice",
+		When: "2026-01-01 12:00:00 UTC", Via: "reset link", Link: "https://idp.example/secret?token=abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{m.Text, m.HTML} {
+		for _, want := range []string{"alice", "Acme", "2026-01-01 12:00:00 UTC", "reset link", "If this was not you"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("missing %q in %q", want, s)
+			}
+		}
+		if strings.Contains(s, "http") || strings.Contains(s, "token") || strings.Contains(s, "<a ") {
+			t.Errorf("notification carries a link: %q", s)
+		}
+	}
+	if m.Subject != "Your password for Acme was changed" {
+		t.Errorf("subject %q", m.Subject)
+	}
+	// Optional fields may be empty; no link is required.
+	m, err = Render(KindPasswordChanged, TemplateData{Realm: "A"})
+	if err != nil || strings.Contains(m.Text, "When:") || strings.Contains(m.Text, "How:") || !strings.Contains(m.Text, "Hello there") {
+		t.Fatalf("%v %q", err, m.Text)
+	}
+}
+
+func TestRenderPasswordChangedEscapesAndRejectsControls(t *testing.T) {
+	m, err := Render(KindPasswordChanged, TemplateData{Realm: "<script>x</script>", Username: `"><img src=x>`,
+		Via: "<b>admin</b>", When: "<i>now</i>"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"<script>", "<img src=x", "<b>", "<i>"} {
+		if strings.Contains(m.HTML, bad) {
+			t.Fatalf("unescaped %q: %s", bad, m.HTML)
+		}
+	}
+	if !strings.Contains(m.HTML, "&lt;b&gt;admin") {
+		t.Fatalf("via not escaped: %s", m.HTML)
+	}
+	for _, d := range []TemplateData{{Realm: "R", Via: "x\r\nBcc: a@b"}, {Realm: "R", When: "x\n"}, {Realm: "R\n"}} {
+		if _, err := Render(KindPasswordChanged, d); err == nil {
+			t.Errorf("control chars accepted: %+v", d)
+		}
+	}
+}
