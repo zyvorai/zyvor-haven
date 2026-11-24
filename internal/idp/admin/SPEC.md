@@ -357,3 +357,16 @@ that already exists is 409 and never adopted. Pg migrations `0015_workload_ident
 Events (admin events flag): `WORKLOAD_IDENTITY_CREATE|ENABLE|DISABLE|DELETE`, `AGENT_CREATE|ENABLE|DISABLE|DELETE`,
 `AGENT_CREDENTIAL_ISSUED`, `AGENT_CREDENTIAL_REVOKED`. Token endpoint events (auth events flag):
 `WORKLOAD_TOKEN`, `WORKLOAD_TOKEN_ERROR`, `AGENT_TOKEN`, `AGENT_TOKEN_ERROR`.
+
+## CIBA (client-initiated backchannel authentication)
+
+See `docs/ciba.md`. Optional store extension (`core.CIBAStore`); a store without it answers 501. Pg migration
+`0019_ciba.sql`. The opt-in is keyed by the client's opaque id, so a deleted and re-created `clientId` does not inherit it.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/clients/{id}/ciba` | `{"enabled": bool}`; 404 unknown client |
+| `PUT /realms/{r}/clients/{id}/ciba` | `{"enabled": bool}` -> 200; unknown fields 400; enabling a public client or a service account is 400 |
+
+Events (admin events flag): `UPDATE client-ciba`. Protocol events (auth events flag): `CIBA_AUTH_REQUEST`,
+`CIBA_AUTH_REQUEST_ERROR`, `CIBA_APPROVE`, `CIBA_DENY`, `CIBA_TOKEN`.
