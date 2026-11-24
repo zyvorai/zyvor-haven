@@ -80,7 +80,7 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Test (macOS: launchd plist, Keychain wrapper, paths, CLI)
+      - name: "Test (macOS: launchd plist, Keychain wrapper, paths, CLI)"
         run: go test -race -count=1 ./cmd/haven ./cmd/haven-idp ./internal/havencli ./internal/keychain ./internal/idp/store/memstore
 
       - name: Build both architectures
