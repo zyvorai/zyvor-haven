@@ -121,6 +121,11 @@ func New(cfg Config) *Provider {
 		p.csrfKey = randBytes(32)
 	}
 	r := "/realms/{realm}"
+	defer func() {
+		for _, f := range featureRoutes {
+			f(p, p.mux)
+		}
+	}()
 	p.mux.HandleFunc("GET "+r+"/.well-known/openid-configuration", p.discovery)
 	p.mux.HandleFunc("GET "+r+oidcPath+"/certs", p.certs)
 	p.mux.HandleFunc("GET "+r+oidcPath+"/auth", p.authorize)
@@ -290,6 +295,9 @@ func (p *Provider) discovery(w http.ResponseWriter, r *http.Request) {
 		"backchannel_logout_supported":                   true,
 		"backchannel_logout_session_supported":           true,
 		"authorization_response_iss_parameter_supported": true,
+	}
+	for _, h := range discoveryHooks {
+		h(p, name, doc)
 	}
 	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Type", "application/json")

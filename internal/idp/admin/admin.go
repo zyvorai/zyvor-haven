@@ -123,6 +123,9 @@ func (a *api) routes() {
 	a.importRoutes(m)
 	a.roleGroupRoutes(m)
 	a.miscRoutes(m)
+	for _, f := range extraRoutes {
+		f(a, m)
+	}
 	m.HandleFunc(pathPrefix+"/", func(w http.ResponseWriter, _ *http.Request) { writeErr(w, http.StatusNotFound, "not found") })
 }
 

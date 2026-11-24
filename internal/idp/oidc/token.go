@@ -119,7 +119,11 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 	case "client_credentials":
 		resp, terr = p.grantClientCreds(r, rl, cl, confidential)
 	default:
-		terr = oerr("unsupported_grant_type", "grant_type not supported")
+		if h, ok := grantHooks[g]; ok {
+			resp, terr = h(p, r, rl, cl, confidential)
+		} else {
+			terr = oerr("unsupported_grant_type", "grant_type not supported")
+		}
 	}
 	if terr != nil {
 		p.tokenFail(w, terr, basic, rl.Name, grant)

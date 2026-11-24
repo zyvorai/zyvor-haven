@@ -70,6 +70,12 @@ func Run(t *testing.T, newStore func(t *testing.T) core.Store) {
 		{"Isolation", isolation},
 		{"NoAliasing", noAliasing},
 	}
+	for _, c := range extraCases {
+		cases = append(cases, struct {
+			name string
+			fn   func(*testing.T, core.Store)
+		}{c.Name, c.Fn})
+	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) { c.fn(t, newStore(t)) })
 	}

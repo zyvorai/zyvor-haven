@@ -89,6 +89,9 @@ func AuditStore(st core.Store, sink AuditSink) core.Store {
 	return &auditStore{Store: st, sink: sink}
 }
 
+// Unwrap lets core.StoreAs find feature stores behind the audit decorator.
+func (a *auditStore) Unwrap() core.Store { return a.Store }
+
 func (a *auditStore) AppendEvent(ctx context.Context, e core.Event) error {
 	err := a.Store.AppendEvent(ctx, e)
 	sev := SeverityInfo
