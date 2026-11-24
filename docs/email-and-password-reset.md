@@ -23,6 +23,21 @@ on file. The link opens `/realms/{realm}/login-actions/verify-email?token=...`; 
 marks the address verified. A **wrong password never triggers an email**, so nobody can use the login
 form to spam a mailbox.
 
+**Change my email (self-service).** A signed-in user opens `/realms/{realm}/account/email`, enters the new
+address **and the account password** (asked every time, even right after signing in), and submits. A
+confirmation link goes to the **new** address and a notice (no link, new address masked as `a***@host`) goes
+to the **old** one. The account address does not change until the link is opened
+(`/realms/{realm}/login-actions/confirm-email-change?token=...`, a button on the page, POST with CSRF). On
+confirmation the address is replaced and marked verified, every outstanding verify, reset and change link is
+deleted, and the old address gets a second notice. Links last 2 hours and are single use; a new request
+withdraws the previous one. The link is bound to the address on file when it was issued, so it dies if an
+administrator changes the address in the meantime. The page answers identically whether the new address is
+free, already used by another account, or delivery fails later (nothing is sent in the second case), so it
+cannot be used to probe which addresses exist. Limits: 5 password attempts per user and 30 per IP in 10
+minutes (counted on every submit), and 3 change requests per user per hour; the store being unavailable
+fails closed. Audit events `UPDATE_EMAIL_REQUEST`, `UPDATE_EMAIL` and `UPDATE_EMAIL_ERROR` carry no address.
+No database migration is needed: the pending change is an ordinary action token.
+
 Administrators can send either link on demand (see [Admin routes](#admin-routes)). This is also how
 users imported from Keycloak with unverified addresses get unblocked
 (see [import-from-keycloak.md](import-from-keycloak.md#unverified-emails-check-this-before-cut-over)).
@@ -96,8 +111,9 @@ Each successful send is recorded as an `ADMIN_ACTION` event (user name only, no 
   console displays.
 * The reset link's GET page shows the form without checking the token, so an expired link is only
   reported after the user submits a new password.
-* Email-change verification is wired into the Admin API (`PUT /users/{id}`). There is no
-  self-service "change my email" page yet.
+* Self-service email change needs a live SSO session and has no approval step, per-realm switch or
+  domain allow-list. Two accounts cannot be told apart by address alone, so an address already used
+  by another account is silently refused (same page, no mail).
 * Limiter windows are fixed, not sliding: a client can send up to twice the limit across a window
   boundary.
 

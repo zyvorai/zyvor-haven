@@ -96,6 +96,8 @@ nav:
       - Passkeys (WebAuthn): passkeys.md
       - Password policy: password-policy.md
       - Device login (CLI, CI): device-flow.md
+      - Keep dev data across restarts: dev-persist.md
+      - Time Machine undo (native): time-machine-undo.md
       - Add an app (wizard and Test login): add-an-app.md
       - Backups: backups.md
       - haven CLI (device login, kubectl): haven-cli.md
