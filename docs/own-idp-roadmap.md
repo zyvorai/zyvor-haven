@@ -83,6 +83,7 @@ The OAuth device authorization grant (RFC 8628) for terminals and CI (opt-in per
 OAuth dynamic client registration (RFC 7591/7592) behind
 admin-issued initial access tokens (no anonymous mode, no software statements or JWT-secured registration, per-client
 scope is recorded but not enforced at authorize; see [dynamic-client-registration.md](dynamic-client-registration.md)).
+TOTP two-step verification with recovery codes (login step, enforced enrollment via a per-realm `requireMfa` policy, account page, Admin reset; see [mfa-totp.md](mfa-totp.md)); not done there: QR code, `amr`/`acr` claims, a link to the account page.
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:
