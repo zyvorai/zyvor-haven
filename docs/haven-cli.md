@@ -184,6 +184,7 @@ same new token.
   (and lose the rotated refresh token). Windows is compile-checked, not exercised.
 - No OS keychain storage (macOS Keychain, libsecret); tokens are in a 0600 file.
 - No `nonce` or `at_hash` checks, no JWKS caching (one fetch per login/refresh/whoami).
-- Not run against the real haven-idp device endpoint at the time of writing:
-  the test-suite uses an in-test fake IdP that follows RFC 8628.
+- Exercised against the real `haven-idp dev` device endpoint (login with approval, `token`, `whoami`,
+  `exec-credential`, `logout`; no token in any output or server log). Not run against other providers:
+  the unit tests use an in-test fake IdP that follows RFC 8628.
 - No shell completion; no PKCE authorization-code (browser redirect) login.
