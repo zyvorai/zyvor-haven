@@ -30,6 +30,7 @@ type Store struct {
 	keys    map[string]core.SigningKey // key: realm + "\x00" + kid
 	codes   map[string]core.AuthCode
 	refresh map[string]core.RefreshToken
+	actions map[string]core.ActionToken
 	events  []core.Event
 }
 
@@ -46,6 +47,7 @@ func New() *Store {
 		keys:    map[string]core.SigningKey{},
 		codes:   map[string]core.AuthCode{},
 		refresh: map[string]core.RefreshToken{},
+		actions: map[string]core.ActionToken{},
 	}
 }
 
@@ -586,6 +588,75 @@ func (s *Store) RevokeRefreshFamily(_ context.Context, familyID string) error {
 	return nil
 }
 
+// RevokeUserRefreshTokens revokes every refresh token of the user.
+func (s *Store) RevokeUserRefreshTokens(_ context.Context, realm, userID string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for k, t := range s.refresh {
+		if t.Realm == realm && t.UserID == userID && !t.Revoked {
+			t.Revoked = true
+			s.refresh[k] = t
+			n++
+		}
+	}
+	return n, nil
+}
+
+// Action tokens
+
+func (s *Store) PutActionToken(_ context.Context, t core.ActionToken) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.needRealm(t.Realm); err != nil {
+		return err
+	}
+	if _, ok := s.actions[t.TokenHash]; ok {
+		return dup("action token")
+	}
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now().UTC()
+	}
+	s.actions[t.TokenHash] = t
+	return nil
+}
+
+func (s *Store) ConsumeActionToken(_ context.Context, tokenHash string) (core.ActionToken, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.actions[tokenHash]
+	if !ok {
+		return core.ActionToken{}, nf("action token")
+	}
+	delete(s.actions, tokenHash)
+	return t, nil
+}
+
+func (s *Store) DeleteActionTokens(_ context.Context, realm, userID, purpose string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for k, t := range s.actions {
+		if t.Realm == realm && t.UserID == userID && t.Purpose == purpose {
+			delete(s.actions, k)
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (s *Store) CountActionTokens(_ context.Context, realm, userID, purpose string, since time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, t := range s.actions {
+		if t.Realm == realm && t.UserID == userID && t.Purpose == purpose && !t.CreatedAt.Before(since) {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // Events
 
 func (s *Store) AppendEvent(_ context.Context, e core.Event) error {
@@ -637,6 +708,12 @@ func (s *Store) PurgeExpired(_ context.Context, now time.Time) (int, error) {
 	for k, t := range s.refresh {
 		if !t.ExpiresAt.After(now) {
 			delete(s.refresh, k)
+			n++
+		}
+	}
+	for k, t := range s.actions {
+		if !t.ExpiresAt.After(now) {
+			delete(s.actions, k)
 			n++
 		}
 	}

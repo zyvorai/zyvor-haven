@@ -128,6 +128,26 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
+// Action token purposes.
+const (
+	ActionVerifyEmail   = "verify_email"
+	ActionResetPassword = "reset_password"
+)
+
+// ActionToken is a single-use, emailed capability (verify an address, reset a
+// password). Only the sha256 hex of the token is stored. Email is the address
+// the token was issued to: a verify token stops working if the user's address
+// changed since, and a reset token is only ever sent to the address on file.
+type ActionToken struct {
+	TokenHash string
+	Realm     string
+	UserID    string
+	Purpose   string // ActionVerifyEmail | ActionResetPassword
+	Email     string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
 // Event is an audit record (login, admin change).
 type Event struct {
 	Time     time.Time
@@ -189,10 +209,27 @@ type Store interface {
 	MarkRefreshUsed(ctx context.Context, tokenHash string) error
 	RevokeRefreshFamily(ctx context.Context, familyID string) error
 
+	// RevokeUserRefreshTokens revokes every refresh token of a user (used
+	// after a password reset). Returns the number revoked.
+	RevokeUserRefreshTokens(ctx context.Context, realm, userID string) (int, error)
+
+	// Action tokens: ConsumeActionToken returns the token and deletes it
+	// atomically; a second call returns idp.ErrNotFound. Expiry is checked by
+	// the caller, the store only deletes (PurgeExpired removes stale rows).
+	PutActionToken(ctx context.Context, t ActionToken) error
+	ConsumeActionToken(ctx context.Context, tokenHash string) (ActionToken, error)
+	// DeleteActionTokens removes every outstanding token of a user for a
+	// purpose (issuing a new one or changing the password invalidates the
+	// rest). Returns the number removed.
+	DeleteActionTokens(ctx context.Context, realm, userID, purpose string) (int, error)
+	// CountActionTokens counts tokens of a user for a purpose created at or
+	// after since: used to rate-limit emails per user.
+	CountActionTokens(ctx context.Context, realm, userID, purpose string, since time.Time) (int, error)
+
 	// Events
 	AppendEvent(ctx context.Context, e Event) error
 	ListEvents(ctx context.Context, realm string, limit int) ([]Event, error) // newest first
 
-	// Housekeeping: delete expired codes/tokens, returns rows removed.
+	// Housekeeping: delete expired codes/tokens (incl. action tokens), returns rows removed.
 	PurgeExpired(ctx context.Context, now time.Time) (int, error)
 }
