@@ -240,7 +240,8 @@ func (a *api) resetPassword(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, bad("invalid password"))
 		return
 	}
-	if err := password.CheckPolicy(rl.PasswordPolicy, in.Value); err != nil {
+	if err := password.CheckPolicyFor(rl.PasswordPolicy, in.Value, password.Personal{
+		Username: cur.Username, Email: cur.Email, FirstName: cur.FirstName, LastName: cur.LastName}); err != nil {
 		a.fail(w, r, bad(err.Error()))
 		return
 	}

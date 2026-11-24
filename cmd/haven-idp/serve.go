@@ -60,7 +60,11 @@ type Config struct {
 	MetricsOnMain      bool
 	AuditSpec          string
 	AuditWebhookSecret string
-	Observer           *obs.Observer // built by serve when nil
+	// BreachFilter is the path of an operator-built bloom filter of breached
+	// passwords (see docs/password-policy.md). Only consulted by realms whose
+	// password policy contains notBreached(). Empty = no filter registered.
+	BreachFilter string
+	Observer     *obs.Observer // built by serve when nil
 
 	// Email (verification and password reset). Mailer, when set, wins (dev
 	// mode installs an in-memory outbox); otherwise SMTPHost enables SMTP.
@@ -103,6 +107,7 @@ func configFromEnv() (Config, error) {
 		MetricsListen:      os.Getenv("HAVEN_IDP_METRICS_LISTEN"),
 		AuditSpec:          os.Getenv("HAVEN_IDP_AUDIT"),
 		AuditWebhookSecret: os.Getenv("HAVEN_IDP_AUDIT_WEBHOOK_SECRET"),
+		BreachFilter:       os.Getenv("HAVEN_IDP_BREACH_FILTER"),
 	}
 	c.SMTPHost = os.Getenv("HAVEN_IDP_SMTP_HOST")
 	c.SMTPUser = os.Getenv("HAVEN_IDP_SMTP_USER")
@@ -234,6 +239,14 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		}
 	}
 
+	if cfg.BreachFilter != "" {
+		bf, err := password.LoadBreachFilter(cfg.BreachFilter)
+		if err != nil {
+			return err // a configured but unreadable filter must not silently weaken the policy
+		}
+		password.SetBreachFilter(bf)
+		log.Info("breach filter loaded", "path", cfg.BreachFilter)
+	}
 	mailer, err := buildMailer(cfg)
 	if err != nil {
 		return err

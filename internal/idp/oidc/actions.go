@@ -222,7 +222,7 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 		again("That password is not allowed: " + err.Error())
 		return
 	}
-	_, u, err := p.cfg.Actions.Redeem(ctx, rl.Name, tok, core.ActionResetPassword)
+	t, u, err := p.cfg.Actions.Redeem(ctx, rl.Name, tok, core.ActionResetPassword)
 	if err != nil {
 		if errors.Is(err, actions.ErrInvalidToken) {
 			p.errorPage(w, http.StatusBadRequest, invalidLink)
@@ -230,6 +230,17 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 		}
 		p.cfg.Logger.Error("oidc: redeem reset token", "err", err)
 		p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
+		return
+	}
+	// Rules that need the account (the password may not contain the user's
+	// own name or email) can only run once the link has identified it. A
+	// rejection must not burn the link, so put the token back unchanged.
+	if err := password.CheckPolicyFor(rl.PasswordPolicy, pw, password.Personal{
+		Username: u.Username, Email: u.Email, FirstName: u.FirstName, LastName: u.LastName}); err != nil {
+		if perr := p.cfg.Store.PutActionToken(ctx, t); perr != nil {
+			p.cfg.Logger.Error("oidc: restore reset token", "err", perr)
+		}
+		again("That password is not allowed: " + err.Error())
 		return
 	}
 	h, err := p.cfg.Hasher.Hash(pw)

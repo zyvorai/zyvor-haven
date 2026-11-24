@@ -537,3 +537,30 @@ func TestForgotLimitSharedAcrossReplicasAndFailsClosed(t *testing.T) {
 		t.Errorf("fail-closed answer not generic: %d %s", w.Code, w.Body)
 	}
 }
+
+func TestResetRejectsPersonalPasswordWithoutBurningLink(t *testing.T) {
+	e := newAEnv(t, true)
+	rl, _ := e.st.GetRealm(context.Background(), "r")
+	rl.PasswordPolicy = "length(8) and notPersonal() and notCommon()"
+	if err := e.st.UpdateRealm(context.Background(), rl); err != nil {
+		t.Fatal(err)
+	}
+	e.forgot("alice")
+	link := e.lastLink()
+	// Contains the username: only knowable once the link identified the account.
+	w := e.reset(link, "alice-Zx93!q", "alice-Zx93!q")
+	if !strings.Contains(w.Body.String(), "not allowed") {
+		t.Fatalf("personal password accepted: %d %s", w.Code, w.Body)
+	}
+	if e.user("u1").PasswordHash != "H:oldpassword" {
+		t.Fatal("password changed by a rejected attempt")
+	}
+	// A common password is rejected before the link is even redeemed.
+	if w := e.reset(link, "password123", "password123"); !strings.Contains(w.Body.String(), "not allowed") {
+		t.Fatalf("common password accepted: %s", w.Body)
+	}
+	// The link must still work for an acceptable password.
+	if w := e.reset(link, "Tr0ub4dor&3-xyz", "Tr0ub4dor&3-xyz"); !strings.Contains(w.Body.String(), "Password updated") {
+		t.Fatalf("link was burned by rejected attempts: %d %s", w.Code, w.Body)
+	}
+}
