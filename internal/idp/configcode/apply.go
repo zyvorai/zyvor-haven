@@ -221,7 +221,7 @@ func mergeClient(cur idp.Client, c Client) idp.Client {
 	} else {
 		delete(attrs, pkceAttr)
 	}
-	// Keycloak keeps this as an attribute; the native IdP reads the field.
+	// The URL travels as a client attribute (the realm-export attribute name).
 	if c.BackchannelLogoutURL != "" {
 		attrs[idmodel.BackchannelLogoutAttr] = c.BackchannelLogoutURL
 	} else {
@@ -253,7 +253,7 @@ func createClient(ctx context.Context, p idp.Provider, realm string, c Client, r
 	if err := p.CreateClient(ctx, realm, cl); err != nil {
 		return ignoreConflict(err)
 	}
-	// Providers that can read secrets back (Keycloak): fetch it now. Failure
+	// Providers that can read secrets back: fetch it now. Failure
 	// here is not fatal; the secret remains retrievable from the provider.
 	if cur, err := findClient(ctx, p, realm, c.ClientID); err == nil && cur != nil {
 		if s, err := p.GetClientSecret(ctx, realm, cur.ID); err == nil && s != nil && s.Value != "" {

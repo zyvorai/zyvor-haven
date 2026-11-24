@@ -344,7 +344,7 @@ func restoreUserAccess(r *http.Request, kc idp.Provider, realm string, access []
 func (s *Server) captureRealmSnapshot(r *http.Request, realm, reason string) (identityops.RealmSnapshot, error) {
 	kc := s.provider()
 	if kc == nil {
-		return identityops.RealmSnapshot{}, errors.New("keycloak is not connected")
+		return identityops.RealmSnapshot{}, errors.New("identity server is not connected")
 	}
 	rc, err := kc.GetRealm(r.Context(), realm)
 	if err != nil {
@@ -501,7 +501,7 @@ func (s *Server) RotateCredential(w http.ResponseWriter, r *http.Request, realm,
 		return
 	}
 	if sec.Value == "" {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "Keycloak returned an empty client secret"})
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "identity server returned an empty client secret"})
 		return
 	}
 	_, rotErr := kc.GetRotatedClientSecret(r.Context(), realm, id)
@@ -521,7 +521,7 @@ func (s *Server) RotateCredential(w http.ResponseWriter, r *http.Request, realm,
 
 func (s *Server) RetireRotatedCredential(w http.ResponseWriter, r *http.Request, realm, id string) {
 	if err := s.provider().InvalidateRotatedClientSecret(r.Context(), realm, id); err != nil && !errors.Is(err, idp.ErrNotFound) {
-		writeRejection(w, err, "Keycloak could not invalidate the rotated secret")
+		writeRejection(w, err, "identity server could not invalidate the rotated secret")
 		return
 	}
 	_ = identityops.DefaultStore().ClearOverlap(realm, id)
@@ -538,9 +538,9 @@ func rotationDays() int {
 
 func rotationNote(overlap bool) string {
 	if overlap {
-		return "New secret generated. The previous secret remains available during Keycloak's rotation overlap; update consumers, verify them, then retire the previous secret."
+		return "New secret generated. The previous secret remains available during the rotation overlap; update consumers, verify them, then retire the previous secret."
 	}
-	return "New secret generated. Keycloak did not expose a rotated-secret overlap; update consumers immediately. Enable Keycloak client-secret-rotation policy for staged overlap."
+	return "New secret generated. The identity server did not expose a rotated-secret overlap; update consumers immediately. Enable the client-secret rotation policy for staged overlap."
 }
 
 func (s *Server) FederationCatalog(w http.ResponseWriter, _ *http.Request) {
@@ -575,9 +575,9 @@ func (s *Server) CreateFederationConnection(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
-	idp := federation.ToKeycloak(fp)
+	idp := federation.ToIdentityProvider(fp)
 	if err := s.provider().CreateIdentityProvider(r.Context(), req.Realm, idp); err != nil {
-		writeRejection(w, err, "Keycloak rejected the identity provider")
+		writeRejection(w, err, "identity server rejected the identity provider")
 		return
 	}
 	redactIDP(&idp)
@@ -604,25 +604,25 @@ func federationSubroutes(s *Server) http.HandlerFunc {
 
 func (s *Server) DeleteFederationConnection(w http.ResponseWriter, r *http.Request, realm, alias string) {
 	if err := s.provider().DeleteIdentityProvider(r.Context(), realm, alias); err != nil && !errors.Is(err, idp.ErrNotFound) {
-		writeRejection(w, err, "Keycloak rejected the delete")
+		writeRejection(w, err, "identity server rejected the delete")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// redactKeycloakError returns a Keycloak admin-API error body with any
+// redactProviderError returns an identity-server admin-API error body with any
 // secret/password/credential/certificate-shaped field scrubbed, so a
 // validation-rejection body that happens to echo back submitted config
 // can't leak a client secret or IdP credential to the Haven client.
-func redactKeycloakError(raw []byte) string {
+func redactProviderError(raw []byte) string {
 	var v any
 	if err := json.Unmarshal(raw, &v); err != nil {
-		return "Keycloak rejected the request"
+		return "identity server rejected the request"
 	}
 	redactRawValue(v)
 	b, err := json.Marshal(v)
 	if err != nil {
-		return "Keycloak rejected the request"
+		return "identity server rejected the request"
 	}
 	return string(b)
 }
@@ -672,7 +672,7 @@ func warnText(err error) string {
 // for transport failures.
 func writeRejection(w http.ResponseWriter, err error, msg string) {
 	if se := idp.AsStatus(err); se != nil {
-		writeJSON(w, se.Code, map[string]any{"error": msg, "keycloak": redactKeycloakError(se.Body)})
+		writeJSON(w, se.Code, map[string]any{"error": msg, "identityServer": redactProviderError(se.Body)})
 		return
 	}
 	writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})

@@ -36,7 +36,7 @@ func TestRound3RealmRules(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: tc.h}
-			got := ruleIDs(evalKC([]idp.Realm{realm}, nil, Options{}))
+			got := ruleIDs(evalWire([]idp.Realm{realm}, nil, Options{}))
 			for _, id := range tc.want {
 				if !got[id] {
 					t.Errorf("missing %s", id)
@@ -51,7 +51,7 @@ func TestRound3RealmRules(t *testing.T) {
 	}
 	// Lockout threshold is moot when brute-force detection is off (HAVEN012 covers that).
 	off := idp.Realm{Realm: "r", Enabled: true, RealmHardening: &idp.RealmHardening{FailureFactor: ip(30)}}
-	if ruleIDs(evalKC([]idp.Realm{off}, nil, Options{}))["HAVEN026"] {
+	if ruleIDs(evalWire([]idp.Realm{off}, nil, Options{}))["HAVEN026"] {
 		t.Error("HAVEN026 reported with brute-force detection off")
 	}
 }
@@ -80,7 +80,7 @@ func TestRound3ClientRules(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
-			got := ruleIDs(evalKC([]idp.Realm{realm}, map[string][]idp.Client{"r": {tc.c}}, Options{}))
+			got := ruleIDs(evalWire([]idp.Realm{realm}, map[string][]idp.Client{"r": {tc.c}}, Options{}))
 			if tc.want != "" && !got[tc.want] {
 				t.Errorf("missing %s", tc.want)
 			}
@@ -147,7 +147,7 @@ func sampleReport(t *testing.T) Report {
 	t.Helper()
 	realm := idp.Realm{Realm: "prod", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
 	clients := map[string][]idp.Client{"prod": {{ClientID: "a|b <img>", Enabled: true, PublicClient: true, ImplicitFlowEnabled: true}}}
-	return evalKC([]idp.Realm{realm}, clients, Options{})
+	return evalWire([]idp.Realm{realm}, clients, Options{})
 }
 
 func TestMarkdownEscapesEvidenceAndListsFindings(t *testing.T) {

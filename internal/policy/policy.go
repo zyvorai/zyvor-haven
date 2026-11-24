@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 // Package policy evaluates organisation-defined, declarative rules against
-// Keycloak realm exports. It is deterministic, has no side effects and never
-// reads, prints or stores secret material: paths that name credentials are
-// rejected when a policy is loaded.
+// realm exports (the standard realm-export JSON format). It is deterministic,
+// has no side effects and never reads, prints or stores secret material: paths
+// that name credentials are rejected when a policy is loaded.
 package policy
 
 import (
@@ -63,7 +63,7 @@ type Rule struct {
 	Value       any    `json:"value,omitempty"`
 	// Optional makes a missing path pass instead of count as a violation.
 	Optional bool `json:"optional,omitempty"`
-	// IncludeBuiltin evaluates Keycloak's built-in clients too (client scope).
+	// IncludeBuiltin evaluates the built-in clients too (client scope).
 	IncludeBuiltin bool `json:"includeBuiltin,omitempty"`
 
 	segments []string

@@ -1,7 +1,7 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
-// Package realmdiff compares two Keycloak realm export documents and reports
+// Package realmdiff compares two realm export documents (the standard realm-export JSON format) and reports
 // the configuration paths that were added, removed or changed. It is built for
 // GitOps review: server-generated identifiers are ignored and any value under
 // a credential-bearing key is redacted, so a diff is safe to paste in a PR.

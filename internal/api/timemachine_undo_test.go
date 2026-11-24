@@ -251,7 +251,7 @@ func TestUndoNeedsSessionAndNativeBackend(t *testing.T) {
 	if code, _, _ := e.call("POST", "/api/v1/time-machine/snapshots/nope/undo", `{"all":true}`); code != 404 {
 		t.Errorf("unknown snapshot: %d", code)
 	}
-	// A non-native provider (Keycloak) is refused before anything is read.
+	// A non-native provider (a provider without the native marker) is refused before anything is read.
 	sessions := auth.NewStoreFromEnv()
 	tok := sessions.Issue("op", "admin", "local").Token
 	h := NewRouter(idp.NewStaticBackend(&secretProvider{}, "http://kc.test", "admin"), nil, sessions)

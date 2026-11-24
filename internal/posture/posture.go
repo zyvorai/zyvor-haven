@@ -1,6 +1,10 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
+// Package posture is Haven Guard: it evaluates realm configuration against a
+// rule set and reports findings. The live input is a realm read through the
+// Admin API; the offline input (haven-audit) is a realm export file in the
+// standard realm-export JSON format, whose field names the wire types mirror.
 package posture
 
 import (
@@ -99,7 +103,7 @@ var rules = map[string]rule{
 	"HAVEN009": {"HAVEN009", SeverityMedium, "Bearer-only client has interactive flow enabled", "Disable browser flows on bearer-only resource-server clients."},
 	"HAVEN010": {"HAVEN010", SeverityMedium, "Auth-code client has no redirect URI", "Configure at least one exact callback URI or disable Standard Flow."},
 	"HAVEN011": {"HAVEN011", SeverityMedium, "Realm permits self-registration without verified email", "Require email verification when self-registration is enabled."},
-	"HAVEN012": {"HAVEN012", SeverityMedium, "Realm brute-force protection disabled", "Enable Keycloak brute-force detection for interactive user realms."},
+	"HAVEN012": {"HAVEN012", SeverityMedium, "Realm brute-force protection disabled", "Enable brute-force detection for interactive user realms."},
 	"HAVEN014": {"HAVEN014", SeverityHigh, "Realm does not require TLS", "Set the realm SSL requirement to external or all."},
 	"HAVEN015": {"HAVEN015", SeverityMedium, "Realm has no password policy", "Configure a password policy with a minimum length and a breached-password check where available."},
 	"HAVEN016": {"HAVEN016", SeverityMedium, "Password policy minimum length below 12", "Require a password length of at least 12 (NIST SP 800-63B-4 asks 15 for single-factor passwords)."},
@@ -480,7 +484,7 @@ func evaluateHardening(realm idmodel.Realm, hasPublicClient bool) []Finding {
 	return out
 }
 
-// policyMinLength extracts length(n) from a Keycloak password policy string
+// policyMinLength extracts length(n) from a realm password policy string
 // such as "length(12) and digits(1)". It returns 0 when no length term exists.
 func policyMinLength(policy string) int {
 	for _, part := range strings.Split(policy, " and ") {
@@ -496,7 +500,7 @@ func policyMinLength(policy string) int {
 	return 0
 }
 
-// IsBuiltInClient reports whether id is a Keycloak-provided client that Guard
+// IsBuiltInClient reports whether id is a built-in client (present in realm exports) that Guard
 // excludes from client counts and findings.
 func IsBuiltInClient(id string) bool { return isBuiltInClient(id) }
 

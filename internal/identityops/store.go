@@ -20,7 +20,7 @@ import (
 
 const schemaVersion = 1
 
-// RealmSnapshot is an immutable, portable recovery point for a Keycloak realm.
+// RealmSnapshot is an immutable, portable recovery point for a realm.
 // Secrets are intentionally not captured. Client secrets are rotated and managed
 // through Credential Center instead of being stored in Time Machine snapshots.
 type UserAccess struct {
@@ -340,7 +340,7 @@ func sanitizeSnapshot(s *RealmSnapshot) {
 	}
 }
 
-// SanitizePartialExport canonicalizes Keycloak's native partial export and removes
+// SanitizePartialExport canonicalizes the provider's native partial export and removes
 // credential-like fields before the snapshot is persisted.
 func SanitizePartialExport(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 {

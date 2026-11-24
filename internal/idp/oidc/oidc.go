@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 // Package oidc serves the OpenID Connect provider endpoints of haven-idp for
-// every realm, under Keycloak-compatible paths.
+// every realm, under the conventional /realms/<realm>/protocol/openid-connect paths.
 package oidc
 
 import (

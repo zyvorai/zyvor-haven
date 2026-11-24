@@ -71,7 +71,7 @@ func New(cfg Config) *Client {
 // BaseURL returns the haven-idp base URL.
 func (c *Client) BaseURL() string { return c.baseURL }
 
-// User returns the service-account client id (mirrors the Keycloak client).
+// User returns the service-account client id (the admin client id).
 func (c *Client) User() string { return c.id }
 
 // Ping verifies that a token can be obtained and the Admin API answers.
@@ -213,7 +213,7 @@ func list[T any](ctx context.Context, c *Client, path string) ([]T, error) {
 	return out, nil
 }
 
-// Status reports Admin API health. Like the Keycloak client, an unreachable
+// Status reports Admin API health. An unreachable
 // backend yields Connected=false and no error.
 func (c *Client) Status(ctx context.Context) (*idp.Status, error) {
 	var st idp.Status

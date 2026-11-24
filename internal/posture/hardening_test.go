@@ -69,7 +69,7 @@ func TestHardeningRules(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: tc.h}
-			got := ruleIDs(evalKC([]idp.Realm{realm}, map[string][]idp.Client{"r": tc.clients}, Options{}))
+			got := ruleIDs(evalWire([]idp.Realm{realm}, map[string][]idp.Client{"r": tc.clients}, Options{}))
 			for _, id := range tc.want {
 				if !got[id] {
 					t.Errorf("missing %s", id)
@@ -86,7 +86,7 @@ func TestHardeningRules(t *testing.T) {
 
 func TestHardeningIgnoredForDisabledRealm(t *testing.T) {
 	realm := idp.Realm{Realm: "r", Enabled: false, RealmHardening: &idp.RealmHardening{SSLRequired: sp("none")}}
-	if ids := ruleIDs(evalKC([]idp.Realm{realm}, nil, Options{})); ids["HAVEN014"] {
+	if ids := ruleIDs(evalWire([]idp.Realm{realm}, nil, Options{})); ids["HAVEN014"] {
 		t.Fatal("disabled realm should not be evaluated for hardening")
 	}
 }
@@ -95,8 +95,8 @@ func TestHardeningDoesNotChangeFingerprint(t *testing.T) {
 	base := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
 	hard := base
 	hard.RealmHardening = &idp.RealmHardening{SSLRequired: sp("none"), EventsEnabled: bp(false)}
-	a := evalKC([]idp.Realm{base}, nil, Options{})
-	b := evalKC([]idp.Realm{hard}, nil, Options{})
+	a := evalWire([]idp.Realm{base}, nil, Options{})
+	b := evalWire([]idp.Realm{hard}, nil, Options{})
 	if a.Fingerprint != b.Fingerprint {
 		t.Fatal("hardening settings must not alter the baseline fingerprint")
 	}
@@ -108,7 +108,7 @@ func TestHardeningDecodesFromRealmJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &r); err != nil {
 		t.Fatal(err)
 	}
-	ids := ruleIDs(evalKC([]idp.Realm{r}, nil, Options{}))
+	ids := ruleIDs(evalWire([]idp.Realm{r}, nil, Options{}))
 	for _, id := range []string{"HAVEN014", "HAVEN015", "HAVEN017", "HAVEN019"} {
 		if !ids[id] {
 			t.Errorf("missing %s", id)

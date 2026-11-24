@@ -34,7 +34,7 @@ func TestEvaluateDetectsOIDCRisks(t *testing.T) {
 		}},
 	}
 
-	r := evalKC(realms, clients, Options{})
+	r := evalWire(realms, clients, Options{})
 	if r.Score >= 70 {
 		t.Fatalf("expected poor score, got %d", r.Score)
 	}
@@ -69,7 +69,7 @@ func TestSafePublicClientScoresClean(t *testing.T) {
 			Attributes:          map[string]string{"pkce.code.challenge.method": "S256"},
 		}},
 	}
-	r := evalKC(realms, clients, Options{})
+	r := evalWire(realms, clients, Options{})
 	if r.Score != 100 || len(r.Findings) != 0 {
 		t.Fatalf("expected clean posture, score=%d findings=%v", r.Score, r.Findings)
 	}
@@ -97,9 +97,9 @@ func TestFingerprintStableAcrossOrdering(t *testing.T) {
 	r := idp.Realm{Realm: "prod", Enabled: true, BruteForceProtected: true}
 	one := idp.Client{ClientID: "a", Enabled: true, RedirectURIs: []string{"https://x/b", "https://x/a"}}
 	two := idp.Client{ClientID: "b", Enabled: true}
-	a := evalKC([]idp.Realm{r}, map[string][]idp.Client{"prod": {one, two}}, Options{})
+	a := evalWire([]idp.Realm{r}, map[string][]idp.Client{"prod": {one, two}}, Options{})
 	one.RedirectURIs = []string{"https://x/a", "https://x/b"}
-	b := evalKC([]idp.Realm{r}, map[string][]idp.Client{"prod": {two, one}}, Options{})
+	b := evalWire([]idp.Realm{r}, map[string][]idp.Client{"prod": {two, one}}, Options{})
 	if a.Fingerprint != b.Fingerprint {
 		t.Fatalf("fingerprint must be order-independent: %s != %s", a.Fingerprint, b.Fingerprint)
 	}
@@ -107,8 +107,8 @@ func TestFingerprintStableAcrossOrdering(t *testing.T) {
 
 func TestBaselineDrift(t *testing.T) {
 	realms := []idp.Realm{{Realm: "prod", Enabled: true, BruteForceProtected: true}}
-	base := evalKC(realms, map[string][]idp.Client{"prod": nil}, Options{})
-	changed := evalKC(realms, map[string][]idp.Client{"prod": {{ClientID: "new-client", Enabled: true}}}, Options{Baseline: base.Fingerprint})
+	base := evalWire(realms, map[string][]idp.Client{"prod": nil}, Options{})
+	changed := evalWire(realms, map[string][]idp.Client{"prod": {{ClientID: "new-client", Enabled: true}}}, Options{Baseline: base.Fingerprint})
 	if !changed.Drifted {
 		t.Fatal("expected drift after client inventory changed")
 	}

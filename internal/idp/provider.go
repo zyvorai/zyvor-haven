@@ -77,8 +77,8 @@ type SecretCreator interface {
 }
 
 // UserImporter is implemented by providers that can bulk-import users with
-// pre-hashed passwords (the native IdP). It is optional: Keycloak users are
-// migrated by import-keycloak into a native realm, not the other way round.
+// pre-hashed passwords (the native IdP). It is optional: users of
+// other systems are migrated by import-keycloak into a native realm.
 type UserImporter interface {
 	ImportUsers(ctx context.Context, realm string, users []ImportUser) (*ImportResult, error)
 }

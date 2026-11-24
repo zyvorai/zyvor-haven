@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 // Package password implements core.PasswordHasher with argon2id and a
-// Keycloak-style password policy checker.
+// realm password-policy checker (length(n) and digits(n) style).
 package password
 
 import (

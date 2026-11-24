@@ -121,8 +121,8 @@ func Validate(req ConnectionRequest) error {
 	return nil
 }
 
-// Neutral config keys used in idmodel.FederationProvider.Config. Keycloak
-// spellings live only in keycloak.go.
+// Neutral config keys used in idmodel.FederationProvider.Config. Wire
+// spellings live only in provider.go.
 const (
 	KeyIssuer           = "issuer"
 	KeyAuthorizationURL = "authorization_url"

@@ -15,7 +15,7 @@ func TestFromClientBackchannelLogoutURL(t *testing.T) {
 	}
 	kc := idp.Client{Attributes: map[string]string{BackchannelLogoutAttr: "https://kc/bc"}}
 	if got := FromClient(kc).BackchannelLogoutURL; got != "https://kc/bc" {
-		t.Errorf("keycloak attribute: %q", got)
+		t.Errorf("export attribute: %q", got)
 	}
 	both := idp.Client{BackchannelLogoutURL: "https://a/bc", Attributes: map[string]string{BackchannelLogoutAttr: "https://kc/bc"}}
 	if got := FromClient(both).BackchannelLogoutURL; got != "https://a/bc" {

@@ -252,7 +252,7 @@ func (f *fakeProvider) UpdateClient(_ context.Context, realm, id string, cl idp.
 	return statusErr(http.StatusNotFound, "client not found")
 }
 
-// GetClientSecret behaves like Keycloak: the plain fake reads secrets back.
+// GetClientSecret lets the plain fake reads secrets back.
 func (f *fakeProvider) GetClientSecret(_ context.Context, _, id string) (*idp.ClientSecret, error) {
 	return &idp.ClientSecret{Type: "secret", Value: "kc-" + id}, nil
 }

@@ -4,7 +4,7 @@
 // Package configcode is "config as code" for realms: a declarative YAML file
 // describes a realm, `Diff` compares it with the live state read through an
 // idp.Provider, `Gate` runs Haven Guard on the result, and `Apply` makes it so.
-// Because it works on idp.Provider it applies to the native IdP and Keycloak.
+// Because it works on idp.Provider it applies to any provider implementation.
 //
 // Semantics (contract for every implementation):
 //   - A nil/absent setting means "unmanaged": it is never changed on an existing

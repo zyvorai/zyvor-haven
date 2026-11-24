@@ -251,7 +251,7 @@ func (a *api) deleteIdP(w http.ResponseWriter, r *http.Request) {
 	noContent(w)
 }
 
-// fedIdentityWire follows Keycloak's FederatedIdentityRepresentation:
+// fedIdentityWire follows the standard federated-identity representation:
 // identityProvider is the alias, userId the upstream subject.
 type fedIdentityWire struct {
 	IdentityProvider string `json:"identityProvider"`

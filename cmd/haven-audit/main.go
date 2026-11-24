@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/zyvorai/haven/internal/idp"
 	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/zyvorai/haven/internal/idmodel"
+	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/policy"
 	"github.com/zyvorai/haven/internal/posture"
 )
@@ -21,6 +21,8 @@ import (
 // maxInputBytes bounds every file or stdin read.
 const maxInputBytes = 64 << 20
 
+// realmExport is one realm in the standard realm-export JSON format (the
+// shape Haven Guard reads offline; the JSON field names mirror that format).
 type realmExport struct {
 	idp.Realm
 	Clients []idp.Client `json:"clients"`
@@ -55,7 +57,7 @@ func run(args []string, stdin io.Reader, stdout io.Writer) (int, error) {
 	var input, format, baseline, failOn, policyPath, waiversPath, knownPath, writeKnownPath string
 	fs := flag.NewFlagSet("haven-audit", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	fs.StringVar(&input, "input", "-", "Keycloak realm export JSON file, or - for stdin")
+	fs.StringVar(&input, "input", "-", "realm export JSON file (standard realm-export format), or - for stdin")
 	fs.StringVar(&format, "format", "text", "text, json, sarif, markdown, or junit")
 	fs.StringVar(&baseline, "baseline", "", "expected Haven Guard sha256 fingerprint")
 	fs.StringVar(&policyPath, "policy", "", "policy-as-code JSON file evaluated in addition to the built-in rules")
@@ -240,7 +242,7 @@ func decodeExports(data []byte) ([]realmExport, error) {
 	}
 	var one realmExport
 	if err := json.Unmarshal(data, &one); err != nil {
-		return nil, fmt.Errorf("decode Keycloak realm export: %w", err)
+		return nil, fmt.Errorf("decode realm export (standard realm-export JSON format): %w", err)
 	}
 	if one.Realm.Realm == "" {
 		return nil, fmt.Errorf("realm export does not contain a realm name")

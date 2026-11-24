@@ -16,18 +16,18 @@ func waiverReport() Report {
 	realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true,
 		RealmHardening: &idp.RealmHardening{SSLRequired: sp("none"), EventsEnabled: bp(false)}}
 	clients := []idp.Client{{ClientID: "app", Enabled: true, StandardFlowEnabled: true, RedirectURIs: []string{"*"}}}
-	return evalKC([]idp.Realm{realm}, map[string][]idp.Client{"r": clients}, Options{})
+	return evalWire([]idp.Realm{realm}, map[string][]idp.Client{"r": clients}, Options{})
 }
 
 func TestNewHardeningRules022And023(t *testing.T) {
 	h := &idp.RealmHardening{SSOSessionMaxLifespan: ip(31 * 86400), OfflineSessionIdleTimeout: ip(91 * 86400)}
 	realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: h}
-	ids := ruleIDs(evalKC([]idp.Realm{realm}, nil, Options{}))
+	ids := ruleIDs(evalWire([]idp.Realm{realm}, nil, Options{}))
 	if !ids["HAVEN022"] || !ids["HAVEN023"] {
 		t.Fatalf("want 022 and 023, got %v", ids)
 	}
 	h.SSOSessionMaxLifespan, h.OfflineSessionIdleTimeout = ip(30*86400), ip(90*86400)
-	ids = ruleIDs(evalKC([]idp.Realm{realm}, nil, Options{}))
+	ids = ruleIDs(evalWire([]idp.Realm{realm}, nil, Options{}))
 	if ids["HAVEN022"] || ids["HAVEN023"] {
 		t.Fatalf("boundary values must pass, got %v", ids)
 	}

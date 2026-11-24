@@ -8,9 +8,9 @@ import (
 	"github.com/zyvorai/haven/internal/idp"
 )
 
-// neutralToKeycloak maps neutral config keys to Keycloak identity-provider
-// config keys. Keys not listed pass through unchanged.
-var neutralToKeycloak = map[string]string{
+// neutralToWireKey maps neutral config keys to the identity-provider config
+// keys of the Admin API. Keys not listed pass through unchanged.
+var neutralToWireKey = map[string]string{
 	KeyIssuer:                  "issuer",
 	KeyAuthorizationURL:        "authorizationUrl",
 	KeyTokenURL:                "tokenUrl",
@@ -30,12 +30,12 @@ var neutralToKeycloak = map[string]string{
 	KeyPostBindingAuthnRequest: "postBindingAuthnRequest",
 }
 
-// ToKeycloak renders a neutral federation provider as a Keycloak identity
-// provider. Kind is used as the Keycloak providerId.
-func ToKeycloak(p idmodel.FederationProvider) idp.IdentityProvider {
+// ToIdentityProvider renders a neutral federation provider as the Admin API's
+// identity-provider representation. Kind is used as the providerId.
+func ToIdentityProvider(p idmodel.FederationProvider) idp.IdentityProvider {
 	cfg := make(map[string]string, len(p.Config))
 	for k, v := range p.Config {
-		if kk, ok := neutralToKeycloak[k]; ok {
+		if kk, ok := neutralToWireKey[k]; ok {
 			k = kk
 		}
 		cfg[k] = v
@@ -51,11 +51,11 @@ func ToKeycloak(p idmodel.FederationProvider) idp.IdentityProvider {
 	}
 }
 
-// BuildIdentityProvider validates req and renders it for Keycloak.
+// BuildIdentityProvider validates req and renders it as an identity-provider representation.
 func BuildIdentityProvider(req ConnectionRequest) (idp.IdentityProvider, error) {
 	p, err := BuildProvider(req)
 	if err != nil {
 		return idp.IdentityProvider{}, err
 	}
-	return ToKeycloak(p), nil
+	return ToIdentityProvider(p), nil
 }

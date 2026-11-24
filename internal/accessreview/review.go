@@ -4,7 +4,7 @@
 // Package accessreview turns a realm snapshot into an access recertification
 // report (who holds privileged access, which accounts look stale) and tracks
 // reviewer decisions in an append-only campaign ledger. It never reads or
-// stores credentials, and it never changes Keycloak: a "revoke" decision is a
+// stores credentials, and it never changes the identity server: a "revoke" decision is a
 // recorded work item for an administrator to carry out.
 package accessreview
 
@@ -28,7 +28,7 @@ const (
 
 var (
 	// A role or group is privileged when a token of its name is one of these,
-	// or it carries the Keycloak realm-management "manage-" prefix.
+	// or it carries the realm-management "manage-" prefix used by exported realms.
 	privilegedToken = regexp.MustCompile(`(?i)(^|[^a-z0-9])(admin|administrator|admins|owner|superuser|root|impersonation)([^a-z0-9]|$)`)
 	managePrefix    = regexp.MustCompile(`(?i)(^|/)manage-[a-z-]+$`)
 	// DefaultBreakGlassPattern matches common emergency-account names.

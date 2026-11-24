@@ -32,7 +32,7 @@ func (s *Server) SecurityPostureSARIF(w http.ResponseWriter, r *http.Request) {
 func (s *Server) buildSecurityPosture(w http.ResponseWriter, r *http.Request) (posture.Report, bool) {
 	kc := s.provider()
 	if kc == nil {
-		writeError(w, http.StatusServiceUnavailable, "Keycloak is not connected", nil)
+		writeError(w, http.StatusServiceUnavailable, "identity server is not connected", nil)
 		return posture.Report{}, false
 	}
 

@@ -38,7 +38,7 @@ func TestGoldenFingerprints(t *testing.T) {
 			{ClientID: "saml", Enabled: true, Protocol: "saml"},
 		},
 	}
-	r := evalKC(realms, clients, Options{})
+	r := evalWire(realms, clients, Options{})
 	got := map[string]string{"report": r.Fingerprint}
 	for _, rr := range r.Realms {
 		got[rr.Realm] = rr.Fingerprint
@@ -59,8 +59,8 @@ func TestGoldenFingerprints(t *testing.T) {
 	}
 }
 
-// evalKC maps wire types into idmodel and evaluates them.
-func evalKC(realms []idp.Realm, clients map[string][]idp.Client, opts Options) Report {
+// evalWire maps wire types into idmodel and evaluates them.
+func evalWire(realms []idp.Realm, clients map[string][]idp.Client, opts Options) Report {
 	mc := map[string][]idmodel.Client{}
 	for k, v := range clients {
 		mc[k] = idmodel.FromClients(v)

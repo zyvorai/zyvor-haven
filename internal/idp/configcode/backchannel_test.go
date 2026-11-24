@@ -100,7 +100,7 @@ func TestBackchannelLogoutURLDiffAndApply(t *testing.T) {
 	}
 }
 
-func TestBackchannelLogoutURLFromKeycloakAttribute(t *testing.T) {
+func TestBackchannelLogoutURLFromExportAttribute(t *testing.T) {
 	f := newFake()
 	applyAll(t, fakeSC{f}, okSpec(), Options{})
 	for i, c := range f.clients["acme"] {

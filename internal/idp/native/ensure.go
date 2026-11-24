@@ -12,7 +12,7 @@ import (
 )
 
 // mergeURIs keeps existing redirect URIs, appends wanted ones, drops host
-// wildcards and duplicates (same rules as the Keycloak implementation).
+// wildcards and duplicates.
 func mergeURIs(existing, wanted []string) []string {
 	seen := map[string]struct{}{}
 	var out []string
@@ -79,7 +79,7 @@ func (c *Client) EnsureHavenConsoleClient(ctx context.Context, realm string, con
 
 // BootstrapRealm creates the realm if missing (a concurrent 409 is ignored)
 // and ensures the console client. A new realm also gets the "kubernetes"
-// client, as the Keycloak implementation does.
+// client.
 func (c *Client) BootstrapRealm(ctx context.Context, name string) error {
 	exists, err := c.RealmExists(ctx, name)
 	if err != nil {

@@ -17,7 +17,7 @@ func TestBuildEntra(t *testing.T) {
 		t.Fatalf("unexpected provider: %#v", p)
 	}
 	if p.Config["tenantId"] != "" {
-		t.Fatal("tenantId should not be sent to Keycloak config")
+		t.Fatal("tenantId should not be sent in the provider config")
 	}
 }
 
