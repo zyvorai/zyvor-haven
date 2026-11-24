@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/zyvorai/haven/internal/idp"
 )
 
 var realmNameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
@@ -80,6 +82,11 @@ func (s *Spec) Validate() error {
 		}
 		if c.Public && c.RequirePKCE != nil && !*c.RequirePKCE {
 			add(p+".requirePKCE", "PKCE cannot be disabled for a public client")
+		}
+		if c.BackchannelLogoutURL != "" {
+			if err := idp.ValidateLogoutURI(c.BackchannelLogoutURL); err != nil {
+				add(p+".backchannelLogoutUrl", "%s", err.Error())
+			}
 		}
 		for j, u := range c.RedirectURIs {
 			if msg := checkURL(u, true); msg != "" {

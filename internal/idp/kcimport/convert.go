@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/zyvorai/haven/internal/idmodel"
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/configcode"
 )
@@ -516,6 +517,17 @@ func (c *converter) client(k *kcClient) error {
 		}
 		c.rep.NewSecretClients = append(c.rep.NewSecretClients, id)
 		c.w.add("client.new_secret_on_apply", where, "confidential client: a NEW secret is generated when the realm file is applied; the exported secret is not copied. Update the application with the new secret")
+	}
+	if u, _ := k.Attributes[idmodel.BackchannelLogoutAttr].(string); strings.TrimSpace(u) != "" {
+		// The URL is never echoed: it may carry credentials.
+		if err := idp.ValidateLogoutURI(strings.TrimSpace(u)); err != nil {
+			c.w.add("client.backchannel_logout_dropped", where, "back-channel logout URL dropped: "+err.Error())
+		} else {
+			cl.BackchannelLogoutURL = strings.TrimSpace(u)
+		}
+	}
+	if u, _ := k.Attributes[idmodel.FrontchannelLogoutAttr].(string); strings.TrimSpace(u) != "" {
+		c.w.add("client.frontchannel_logout_unsupported", where, "front-channel logout URL not migrated (haven-idp supports back-channel logout only)")
 	}
 	cl.RedirectURIs = c.uris(where, k.RedirectURIs, false)
 	cl.Origins = c.uris(where, k.WebOrigins, true)

@@ -77,6 +77,11 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
   `Attributes["pkce.code.challenge.method"]`="S256" iff RequirePKCE (and
   RequirePKCE true on write when that attribute is "S256"). Public clients
   default RequirePKCE=true. Secret storage: `oidc.HashSecret`.
+  `BackchannelLogoutURL`=BackchannelLogoutURI (`backchannelLogoutUrl`, omitted
+  when empty). Validated on create and update by `idp.ValidateLogoutURI`
+  (<= 2048 chars, no control chars, no userinfo/fragment, host required, https;
+  http only for localhost/loopback) -> 400 `invalid backchannelLogoutUrl: ...`.
+  Client PUT is a full replace, so omitting the key clears it.
 * User: straightforward; `RequiredActions`=PendingActions. Passwords are never
   accepted on user create/update bodies (use the password route).
 * Group paths are "/name". Role/group membership is by name/path inside core.User.

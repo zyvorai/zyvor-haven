@@ -115,7 +115,7 @@ func clientToWire(c core.Client) idp.Client {
 		PublicClient: c.Public, Protocol: "openid-connect",
 		RedirectURIs: c.RedirectURIs, WebOrigins: c.Origins,
 		StandardFlowEnabled: c.AuthCodeFlow, DirectAccessGrantsEnabled: c.PasswordFlow,
-		ServiceAccountsEnabled: c.ServiceAccount,
+		ServiceAccountsEnabled: c.ServiceAccount, BackchannelLogoutURL: c.BackchannelLogoutURI,
 	}
 	if c.RequirePKCE {
 		w.Attributes = map[string]string{pkceAttr: "S256"}
@@ -167,8 +167,14 @@ func clientFromWire(w idp.Client) (core.Client, error) {
 			return core.Client{}, bad("invalid web origin")
 		}
 	}
+	if w.BackchannelLogoutURL != "" {
+		if err := idp.ValidateLogoutURI(w.BackchannelLogoutURL); err != nil {
+			return core.Client{}, bad("invalid backchannelLogoutUrl: " + err.Error())
+		}
+	}
 	return core.Client{
-		ClientID: w.ClientID, Name: w.Name, Enabled: w.Enabled, Public: w.PublicClient,
+		BackchannelLogoutURI: w.BackchannelLogoutURL,
+		ClientID:             w.ClientID, Name: w.Name, Enabled: w.Enabled, Public: w.PublicClient,
 		RedirectURIs: w.RedirectURIs, Origins: w.WebOrigins,
 		AuthCodeFlow: w.StandardFlowEnabled, ServiceAccount: w.ServiceAccountsEnabled,
 		RequirePKCE: w.PublicClient || pk == "S256",

@@ -49,6 +49,8 @@ type Client struct {
 	ServiceAccountsEnabled    bool              `json:"serviceAccountsEnabled,omitempty"`
 	Attributes                map[string]string `json:"attributes,omitempty"`
 	Secret                    string            `json:"secret,omitempty"`
+	// BackchannelLogoutURL receives OIDC Back-Channel Logout tokens. Empty/omitted = not notified.
+	BackchannelLogoutURL string `json:"backchannelLogoutUrl,omitempty"`
 }
 
 type ClientSecret struct {

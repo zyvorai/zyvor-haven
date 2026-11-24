@@ -281,13 +281,13 @@ func (s *Store) DeleteUser(ctx context.Context, realm, id string) error {
 // Clients
 
 const clientCols = `id, realm, client_id, name, enabled, public, secret_hash, redirect_uris, origins,
-	auth_code_flow, password_flow, service_account, require_pkce, created_at`
+	auth_code_flow, password_flow, service_account, require_pkce, backchannel_logout_uri, created_at`
 
 func scanClient(row pgx.Row) (core.Client, error) {
 	var c core.Client
 	err := row.Scan(&c.ID, &c.Realm, &c.ClientID, &c.Name, &c.Enabled, &c.Public, &c.SecretHash,
 		&c.RedirectURIs, &c.Origins, &c.AuthCodeFlow, &c.PasswordFlow, &c.ServiceAccount,
-		&c.RequirePKCE, &c.CreatedAt)
+		&c.RequirePKCE, &c.BackchannelLogoutURI, &c.CreatedAt)
 	c.RedirectURIs, c.Origins = nilIfEmpty(c.RedirectURIs), nilIfEmpty(c.Origins)
 	c.CreatedAt = utc(c.CreatedAt)
 	return c, mapErr(err)
@@ -301,9 +301,10 @@ func (s *Store) CreateClient(ctx context.Context, c core.Client) error {
 		c.CreatedAt = time.Now().UTC()
 	}
 	_, err := s.pool.Exec(ctx, `INSERT INTO clients (`+clientCols+`)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 		c.ID, c.Realm, c.ClientID, c.Name, c.Enabled, c.Public, c.SecretHash, arr(c.RedirectURIs),
-		arr(c.Origins), c.AuthCodeFlow, c.PasswordFlow, c.ServiceAccount, c.RequirePKCE, c.CreatedAt)
+		arr(c.Origins), c.AuthCodeFlow, c.PasswordFlow, c.ServiceAccount, c.RequirePKCE,
+		c.BackchannelLogoutURI, c.CreatedAt)
 	return mapErr(err)
 }
 
@@ -337,9 +338,10 @@ func (s *Store) ListClients(ctx context.Context, realm string) ([]core.Client, e
 func (s *Store) UpdateClient(ctx context.Context, c core.Client) error {
 	return s.exec1(ctx, `UPDATE clients SET client_id=$3, name=$4, enabled=$5, public=$6, secret_hash=$7,
 		redirect_uris=$8, origins=$9, auth_code_flow=$10, password_flow=$11, service_account=$12,
-		require_pkce=$13 WHERE realm=$1 AND id=$2`,
+		require_pkce=$13, backchannel_logout_uri=$14 WHERE realm=$1 AND id=$2`,
 		c.Realm, c.ID, c.ClientID, c.Name, c.Enabled, c.Public, c.SecretHash, arr(c.RedirectURIs),
-		arr(c.Origins), c.AuthCodeFlow, c.PasswordFlow, c.ServiceAccount, c.RequirePKCE)
+		arr(c.Origins), c.AuthCodeFlow, c.PasswordFlow, c.ServiceAccount, c.RequirePKCE,
+		c.BackchannelLogoutURI)
 }
 
 func (s *Store) DeleteClient(ctx context.Context, realm, id string) error {

@@ -50,7 +50,11 @@ func FromClient(c idp.Client) Client {
 		RedirectURIs: c.RedirectURIs, Origins: c.WebOrigins,
 		AuthCodeFlow: c.StandardFlowEnabled, ImplicitFlow: c.ImplicitFlowEnabled,
 		PasswordFlow: c.DirectAccessGrantsEnabled, ServiceAccount: c.ServiceAccountsEnabled,
-		Attrs: c.Attributes,
+		Attrs:                c.Attributes,
+		BackchannelLogoutURL: c.BackchannelLogoutURL,
+	}
+	if out.BackchannelLogoutURL == "" {
+		out.BackchannelLogoutURL = c.Attributes[BackchannelLogoutAttr]
 	}
 	// Either attribute spelling may carry the method. S256 wins when any key
 	// has it, so a client that satisfied the old per-key check still does.

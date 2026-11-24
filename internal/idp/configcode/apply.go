@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/zyvorai/haven/internal/idmodel"
 	"github.com/zyvorai/haven/internal/idp"
 )
 
@@ -209,6 +210,7 @@ func mergeClient(cur idp.Client, c Client) idp.Client {
 	cur.StandardFlowEnabled = *c.AuthCodeFlow
 	cur.RedirectURIs = append([]string(nil), c.RedirectURIs...)
 	cur.WebOrigins = append([]string(nil), c.Origins...)
+	cur.BackchannelLogoutURL = c.BackchannelLogoutURL
 	attrs := make(map[string]string, len(cur.Attributes)+1)
 	for k, v := range cur.Attributes {
 		attrs[k] = v
@@ -217,6 +219,12 @@ func mergeClient(cur idp.Client, c Client) idp.Client {
 		attrs[pkceAttr] = "S256"
 	} else {
 		delete(attrs, pkceAttr)
+	}
+	// Keycloak keeps this as an attribute; the native IdP reads the field.
+	if c.BackchannelLogoutURL != "" {
+		attrs[idmodel.BackchannelLogoutAttr] = c.BackchannelLogoutURL
+	} else {
+		delete(attrs, idmodel.BackchannelLogoutAttr)
 	}
 	if len(attrs) == 0 {
 		attrs = nil

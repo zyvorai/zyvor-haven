@@ -28,7 +28,13 @@ Try it locally with `haven-idp dev` and add `--dev` to `plan`, `apply` and
 | `settings.authEvents`, `adminEvents`, `refreshTokenRotation` | Booleans |
 | `roles[]` | `name`, `description` |
 | `groups[]` | `name` |
-| `clients[]` | `clientId`, `name`, `enabled`, `public`, `serviceAccount`, `authCodeFlow`, `requirePKCE`, `redirectUris`, `origins` |
+| `clients[]` | `clientId`, `name`, `enabled`, `public`, `serviceAccount`, `authCodeFlow`, `requirePKCE`, `redirectUris`, `origins`, `backchannelLogoutUrl` |
+
+`backchannelLogoutUrl` is the OIDC Back-Channel Logout endpoint that is sent a
+logout token when a session the client took part in ends. It must be `https`
+(`http` only for `localhost` or a loopback address), with no credentials and no
+fragment, at most 2048 characters. Leaving it out clears it on an existing
+client (a client is replaced as a whole), so `plan` shows the removal.
 
 A setting you leave out is unmanaged: an existing realm keeps its value, a new
 realm gets a secure default. Public clients require PKCE; this cannot be turned

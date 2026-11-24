@@ -139,6 +139,7 @@ func clientFields(c Client) []kv {
 		{"requirePKCE", b(c.RequirePKCE)},
 		{"redirectUris", strings.Join(c.RedirectURIs, ", ")},
 		{"origins", strings.Join(c.Origins, ", ")},
+		{"backchannelLogoutUrl", c.BackchannelLogoutURL},
 	}
 }
 

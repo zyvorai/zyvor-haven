@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/zyvorai/haven/internal/idmodel"
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/posture"
 )
@@ -79,5 +80,6 @@ func fromIDPClient(c idp.Client) Client {
 		ClientID: c.ClientID, Name: c.Name, Enabled: &en, Public: c.PublicClient,
 		ServiceAccount: c.ServiceAccountsEnabled, AuthCodeFlow: &flow, RequirePKCE: &pkce,
 		RedirectURIs: c.RedirectURIs, Origins: c.WebOrigins,
+		BackchannelLogoutURL: idmodel.FromClient(c).BackchannelLogoutURL,
 	}
 }
