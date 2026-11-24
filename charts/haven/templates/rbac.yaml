@@ -22,6 +22,11 @@ rules:
   - apiGroups: [networking.k8s.io]
     resources: [ingresses, networkpolicies]
     verbs: [get, list, watch, create, update, patch, delete]
+  # Ingress registration (docs/ingress-registration.md): owner reference with blockOwnerDeletion
+  # on the generated OIDCClient needs update on ingresses/finalizers.
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses/finalizers]
+    verbs: [update]
   - apiGroups: [gateway.networking.k8s.io]
     resources: [httproutes]
     verbs: [get, list, watch, create, update, patch, delete]

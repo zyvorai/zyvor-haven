@@ -44,3 +44,9 @@ Optional env on the controller Deployment: `HAVEN_IDP_IMAGE` (default
 haven-idp image, e.g. `ghcr.io/zyvorai/haven-idp:<version>`); without it new
 planes get `ghcr.io/zyvorai/haven-idp:latest` unless `spec.idp.image` or
 `spec.idp.version` is set.
+
+Ingress registration (see `docs/ingress-registration.md`): `networking.k8s.io` `ingresses`
+get/list/watch and `ingresses/finalizers` update (blockOwnerDeletion on the generated
+OIDCClient) in both the chart and `deploy/k8s/controller/deployment.yaml`; creating and
+deleting `oidcclients` was already granted. The plain manifest deliberately grants no
+write verbs on Ingresses.

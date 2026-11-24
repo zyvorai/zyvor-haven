@@ -52,6 +52,14 @@ rules:
   - apiGroups: [networking.k8s.io]
     resources: [networkpolicies]
     verbs: [get, list, watch, create, update, patch, delete]
+  # Ingress registration (docs/ingress-registration.md): read-only on Ingresses; finalizers update
+  # is for the blockOwnerDeletion owner reference of the generated OIDCClient.
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses/finalizers]
+    verbs: [update]
   - apiGroups: [""]
     resources: [services, serviceaccounts]
     verbs: [get, list, watch, create, update, patch, delete]

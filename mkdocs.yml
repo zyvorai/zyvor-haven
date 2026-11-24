@@ -84,6 +84,7 @@ nav:
       - Install with Helm: install-helm.md
       - Deploy haven-idp (native): deploy-native.md
       - OIDCClient CRD: oidcclient-crd.md
+      - Ingress registration: ingress-registration.md
       - Migrate from Keycloak: migrate-from-keycloak.md
       - Import a Keycloak realm: import-from-keycloak.md
       - Email and password reset: email-and-password-reset.md

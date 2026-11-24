@@ -612,6 +612,10 @@ var needed = []struct {
 	{"identity.haven.dev", "oidcclients", []string{"get", "list", "watch", "update", "patch"}},
 	{"identity.haven.dev", "oidcclients/status", []string{"get", "update", "patch"}},
 	{"identity.haven.dev", "oidcclients/finalizers", []string{"update"}},
+	// Ingress registration controller: reads Ingresses, owns the generated OIDCClient.
+	{"networking.k8s.io", "ingresses", []string{"get", "list", "watch"}},
+	{"networking.k8s.io", "ingresses/finalizers", []string{"update"}},
+	{"identity.haven.dev", "oidcclients", []string{"create", "delete"}},
 	{"", "events", []string{"create", "patch"}},
 }
 

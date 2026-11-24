@@ -280,8 +280,7 @@ admin secret are read cluster-wide, as for the rest of the controller.
 
 ## Limits and not yet
 
-- **Ingress annotation: not done.** Roadmap item 4 also wants an app's Ingress to register a
-  client through an annotation. Only the `OIDCClient` CRD exists.
+- **Ingress annotation:** see [ingress-registration.md](ingress-registration.md).
 - The CRDs, samples and the manifests the controller renders were validated against a real k3s
   API server (server-side dry run, Pod Security `restricted`). The controller itself is exercised
   by unit tests and a test against the real `haven-idp`; see [deploy-native.md](deploy-native.md)
