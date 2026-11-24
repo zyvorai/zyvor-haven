@@ -118,16 +118,99 @@ func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	prompts := strings.Fields(q.Get("prompt"))
-	if slices.Contains(prompts, "none") {
-		fail("login_required", "interactive login is required")
+	promptNone, promptLogin := slices.Contains(prompts, "none"), slices.Contains(prompts, "login")
+	if promptNone && promptLogin {
+		fail("invalid_request", "prompt=none cannot be combined with login")
 		return
+	}
+	maxAge := int64(-1) // -1: not requested
+	if q.Has("max_age") {
+		n, err := strconv.ParseInt(q.Get("max_age"), 10, 64)
+		if err != nil || n < 0 {
+			fail("invalid_request", "max_age must be a non-negative integer")
+			return
+		}
+		maxAge = n
 	}
 
 	if r.Method == http.MethodGet {
+		// SSO reuse comes only after every redirect_uri / PKCE / parameter
+		// check above, so it cannot weaken them.
+		if !promptLogin && p.ssoReuse(w, r, ar, maxAge) {
+			return
+		}
+		if promptNone {
+			fail("login_required", "interactive login is required")
+			return
+		}
 		p.loginPage(w, r, ar, "", "")
 		return
 	}
+	if promptNone {
+		fail("login_required", "interactive login is required")
+		return
+	}
 	p.login(w, r, ar)
+}
+
+// ssoReuse issues a code from the browser's live SSO session without showing
+// the login form. It reports whether it wrote a response. A session whose user
+// is gone or disabled is ended and treated as no session.
+func (p *Provider) ssoReuse(w http.ResponseWriter, r *http.Request, ar *authzReq, maxAge int64) bool {
+	rl := ar.realm
+	s, ok := p.currentSession(r, rl)
+	if !ok {
+		return false
+	}
+	ctx := r.Context()
+	u, err := p.cfg.Store.GetUser(ctx, rl.Name, s.UserID)
+	if err != nil || !u.Enabled {
+		if err == nil || errors.Is(err, idp.ErrNotFound) {
+			_, _ = p.sessions().End(ctx, rl.Name, s.ID)
+			p.clearSSOCookie(w, rl.Name)
+		} else {
+			p.cfg.Logger.Error("oidc: load sso user", "err", err)
+		}
+		return false
+	}
+	if rl.EmailVerificationRequired && !u.EmailVerified {
+		return false
+	}
+	if maxAge >= 0 && (maxAge == 0 || p.now().Sub(s.AuthTime) > time.Duration(maxAge)*time.Second) {
+		return false
+	}
+	p.touchSession(r, rl, s)
+	p.issueCode(w, r, ar, u, s, "sso")
+	return true
+}
+
+// issueCode records the client in the session, stores an authorization code
+// bound to it and redirects back to the client.
+func (p *Provider) issueCode(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, s core.Session, detail string) {
+	ctx := r.Context()
+	rl := ar.realm
+	if err := p.cfg.Store.AddSessionClient(ctx, rl.Name, s.ID, ar.client.ClientID); err != nil {
+		p.cfg.Logger.Error("oidc: record session client", "err", err)
+		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
+		return
+	}
+	code := randToken(32)
+	err := p.cfg.Store.PutAuthCode(ctx, core.AuthCode{
+		CodeHash: HashSecret(code), Realm: rl.Name, ClientID: ar.client.ClientID, UserID: u.ID,
+		RedirectURI: ar.redirect, Scope: ar.scope, Nonce: ar.nonce,
+		CodeChallenge: ar.challenge, ChallengeMeth: methFor(ar.challenge),
+		AuthTime: s.AuthTime, SessionID: s.ID, ExpiresAt: p.now().Add(p.cfg.CodeTTL),
+	})
+	if err != nil {
+		p.cfg.Logger.Error("oidc: store auth code", "err", err)
+		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
+		return
+	}
+	p.cfg.Obs.Login(rl.Name, "success")
+	p.event(ctx, rl, "LOGIN", u.ID, ar.client.ClientID, p.clientIP(r), detail)
+	// Expire the CSRF cookie (harmless when none was set).
+	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: "/realms/" + rl.Name + oidcPath + "/auth", MaxAge: -1})
+	p.redirectWith(w, r, ar.redirect, url.Values{"code": {code}, "state": {ar.state}}, rl.Name)
 }
 
 func safeRedirect(raw string) bool {
@@ -395,23 +478,13 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 		}
 	}
 
-	code := randToken(32)
-	err = p.cfg.Store.PutAuthCode(ctx, core.AuthCode{
-		CodeHash: HashSecret(code), Realm: rl.Name, ClientID: ar.client.ClientID, UserID: u.ID,
-		RedirectURI: ar.redirect, Scope: ar.scope, Nonce: ar.nonce,
-		CodeChallenge: ar.challenge, ChallengeMeth: methFor(ar.challenge),
-		AuthTime: now, ExpiresAt: now.Add(p.cfg.CodeTTL),
-	})
+	sess, err := p.startSession(w, r, rl, u)
 	if err != nil {
-		p.cfg.Logger.Error("oidc: store auth code", "err", err)
-		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
+		p.cfg.Logger.Error("oidc: start session", "err", err)
+		p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
 		return
 	}
-	p.cfg.Obs.Login(rl.Name, "success")
-	p.event(ctx, rl, "LOGIN", u.ID, ar.client.ClientID, ip, "")
-	// Expire the CSRF cookie.
-	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: "/realms/" + rl.Name + oidcPath + "/auth", MaxAge: -1})
-	p.redirectWith(w, r, ar.redirect, url.Values{"code": {code}, "state": {ar.state}}, rl.Name)
+	p.issueCode(w, r, ar, u, sess, "")
 }
 
 func methFor(ch string) string {
