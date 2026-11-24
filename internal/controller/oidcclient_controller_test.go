@@ -431,6 +431,39 @@ func TestOIDCClientUpdatesRedirectURIs(t *testing.T) {
 	}
 }
 
+func TestOIDCClientSendsBackchannelLogoutURL(t *testing.T) {
+	e := newOCEnv(t, readyPlane("identity", allowApps), webApp())
+	e.update("web", func(oc *havenv1.OIDCClient) { oc.Spec.BackchannelLogoutURL = "https://web.example.com/logout" })
+	e.reconcile("web")
+	if got := e.idp.onlyClient(t).BackchannelLogoutURL; got != "https://web.example.com/logout" {
+		t.Fatalf("create did not carry backchannelLogoutUrl: %q", got)
+	}
+
+	e.idp.takeWrites()
+	e.update("web", func(oc *havenv1.OIDCClient) {
+		oc.Generation++
+		oc.Spec.BackchannelLogoutURL = "https://web.example.com/other-logout"
+	})
+	e.reconcile("web")
+	if w := e.idp.takeWrites(); len(w) != 1 || w[0] != "update:web" {
+		t.Fatalf("changing the URL must be a single update, got %v", w)
+	}
+	if got := e.idp.onlyClient(t).BackchannelLogoutURL; got != "https://web.example.com/other-logout" {
+		t.Fatalf("update did not carry the new URL: %q", got)
+	}
+
+	e.reconcile("web")
+	if w := e.idp.takeWrites(); len(w) != 0 {
+		t.Fatalf("an unchanged URL caused writes: %v", w)
+	}
+
+	e.update("web", func(oc *havenv1.OIDCClient) { oc.Generation++; oc.Spec.BackchannelLogoutURL = "" })
+	e.reconcile("web")
+	if got := e.idp.onlyClient(t).BackchannelLogoutURL; got != "" {
+		t.Fatalf("clearing the field left %q in the IdP", got)
+	}
+}
+
 func TestOIDCClientRotateAnnotation(t *testing.T) {
 	e := newOCEnv(t, readyPlane("identity", allowApps), webApp())
 	e.reconcile("web")

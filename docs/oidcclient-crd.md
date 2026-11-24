@@ -50,7 +50,7 @@ live in that one file; `make crds` applies it) and is copied byte for byte to
 | `serviceAccount` | `false` | Enable the client credentials grant. |
 | `flows.authorizationCode` | `true`, except `false` when `serviceAccount` is set and there are no `redirectUris` | Browser login. |
 | `flows.clientCredentials` | follows `serviceAccount` | Same switch as `serviceAccount`; either one turns it on. |
-| `backchannelLogoutUrl` | none | Validated (https, or http on loopback) but **not sent to the IdP yet**, see [Not yet](#limits-and-not-yet). |
+| `backchannelLogoutUrl` | none | Sent to the IdP: the client is notified by OIDC Back-Channel Logout when a session it took part in ends ([sso-and-logout.md](sso-and-logout.md)). https, or http on loopback. Removing it clears it. |
 | `secretRef.name` | `<metadata.name>-oidc` | Secret written for confidential clients. |
 | `secretRef.keys.{clientId,clientSecret,issuer}` | `client-id`, `client-secret`, `issuer` | Key names inside the Secret. Must be distinct. |
 | `deletionPolicy` | `Delete` | `Delete` removes the IdP client with the OIDCClient; `Retain` leaves it. |
@@ -282,11 +282,11 @@ admin secret are read cluster-wide, as for the rest of the controller.
 
 - **Ingress annotation: not done.** Roadmap item 4 also wants an app's Ingress to register a
   client through an annotation. Only the `OIDCClient` CRD exists.
-- **`backchannelLogoutUrl`** is in the CRD and validated, but not sent. It will be sent once
-  the Admin API's `idp.Client` has the field; until then logout notifications are not
-  configured by this controller.
-- Not applied to a real cluster or API server; the CRD has no CEL immutability rules (the
-  controller enforces immutability instead, reporting `ImmutableFieldChanged`).
+- The CRDs, samples and the manifests the controller renders were validated against a real k3s
+  API server (server-side dry run, Pod Security `restricted`). The controller itself is exercised
+  by unit tests and a test against the real `haven-idp`; see [deploy-native.md](deploy-native.md)
+  for the in-cluster run. The CRD has no CEL immutability rules (the controller enforces
+  immutability instead, reporting `ImmutableFieldChanged`).
 - Native planes only. A plane on the Keycloak engine gets `PlaneNotNative`.
 - Redirects: https or loopback http only. No custom-scheme (native app) redirects, no
   wildcards, by design.

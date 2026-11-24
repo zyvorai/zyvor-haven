@@ -354,6 +354,7 @@ func applyManaged(base idp.Client, oc *havenv1.OIDCClient, res resolved) idp.Cli
 	c.WebOrigins = append([]string(nil), oc.Spec.WebOrigins...)
 	c.StandardFlowEnabled = res.authCode
 	c.ServiceAccountsEnabled = res.svcAccount
+	c.BackchannelLogoutURL = oc.Spec.BackchannelLogoutURL
 	attrs := map[string]string{}
 	for k, v := range base.Attributes {
 		attrs[k] = v
@@ -375,6 +376,7 @@ func managedEqual(cur, want idp.Client) bool {
 	return cur.Name == want.Name && cur.Enabled == want.Enabled && cur.PublicClient == want.PublicClient &&
 		cur.StandardFlowEnabled == want.StandardFlowEnabled && cur.ServiceAccountsEnabled == want.ServiceAccountsEnabled &&
 		sameStringSet(cur.RedirectURIs, want.RedirectURIs) && sameStringSet(cur.WebOrigins, want.WebOrigins) &&
+		cur.BackchannelLogoutURL == want.BackchannelLogoutURL &&
 		cur.Attributes[pkceAttribute] == want.Attributes[pkceAttribute]
 }
 

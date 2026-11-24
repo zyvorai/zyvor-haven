@@ -64,8 +64,9 @@ type OIDCClientSpec struct {
 	PKCE           *bool            `json:"pkce,omitempty"`
 	ServiceAccount bool             `json:"serviceAccount,omitempty"`
 	Flows          *OIDCClientFlows `json:"flows,omitempty"`
-	// BackchannelLogoutURL is accepted and validated but NOT yet sent to the
-	// IdP (the Admin API client type has no such field in this release).
+	// BackchannelLogoutURL receives an OIDC Back-Channel Logout 1.0 logout_token
+	// when a session this client took part in ends. https only (http on
+	// loopback). Empty clears it.
 	BackchannelLogoutURL string `json:"backchannelLogoutUrl,omitempty"`
 	// SecretRef is used for confidential clients only.
 	SecretRef *OIDCClientSecretRef `json:"secretRef,omitempty"`
