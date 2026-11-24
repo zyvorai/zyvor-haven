@@ -182,7 +182,7 @@ same new token.
 - No Windows cross-process lock: on Windows the lock only serialises threads of
   one process, so two `haven` processes refreshing at the same instant can race
   (and lose the rotated refresh token). Windows is compile-checked, not exercised.
-- No OS keychain storage (macOS Keychain, libsecret); tokens are in a 0600 file.
+- Keychain storage is macOS only and opt-in (`haven login --keychain`, see [macos.md](macos.md)); there is no libsecret/Windows credential store, so elsewhere tokens are in the 0600 file.
 - No `nonce` or `at_hash` checks, no JWKS caching (one fetch per login/refresh/whoami).
 - Exercised against the real `haven-idp dev` device endpoint (login with approval, `token`, `whoami`,
   `exec-credential`, `logout`; no token in any output or server log). Not run against other providers:

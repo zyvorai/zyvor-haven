@@ -106,6 +106,7 @@ nav:
       - Add an app (wizard and Test login): add-an-app.md
       - Backups: backups.md
       - haven CLI (device login, kubectl): haven-cli.md
+      - macOS (launchd service, Keychain, packaging): macos.md
   - Design:
       - Architecture: architecture.md
       - UX: ux.md

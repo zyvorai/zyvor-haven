@@ -1,0 +1,59 @@
+# Copyright 2026 Zyvor AI Labs · https://zyvor.dev
+# SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
+#
+# Template for the zyvorai Homebrew tap (Formula/haven.rb). Render it with
+# packaging/homebrew/render-formula.sh, which fills @VERSION@ and @SHA256@ from
+# the release source tarball. Nothing here is signed or published by this repo.
+class Haven < Formula
+  desc "haven-idp (OIDC identity server) and the haven CLI"
+  homepage "https://github.com/zyvorai/haven"
+  url "https://github.com/zyvorai/haven/archive/refs/tags/v@VERSION@.tar.gz"
+  sha256 "@SHA256@"
+  license :cannot_represent # LicenseRef-Zyvor-Production-2.0, see LICENSE in the tarball
+  head "https://github.com/zyvorai/haven.git", branch: "main"
+
+  depends_on "go" => :build
+
+  def install
+    ENV["CGO_ENABLED"] = "0"
+    ldflags = "-s -w -X main.version=#{version}"
+    system "go", "build", *std_go_args(ldflags:, output: bin/"haven-idp"), "./cmd/haven-idp"
+    system "go", "build", *std_go_args(ldflags:, output: bin/"haven"), "./cmd/haven"
+  end
+
+  # `brew services start haven` runs `haven-idp serve` as a LaunchAgent for the
+  # current user. Put the (0600) env file at #{etc}/haven-idp/haven-idp.env first;
+  # `haven-idp init --dir #{etc}/haven-idp` writes one. The generated plist holds
+  # no secrets: they come from that file, from *_FILE paths or from the Keychain.
+  service do
+    run [opt_bin/"haven-idp", "serve", "--env-file", etc/"haven-idp/haven-idp.env"]
+    keep_alive true
+    working_dir var/"haven-idp"
+    log_path var/"log/haven-idp.log"
+    error_log_path var/"log/haven-idp.log"
+  end
+
+  def post_install
+    (var/"haven-idp").mkpath
+    chmod 0700, var/"haven-idp"
+    (etc/"haven-idp").mkpath
+    chmod 0700, etc/"haven-idp"
+  end
+
+  def caveats
+    <<~EOS
+      Try it locally (in-memory, loopback only):
+        haven-idp dev
+
+      For a long-running single node, create a config and start the service:
+        haven-idp init --dir #{etc}/haven-idp --base-url https://idp.example.com
+        brew services start haven
+      See docs/macos.md for PostgreSQL and the Keychain options.
+    EOS
+  end
+
+  test do
+    assert_match "haven-idp", shell_output("#{bin}/haven-idp help")
+    assert_match "Usage", shell_output("#{bin}/haven help")
+  end
+end

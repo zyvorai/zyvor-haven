@@ -1,6 +1,6 @@
 # Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 # SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
-.PHONY: crds operators dev prod doctor wait secrets-prod realm-import ui-install ui-dev ui-build console-build console-test console-run controller-build controller-deploy docs-install docs-serve docs-build image-console image-controller image-idp images idp-build idp-dev build-haven
+.PHONY: crds operators dev prod doctor wait secrets-prod realm-import ui-install ui-dev ui-build console-build console-test console-run controller-build controller-deploy docs-install docs-serve docs-build image-console image-controller image-idp images idp-build idp-dev build-haven build-darwin macos-pkg
 
 IMAGE_REGISTRY ?= ghcr.io/zyvorai
 VERSION ?= 0.1.0
@@ -100,3 +100,16 @@ build-haven:
 
 idp-dev:
 	go run ./cmd/haven-idp dev
+
+# Static (CGO off) macOS binaries for both architectures: bin/darwin-{arm64,amd64}/{haven-idp,haven}.
+build-darwin:
+	@for arch in arm64 amd64; do \
+		mkdir -p bin/darwin-$$arch; \
+		for c in haven-idp haven; do \
+			GOOS=darwin GOARCH=$$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o bin/darwin-$$arch/$$c ./cmd/$$c || exit 1; \
+		done; \
+	done
+
+# Unsigned universal installer package (see packaging/macos/README.md for signing and notarization, which this does not do).
+macos-pkg:
+	bash packaging/macos/build-pkg.sh --version $(VERSION)

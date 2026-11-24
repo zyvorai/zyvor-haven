@@ -19,6 +19,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/zyvorai/haven/internal/keychain"
 )
 
 // Exit codes.
@@ -42,11 +44,13 @@ type Env struct {
 	Sleep          func(ctx context.Context, d time.Duration) error
 	// OpenBrowser opens a URL; nil disables. Errors are never fatal.
 	OpenBrowser func(url string) error
+	// Vault is the macOS Keychain for `haven login --keychain`; nil elsewhere.
+	Vault Vault
 }
 
 // DefaultEnv wires the real process environment.
 func DefaultEnv() *Env {
-	return &Env{
+	e := &Env{
 		Stdout: os.Stdout, Stderr: os.Stderr,
 		Getenv: os.Getenv, UserHomeDir: os.UserHomeDir,
 		Now: time.Now,
@@ -62,6 +66,10 @@ func DefaultEnv() *Env {
 		},
 		OpenBrowser: openBrowser,
 	}
+	if kc := keychain.New(); kc.Available() {
+		e.Vault = kc
+	}
+	return e
 }
 
 func openBrowser(u string) error {
@@ -102,7 +110,7 @@ const usageText = `haven: log in to haven-idp (or any OIDC provider with RFC 862
 
 Usage:
   haven login  --issuer URL --client-id ID [--scope "openid offline_access profile email"]
-               [--profile NAME] [--no-browser] [--ca-file PEM]
+               [--profile NAME] [--no-browser] [--ca-file PEM] [--keychain (macOS)]
   haven token  [--profile NAME] [--id-token] [--min-validity 60s]
   haven whoami [--profile NAME] [--json]
   haven logout [--profile NAME]
@@ -115,6 +123,7 @@ Common flags (every command that talks to the network):
   --allow-cross-origin-endpoints   accept discovery endpoints on another origin than the issuer
 
 Credentials live in $XDG_CONFIG_HOME/haven/credentials.json (default ~/.config/haven), mode 0600.
+On macOS, login --keychain keeps the tokens in the login Keychain instead.
 Tokens are never accepted on the command line. See docs/haven-cli.md.
 
 Exit codes: 0 ok, 1 error, 2 usage, 3 not logged in.

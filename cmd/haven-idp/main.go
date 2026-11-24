@@ -27,7 +27,9 @@
 //	                             created in the bootstrap realm, rotated on restart when changed
 //	HAVEN_IDP_SECRET_KEY         32-byte key (base64 or hex; comma separated for rotation, newest first) that encrypts
 //	                             TOTP seeds and upstream IdP secrets; _FILE variant supported; `haven-idp keygen` makes one
-//	HAVEN_IDP_WEBAUTHN_RPID      passkey relying party id (default: host of HAVEN_IDP_BASE_URL); see docs/passkeys.md
+//	HAVEN_IDP_SECRET_KEY_KEYCHAIN   macOS: read the secret key from this Keychain item (1 = default name); see docs/macos.md
+//	HAVEN_IDP_DB_PASSWORD_KEYCHAIN  macOS: add the database password from this Keychain item to HAVEN_IDP_DSN
+//	HAVEN_IDP_WEBAUTHN_RPID     passkey relying party id (default: host of HAVEN_IDP_BASE_URL); see docs/passkeys.md
 //	HAVEN_IDP_WEBAUTHN_ORIGINS   comma-separated allowed passkey origins (default: HAVEN_IDP_BASE_URL's origin)
 //	HAVEN_IDP_METRICS_LISTEN     serve Prometheus /metrics (only) on this separate address, e.g. :9100 (empty = off)
 //	HAVEN_IDP_AUDIT              audit event sink: stdout, file:PATH or webhook:URL (empty = none)
@@ -65,6 +67,7 @@ Usage:
   haven-idp import-keycloak -f EXPORT.json [--realm NAME] [--out-dir DIR] [--format text|json]
   haven-idp import-users    -f users.json --realm NAME [--dev | --url URL --admin-realm R]
   haven-idp keygen          print a new HAVEN_IDP_SECRET_KEY (TOTP seeds, upstream IdP secrets)
+  haven-idp install-service | uninstall-service | service-status [--system] [--label L]   (macOS launchd, see docs/macos.md)
   haven-idp version
 
 New here? Run "haven-idp dev".
@@ -88,6 +91,8 @@ func main() {
 		os.Exit(cmdConfig(cmd, args, osCfgIO()))
 	case "import-keycloak", "import-users":
 		os.Exit(cmdImport(cmd, args, osCfgIO()))
+	case "install-service", "uninstall-service", "service-status":
+		err = cmdService(cmd, args)
 	case "keygen":
 		// A fresh HAVEN_IDP_SECRET_KEY (encrypts TOTP seeds and upstream IdP secrets).
 		fmt.Println(secretbox.GenerateKey())
@@ -129,6 +134,9 @@ func cmdServe(args []string) error {
 	}
 	cfg, err := configFromEnv()
 	if err != nil {
+		return err
+	}
+	if err := applyOSKeychain(&cfg); err != nil {
 		return err
 	}
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))

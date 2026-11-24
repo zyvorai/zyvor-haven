@@ -22,6 +22,7 @@ func (a *app) cmdLogin(ctx context.Context, args []string) error {
 	clientID := fs.String("client-id", "", "OAuth client_id of a public client with the device grant enabled (required)")
 	scope := fs.String("scope", defaultScope, "space separated scopes")
 	noBrowser := fs.Bool("no-browser", false, "do not try to open a browser")
+	useKeychain := fs.Bool("keychain", false, "keep the tokens in the macOS Keychain instead of the credentials file")
 	if err := parse(fs, args); err != nil {
 		return err
 	}
@@ -72,6 +73,13 @@ func (a *app) cmdLogin(ctx context.Context, args []string) error {
 		AccessToken: tr.AccessToken, RefreshToken: tr.RefreshToken, UpdatedAt: now}
 	if tr.ExpiresIn > 0 {
 		p.AccessExpiry = now.Add(time.Duration(tr.ExpiresIn) * time.Second)
+	}
+	if *useKeychain {
+		if a.env.Vault != nil && a.env.Vault.Available() {
+			p.Keychain = true
+		} else {
+			fmt.Fprintln(a.env.Stderr, "haven: warning: --keychain needs macOS; storing the tokens in the 0600 credentials file instead")
+		}
 	}
 	if c.net.CAFile != "" {
 		if abs, err := filepath.Abs(c.net.CAFile); err == nil {

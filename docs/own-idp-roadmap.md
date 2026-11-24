@@ -103,6 +103,13 @@ is shipped), wiring `CheckPolicyFor` into the handlers, and the
 client and writes its secret to a Secret; see [oidcclient-crd.md](oidcclient-crd.md)). It has
 not been run on a real cluster. The Ingress annotation half of #4 is **not** done.
 
+macOS support: `haven-idp` and `haven` cross-build for darwin/arm64 and amd64 in CI, `haven-idp install-service` /
+`uninstall-service` / `service-status` manage a user LaunchAgent (run for real on one Mac) and generate a system
+LaunchDaemon plist plus printed `sudo` commands (never executed; not loaded anywhere), the secret key and database
+password can come from the Keychain, `haven login --keychain` stores tokens there, and unsigned pkg and Homebrew
+formula templates exist; see [macos.md](macos.md). Not done: signing, notarization, a published formula, testing on
+Intel hardware or a LaunchDaemon on a real system.
+
 Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across
 replicas); federation (identity brokering) covers upstream OIDC only (Google, Microsoft Entra ID, generic OIDC; see [federation.md](federation.md)) and does not cover SAML, GitHub, LDAP/SCIM, an account-linking UI, storing upstream tokens or IdP-initiated login; rotated-secret
