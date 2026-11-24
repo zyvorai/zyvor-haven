@@ -4,14 +4,14 @@ hero:
   title: Using the Dashboard
 ---
 
-Haven’s console is the day-2 identity operator surface over Keycloak (and optional CloudNativePG).
+Haven’s console is the day-2 identity operator surface over `haven-idp` and the CloudNativePG database behind it.
 
 ## Shell chrome
 
 | Element | Job |
 |---------|-----|
 | Sidebar | Command Deck · Deploy · Planes · Realm Studio · Clients · Atlas · Settings |
-| Status chip | Keycloak connected / version / realm count · plane phase |
+| Status chip | Identity server connected / version / realm count · plane phase |
 | Command palette | `⌘K` / `Ctrl+K` |
 | Top bar / mobile nav | Same destinations on small viewports |
 

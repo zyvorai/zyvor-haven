@@ -12,7 +12,7 @@ IdentityPlane instances — health, profile, and endpoints.
 
 - Operate **Planes** when your job matches this screen
 - Prefer **Command Deck** after login if you are unsure where to start
-- Confirm Keycloak connected in the sidebar status chip
+- Confirm the identity server shows as connected in the sidebar status chip
 
 ## How to get there
 
@@ -24,10 +24,10 @@ IdentityPlane instances — health, profile, and endpoints.
 1. Open `/planes`.
 2. **+ Deploy plane** or **Deploy wizard** when empty.
 3. Open a plane card → endpoints / health; jump **Open Command Deck**.
-4. **Empty / fail:** No planes → Deploy wizard or connect external Keycloak in Settings.
-5. **Success:** Fleet card shows Ready with Keycloak/Postgres endpoints.
+4. **Empty / fail:** No planes → Deploy wizard, or point the console at an existing `haven-idp` (`HAVEN_IDP_URL`).
+5. **Success:** Fleet card shows Ready with identity-server/Postgres endpoints.
 
-Console: `http://<host>:30742/` · Keycloak admin often `http://<host>:30180/admin` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
+Console: `http://<host>:30742/` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
 
 ## Related pages
 

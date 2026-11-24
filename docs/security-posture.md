@@ -3,18 +3,18 @@ hero:
   eyebrow: SECURITY POSTURE
   title: Haven Guard
   lead: >-
-    Haven Guard audits the security-relevant configuration of Keycloak
-    realms and OIDC clients. It is intentionally deterministic: the same
+    Haven Guard audits the security-relevant configuration of realms
+    and OIDC clients. It is intentionally deterministic: the same
     realm/client configuration produces the same findings, score, and
     SHA-256 fingerprint.
   highlights:
     - {value: "23", label: "Deterministic rules, HAVEN001–023, across four severity tiers"}
     - {value: "SHA-256", label: "Fingerprint for pinning a baseline and detecting drift"}
     - {value: "3", label: "CI exit codes: 0 clean, 1 error, 2 findings over threshold"}
-    - {value: "6", label: "Built-in Keycloak clients excluded from findings and counts"}
+    - {value: "6", label: "Built-in administrative client IDs excluded from findings and counts"}
 ---
 
-Haven Guard audits the security-relevant configuration of Keycloak realms and OIDC clients. It is intentionally deterministic: the same realm/client configuration produces the same findings, score and SHA-256 fingerprint.
+Haven Guard audits the security-relevant configuration of realms and OIDC clients. It is intentionally deterministic: the same realm/client configuration produces the same findings, score and SHA-256 fingerprint.
 
 <div class="compare-cards" markdown="1">
 
@@ -132,7 +132,7 @@ go run ./cmd/haven-audit --input realm.json --known known.json --waivers waivers
 
 HAVEN014-023 read optional realm settings (`sslRequired`, `passwordPolicy`, `accessTokenLifespan`, `ssoSessionIdleTimeout`, `ssoSessionMaxLifespan`, `offlineSessionIdleTimeout`, `eventsEnabled`, `adminEventsEnabled`, `revokeRefreshToken`). A realm export or API response that omits a setting produces no finding for it: Guard does not guess. These settings are not part of the fingerprint, so existing baselines stay valid; use `--policy` for enforced settings drift (see [Policy as code](policy-as-code.md)).
 
-Built-in Keycloak clients (`account`, `account-console`, `admin-cli`, `broker`, `realm-management`, `security-admin-console`) are excluded from client counts and findings.
+Clients with these built-in administrative IDs (`account`, `account-console`, `admin-cli`, `broker`, `realm-management`, `security-admin-console`) are excluded from client counts and findings. They only appear in realms brought over from another server; see [Import a Keycloak realm](import-from-keycloak.md).
 
 ## Fingerprint / drift
 

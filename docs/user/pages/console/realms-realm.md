@@ -12,7 +12,7 @@ Users and clients inside one realm — invite, set password, mint/rotate secrets
 
 - Operate **Realm detail** when your job matches this screen
 - Prefer **Command Deck** after login if you are unsure where to start
-- Confirm Keycloak connected in the sidebar status chip
+- Confirm the identity server shows as connected in the sidebar status chip
 
 ## How to get there
 
@@ -24,10 +24,10 @@ Users and clients inside one realm — invite, set password, mint/rotate secrets
 1. Open a realm from `/realms`.
 2. Users: **+ Invite user**; set password via dialog when offered.
 3. Clients: create/manage; **Regenerate client secret** with confirm; copy secret once.
-4. **Empty / fail:** Invite fails → Keycloak permissions; secret regenerate is irreversible.
+4. **Empty / fail:** Invite fails → admin permissions on the identity server; secret regenerate is irreversible.
 5. **Success:** User can authenticate to the realm; client secret pasted into your app.
 
-Console: `http://<host>:30742/` · Keycloak admin often `http://<host>:30180/admin` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
+Console: `http://<host>:30742/` · Health: `GET /api/v1/health`. Never publish lab IPs — use `<host>`.
 
 ## Related pages
 

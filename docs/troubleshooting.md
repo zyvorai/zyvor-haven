@@ -8,43 +8,49 @@ Real operational issues, with the documented fix. For the condensed
 version, see [`runbook.md`](runbook.md)'s "Failure cheatsheet" — this page
 expands on it. **First step in any incident: `./cli/haven doctor`.**
 
-## Keycloak CrashLoopBackOff: "Unable to migrate database"
+## haven-idp CrashLoopBackOff or never Ready
 
-Almost always one of three causes, in order of likelihood:
+Check `kubectl -n identity logs deploy/platform-idp` and the plane's
+`IdentityProviderReady` condition. Usual causes, in order of likelihood:
 
-1. CloudNativePG isn't ready yet — check the CNPG cluster status before
-   Keycloak; Haven starts Postgres and Keycloak as one lifecycle, but a
-   slow Postgres bootstrap can still race Keycloak's first connection.
+1. CloudNativePG isn't ready yet — check the CNPG cluster status
+   (`kubectl -n identity get cluster platform-db`) first; the plane stays in
+   `ProvisioningDatabase` until it is healthy. Migrations run inside
+   `haven-idp` at start-up under an advisory lock, so a slow Postgres can delay
+   the first successful start.
 2. A password mismatch between the Secrets each component reads —
-   Haven generates and references these automatically; if you've
-   hand-edited a Secret, that's the likely culprit.
-3. TLS verification failing without `platform-db-ca` present — confirm the
-   CA secret Haven expects is actually mounted.
+   the controller generates these once and never overwrites them; if you've
+   hand-edited `platform-idp-db` or `platform-db-app`, that's the likely culprit.
+3. `secret-key` in `platform-idp` was replaced. It encrypts TOTP seeds and
+   upstream IdP secrets and is never regenerated; losing it makes those values
+   unreadable.
 
 ## Ingress returns 404
 
-Check the service name — it's `<cr-name>-service`, not `platform-service`.
-This is the single most common ingress misconfiguration per the runbook's
-own cheatsheet.
+Check that the Ingress backend points at the Service `platform-idp` (named
+`<plane>-idp`) on port 8081 — wiring it to a differently named Service is the
+most common ingress misconfiguration.
 
 ## OIDC issuer discovery fails
 
-Check, in order: the configured hostname, `proxy.headers` (if behind a
-reverse proxy/ingress that needs to forward the original host), and the
-TLS certificate's SAN list actually covering that hostname.
+Check, in order: the configured hostname (`spec.hostname`), forwarded headers
+(the controller sets `HAVEN_IDP_TRUST_PROXY=1` because `haven-idp` always sits
+behind the ingress/gateway), and the TLS certificate's SAN list actually
+covering that hostname. The issuer is `https://<hostname>/realms/<realm>`
+(HTTP for `profile: dev`).
 
 ## Logins are slow
 
 Check the Postgres connection pool size against CloudNativePG's
-`max_connections`, and check for replication lag on the primary if reads
-are being served from a replica.
+`max_connections` (size the pool for the replica count), and check for
+replication lag on the primary if reads are being served from a replica.
 
 ## After a node dies, auth starts returning 5xx
 
-Check your Keycloak instance count and PodDisruptionBudget — this is
-expected if you're running fewer than 2 Keycloak instances with no PDB,
-since a single-instance deployment has no failover during a node loss.
-[`docs/production-overlay.md`](production-overlay.md) covers the
+Check your `haven-idp` replica count and PodDisruptionBudget — this is
+expected if you're running a single replica, since there is no failover during a
+node loss. Replicas above 1 get a PodDisruptionBudget and are spread across
+nodes. [`docs/production-overlay.md`](production-overlay.md) covers the
 production-shaped configuration that avoids this.
 
 ## `ScheduledBackup` is rejected
@@ -54,13 +60,12 @@ configured — a `ScheduledBackup` with nowhere to write will be rejected
 outright rather than silently failing later. See
 [`docs/backups.md`](backups.md).
 
-## The Helm chart doesn't install a working controller/console
+## The Helm chart installs RBAC only
 
-Expected today — per [`docs/roadmap.md`](roadmap.md), the current
-repository is "v0": the Helm chart "installs RBAC only
-(controller/console images unpublished)." Use the compose overlay path
-(`deploy/overlays/{dev,prod}`) instead until v1's full reconcile loop
-ships.
+Expected by default: the controller and console are `enabled: false` until you
+opt in. Install with `--set controller.enabled=true --set console.enabled=true`;
+see [`docs/install-helm.md`](install-helm.md) and
+[`docs/deploy-native.md`](deploy-native.md).
 
 ## Nothing here matches
 

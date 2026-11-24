@@ -4,43 +4,38 @@ hero:
   title: Roadmap
 ---
 
-What ships in this repo today vs what the v1 controller and console will add. Operations for v0: [Getting started](getting-started.md).
+What is built, what is being finished and what comes later. The identity server's own per-feature status table, with honest "not yet" lists, is in [own-idp-roadmap.md](own-idp-roadmap.md). Operations: [Getting started](getting-started.md).
 
-## v0 — this repository
-- CRDs for IdentityPlane, RealmBundle, OidcClient (`reclaimPolicy`, `suspend`)
-- Compose overlays that deploy CNPG + official Keycloak Operator today
-- CLI that reads the real operator admin secret and CRD presence
-- Official `KeycloakRealmImport` sample (works without the Haven controller)
-- Helm chart that installs RBAC only (controller/console images unpublished)
-- UX and architecture specs
-- Honest prod overlay: secrets, TLS, CA sync, backups called out as prerequisites
+## Built (tagged release 0.1.0 and `main`)
+- `haven-idp`: OIDC core, Admin API, Postgres store, passkeys, TOTP, SSO sessions and single logout, device flow, DPoP, PAR/JAR/RAR building blocks, SCIM, CIBA, consent, federation to OIDC upstreams, Shared Signals
+- Controller with `IdentityPlane` and `OIDCClient` (the database, identity server, certificates, database NetworkPolicy and ingress from one resource), deployed on k3s
+- Kustomize overlays (`deploy/overlays/dev`, `deploy/overlays/prod`) that render the same objects without a controller
+- Helm chart (RBAC by default; controller and console are opt-in)
+- Console: login gate, Command Deck, Planes, Atlas, Realm Studio, Clients, Settings, Access Review, console OIDC (PKCE)
+- `haven` CLI (device login, kubectl exec plugin), `haven-audit` (offline Guard, diff, access review), `./cli/haven` for plane operations
+- Haven Guard, Time Machine, Credential Center, Federation Hub, Policy as code, Access Review
+- macOS service and Keychain support (unsigned)
+- Honest prod overlay: secrets, TLS and backups called out as prerequisites
 
-## v1 — controller + console (in progress)
-- Controller with external-plane mode when operator CRDs are absent
-- Live `GET /api/v1/plane/status` for Command Deck cards
-- Console: login gate, Command Deck, Planes, Atlas, Realm Studio, Clients, Settings
-- Password UI: console sign-in, Keycloak master admin, realm users
-- Remote lab deploy script (`scripts/deploy-remote.sh`)
-- Deploy wizard dual-mode: `IdentityPlane` create when RBAC allows, else Keycloak realm bootstrap
-- Platform client catalog on Clients (kubernetes / grafana / argocd)
-- Console OIDC (PKCE) + lab demo **opt-in** via `HAVEN_LAB_LOGIN=1`
-- Remaining: full Kubebuilder reconcile of CNPG + Keycloak Operator + cert-manager
-- Remaining: finalizer honoring `reclaimPolicy` (default Orphan)
+## In progress
+- Finalizer honoring `reclaimPolicy` (default Orphan)
+- Newer features run against third-party systems (real Okta/Entra for SCIM, a real Shared Signals receiver, real hardware authenticators)
 
-## v1.1 — console depth
+## v1.1: console depth
 - Approvals in production profile
 - Plane inspector (scale / backup / rotate)
 - Backups + Time Machine screens (not in nav yet)
 
-## v2 — private-cloud depth
-- Multi-site status (Keycloak HA v2)
-- Realm Time Machine
+## v2: private-cloud depth
+- Multi-site status
 - One-click kube-apiserver Bind recipe on top of the platform catalog
 - Backup restore wizard that creates a *new* plane
 - Zeus OS Identity Center embed (iframe + shared OIDC session)
 - Retire password bootstrap once OIDC is the default everywhere
 
+## Not started
+- SAML, LDAP, organizations, i18n, mTLS client authentication
+
 ## Non-goals until someone pays for them
 - Managing LDAP/AD servers
 - Being a generic Postgres platform
-- Replacing Keycloak Admin Console entirely

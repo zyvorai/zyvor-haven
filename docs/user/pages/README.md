@@ -12,20 +12,20 @@ Every route is also listed in the [complete page index](../PAGE_INDEX.md).
 
 | Page | What it covers |
 |------|----------------|
-| [Login](auth/login.md) | Sign in to the Haven identity console — lab demo, local console user, or Keycloak admin. |
+| [Login](auth/login.md) | Sign in to the Haven identity console — lab demo, local console user, or OIDC sign-in against the plane. |
 
 ## Console
 
 | Page | What it covers |
 |------|----------------|
-| [Atlas](console/atlas.md) | Traffic path to identity — Console → Ingress → Keycloak → Postgres. |
+| [Atlas](console/atlas.md) | Traffic path to identity — Console → Ingress → haven-idp → Postgres. |
 | [Clients](console/clients.md) | OIDC clients across all realms — mint, rotate secrets, manage redirect URIs. |
-| [Command Deck](console/deck.md) | Home operations surface — Keycloak connection, IdentityPlane health cards, reconcile timeline. |
-| [Deploy wizard](console/deploy.md) | Spin up an identity plane — Postgres + Keycloak via Haven compose path. |
+| [Command Deck](console/deck.md) | Home operations surface — identity-server connection, IdentityPlane health cards, reconcile timeline. |
+| [Deploy wizard](console/deploy.md) | Spin up an identity plane — haven-idp + Postgres via the Haven dev overlay or an IdentityPlane. |
 | [Planes](console/planes.md) | IdentityPlane instances — health, profile, and endpoints. |
 | [Realm detail](console/realms-realm.md) | Users and clients inside one realm — invite, set password, mint/rotate secrets. |
-| [Realm Studio](console/realms.md) | Create and manage Keycloak realms as tenant boundaries. |
-| [Settings](console/settings.md) | Connect Haven to Keycloak and manage console appearance / passwords. |
+| [Realm Studio](console/realms.md) | Create and manage realms as tenant boundaries. |
+| [Settings](console/settings.md) | Check the identity-server connection and manage console appearance / passwords. |
 
 ## Public
 

@@ -12,25 +12,39 @@ Pick the path that matches where you are running Haven. All commands assume you 
 
 | Tool | Used for |
 |---|---|
+| Go | Building `haven-idp` for the no-cluster path |
 | `kubectl` | Cluster access |
 | `make` | Dev overlay, UI build, CRDs |
-| Docker (remote deploy) | Building console image on lab host |
 | Node.js 20+ | Local UI development (`make ui-dev`) |
 
 Install cluster operators once per cluster:
 
 ```bash
-./deploy/operators/install.sh
-make crds    # optional for compose-only; needed for samples
+./deploy/operators/install.sh      # CloudNativePG + cert-manager
+make crds                          # the Haven CRDs
 ```
 
-Pinned versions: `versions.env` (Keycloak Operator **26.8.2**, CloudNativePG **1.30.2**).
+Pinned versions: `versions.env` (CloudNativePG **1.30.2**, cert-manager **v1.21.3**).
 
 ---
 
-## Local cluster (compose path)
+## Try it with no cluster
 
-The fastest way to run Keycloak + Postgres without the v1 controller.
+```bash
+go build -o haven-idp ./cmd/haven-idp
+./haven-idp dev                          # prints an issuer URL, a test user and an admin secret
+./haven-idp dev --persist ~/.haven-dev   # keep the data between restarts
+```
+
+Dev mode uses an embedded store and needs no database. See [dev-persist.md](dev-persist.md) for what `--persist` keeps.
+
+---
+
+<a id="local-cluster"></a>
+
+## Local cluster (dev overlay)
+
+The fastest way to run haven-idp + Postgres on a cluster, without the controller.
 
 ```bash
 make dev
@@ -41,48 +55,34 @@ make admin
 
 | What | Where |
 |---|---|
-| Keycloak Admin Console | `http://auth.127.0.0.1.nip.io/admin` |
-| Bootstrap secret | `platform-initial-admin` in namespace `identity` |
-| Optional first realm | `make realm-import` |
+| Issuer | `http://auth.127.0.0.1.nip.io/realms/platform` |
+| Admin user | `admin` (realm `platform`) |
+| Admin password | `make admin` prints the `kubectl` command that reads secret `platform-idp`, key `admin-password`, in namespace `identity` |
 
-`IdentityPlane` samples (`make samples-dev`) store **intent** for the future controller — they do not provision resources today. Do not confuse them with `make dev`.
+The dev overlay renders secrets with `CHANGE_ME_DEV_ONLY` placeholders. Dev only.
+
+To let the controller own the plane instead, apply an `IdentityPlane`: [Deploy haven-idp (native)](deploy-native.md). Do not combine it with `make dev` for the same name.
 
 **Next steps:** [Runbook → Path B](runbook.md#path-b) · [CLI](cli.md) · [Console local dev](console.md#local-ui-development)
 
 ---
 
-## Lab host (remote console)
+## Lab host
 
-Deploy the Haven console to the shared lab machine and connect it to the existing Keycloak instance.
-
-```bash
-./scripts/deploy-remote.sh <ephemeral-ip> operator
-./scripts/deploy-remote.sh <ephemeral-ip> operator --quick   # skip image rebuild
-```
-
-| Service | URL |
-|---|---|
-| Console login | [http://<ephemeral-ip>:30742/login](http://<ephemeral-ip>:30742/login) |
-| Keycloak admin | [http://<ephemeral-ip>:30180/admin](http://<ephemeral-ip>:30180/admin) |
-| OIDC issuer | `http://<ephemeral-ip>:30180/realms/master` |
-
-Sign in with lab credentials (`demo` / `demo`) or Keycloak admin — see [Console → Authentication](console.md#authentication).
-
-Full endpoint table, SSH access, and OIDC client wiring: **[lab-host.md](lab-host.md)**.
-
-**Next steps:** [Tutorials → Verify deploy](tutorials.md#verify-deploy) · [Console](console.md)
+The shared lab machine and its console endpoints are described in **[lab-host.md](lab-host.md)**.
 
 ---
 
-## Production overlay {#production-overlay}
+<a id="production-overlay"></a>
+
+## Production overlay
 
 See [production-overlay.md](production-overlay.md) for the full guide. Short version:
 
-1. `./hack/gen-prod-secrets.sh` — replace placeholder passwords
-2. `make prod` — apply overlay
-3. Wait for CNPG, then `./hack/sync-cnpg-ca.sh` (Keycloak verifies DB TLS)
-4. Issue `platform-tls` from your ClusterIssuer
-5. Configure backups separately — a `ScheduledBackup` **fails** without an object store
+1. `./hack/gen-prod-secrets.sh`: generates the secrets (it never overwrites existing ones and never prints values)
+2. `make prod`: apply the overlay
+3. Issue `platform-tls` from your ClusterIssuer
+4. Configure backups separately: a `ScheduledBackup` **fails** without an object store
 
 Details: [production-overlay.md](production-overlay.md) · [Runbook → Path C](runbook.md#path-c)
 
@@ -102,9 +102,9 @@ go run ./cmd/haven-console
 |---|---|
 | `/` | Landing |
 | `/login` | Sign-in |
-| `/deck` | Command Deck — plane + Keycloak health |
+| `/deck` | Command Deck: plane and identity-server health |
 | `/realms` | Realm Studio |
-| `/settings` | Keycloak connect, passwords |
+| `/settings` | Connection, passwords |
 
 Route reference and auth modes: [console.md](console.md).
 
@@ -117,3 +117,4 @@ Route reference and auth modes: [console.md](console.md).
 | Platform operator | [Runbook](runbook.md) → [Tutorials](tutorials.md) |
 | Architect / integrator | [Architecture](architecture.md) → [Private cloud](private-cloud.md) |
 | UI / product | [UX](ux.md) → [Roadmap](roadmap.md) |
+| Migrating from another identity server | [Migrate from Keycloak](migrate-from-keycloak.md) |

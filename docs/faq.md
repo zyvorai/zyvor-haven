@@ -11,8 +11,8 @@ better next stop.
 ## Licensing & cost
 
 **Is it really free?** No. A 30-day trial is available on request from sales@zyvor.dev (a paid evaluation Order at no charge); production and any other use needs a paid Order under the Zyvor Production Licence v2.0. See the README's [License](https://github.com/zyvorai/haven#license)
-section. Note Haven composes third-party projects (Keycloak, CloudNativePG)
-that retain their own licenses — see [`NOTICE`](https://github.com/zyvorai/haven/blob/main/NOTICE).
+section. Note Haven builds on third-party projects (CloudNativePG, cert-manager and
+Go libraries) that retain their own licenses — see [`NOTICE`](https://github.com/zyvorai/haven/blob/main/NOTICE).
 
 **What does "Enterprise" mean here?** Production support, SLAs, and
 Zyvor's other commercial products are licensed separately. Contact
@@ -29,34 +29,42 @@ be backported unless noted.
 
 ## Production readiness
 
-**Is this production-ready?** Be precise about what exists today.
-[`docs/roadmap.md`](roadmap.md) frames the current repository as **v0**:
-compose overlays, the CLI, and CRDs are defined, but the Helm chart
-"installs RBAC only (controller/console images unpublished)" — the full
-Kubebuilder reconcile loop is v1, "in progress." Only one tagged release
-exists (`0.1.0`). [`docs/production-overlay.md`](production-overlay.md)
-describes itself as "a shape, not a one-command install" — read it in full
-before a production deployment, don't assume defaults are production-safe.
+**Is this production-ready?** Be precise about what exists today. Haven is
+young: the identity server, controller and console are implemented and covered
+by unit, handler and store-conformance tests (the store suite runs against real
+PostgreSQL), and the core stack has been deployed and exercised on a k3s
+cluster. Newer features (SCIM, Shared Signals, CIBA, PAR/JAR/RAR, consent,
+agent and workload identities) have been run against the dev binary but not
+against third-party production systems, and FAPI 2.0 is a set of building
+blocks, not a certified profile. Only one tagged release exists (`0.1.0`).
+[`docs/production-overlay.md`](production-overlay.md) describes itself as "a
+shape, not a one-command install" — read it in full before a production
+deployment, don't assume defaults are production-safe. Per-feature status and
+"not yet" lists: [`docs/own-idp-roadmap.md`](own-idp-roadmap.md).
 
-**What problem does Haven actually solve?** The official Keycloak Operator
-runs Keycloak well but "does not manage the database" — teams end up
-improvising a Postgres backend (a Bitnami chart, a random StatefulSet, a
-forgotten RDS URL) and hand-managing secrets. Haven instead ships a
-CloudNativePG cluster owned by the same lifecycle as Keycloak, with
-generated/rotated secrets and one console for both.
+**What problem does Haven actually solve?** Running identity yourself is easy to
+start and hard to keep safe: a database nobody owns, hand-managed secrets, two
+UIs for day 2, and no way to tell whether realms are configured safely. Haven
+ships its own OIDC identity server (`haven-idp`) with a CloudNativePG cluster
+owned by the same lifecycle, generated secrets, one console, and Haven Guard
+posture checks.
+
+**I run another identity server today. Can I move?** See
+[Migrate from Keycloak](migrate-from-keycloak.md) and
+[Import a Keycloak realm](import-from-keycloak.md).
 
 ## Architecture
 
-**Does Haven fork Keycloak or Postgres?** No — "Haven composes **official**
-CloudNativePG and the **official** Keycloak Operator. No forks. No custom
-Keycloak image required for v0." (README, "Why Haven")
+**Does Haven fork anything?** No. The identity server is Haven's own Go code,
+and the database and certificates come from the official CloudNativePG and
+cert-manager operators, unmodified.
 
-**What are the design principles?** See the README's "Design principles"
-section: database and Keycloak share a lifecycle; operators stay official
-(not forked); secrets never leave the cluster; Git is optional, not
-mandatory; private-cloud defaults (NetworkPolicies/TLS/metrics on in
-`production`); identity is a platform service that can mint OIDC clients
-for other platform components.
+**What are the design principles?** See [What you get](what-you-get.md): the
+database and identity server share a lifecycle; operators stay official (not
+forked); secrets never leave the cluster; Git is optional, not mandatory;
+private-cloud defaults (NetworkPolicies/TLS/metrics on in `production`);
+identity is a platform service that can mint OIDC clients for other platform
+components.
 
 ## Security
 

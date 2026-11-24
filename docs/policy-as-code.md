@@ -36,7 +36,7 @@ go run ./cmd/haven-audit --input realm.json --policy examples/policies/org-basel
 |---|---|
 | `id` | `[A-Za-z0-9][A-Za-z0-9_-]{0,39}`, unique in the file |
 | `severity` | `critical`, `high`, `medium`, `low`, `info` |
-| `scope` | `realm` (default) or `client`; built-in Keycloak clients are skipped unless `includeBuiltin` is true |
+| `scope` | `realm` (default) or `client`; the built-in administrative clients listed in [Security posture](security-posture.md#rules) are skipped unless `includeBuiltin` is true |
 | `path` | Dot path into the export, up to 8 segments; `name[]` selects every array element |
 | `op` | `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `notIn`, `contains`, `notContains`, `matches`, `present`, `absent`, `nonEmpty` |
 | `value` | Scalar (list for `in`/`notIn`, RE2 pattern for `matches`); not allowed for `present`/`absent`/`nonEmpty` |

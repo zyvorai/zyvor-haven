@@ -1,5 +1,5 @@
 site_name: Haven
-site_description: Identity for the private cloud — Keycloak + PostgreSQL as one product.
+site_description: Identity for the private cloud — your own OpenID Connect identity server with HA PostgreSQL, run as one product on Kubernetes.
 site_url: https://zyvorai.github.io/zyvor-haven/
 repo_url: https://github.com/zyvorai/zyvor-haven
 repo_name: zyvorai/haven
@@ -85,8 +85,6 @@ nav:
       - Deploy haven-idp (native): deploy-native.md
       - OIDCClient CRD: oidcclient-crd.md
       - Ingress registration: ingress-registration.md
-      - Migrate from Keycloak: migrate-from-keycloak.md
-      - Import a Keycloak realm: import-from-keycloak.md
       - Email and password reset: email-and-password-reset.md
       - Federation (Sign in with Google, Entra, OIDC): federation.md
       - SSO sessions and single logout: sso-and-logout.md
@@ -113,6 +111,9 @@ nav:
       - Backups: backups.md
       - haven CLI (device login, kubectl): haven-cli.md
       - macOS (launchd service, Keychain, packaging): macos.md
+  - Migration:
+      - Migrate from Keycloak: migrate-from-keycloak.md
+      - Import a Keycloak realm: import-from-keycloak.md
   - Design:
       - Architecture: architecture.md
       - UX: ux.md
