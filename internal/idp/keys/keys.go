@@ -277,6 +277,16 @@ func numeric(v any) (float64, bool, error) {
 }
 
 func (s *signer) Verify(ctx context.Context, realm, token string) (core.Claims, error) {
+	return s.verify(ctx, realm, token, false)
+}
+
+// VerifyAllowExpired implements core.ExpiredVerifier: like Verify but an
+// elapsed exp is tolerated. Signature, alg pinning, kid and nbf still apply.
+func (s *signer) VerifyAllowExpired(ctx context.Context, realm, token string) (core.Claims, error) {
+	return s.verify(ctx, realm, token, true)
+}
+
+func (s *signer) verify(ctx context.Context, realm, token string, allowExpired bool) (core.Claims, error) {
 	if len(token) > maxTokenSize {
 		return nil, bad("token too large")
 	}
@@ -338,7 +348,7 @@ func (s *signer) Verify(ctx context.Context, realm, token string) (core.Claims, 
 	if err != nil {
 		return nil, bad("exp")
 	}
-	if hasExp && now.After(time.Unix(0, int64(exp*1e9)).Add(leeway)) {
+	if hasExp && !allowExpired && now.After(time.Unix(0, int64(exp*1e9)).Add(leeway)) {
 		return nil, bad("expired")
 	}
 	nbf, hasNbf, err := numeric(claims["nbf"])

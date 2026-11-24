@@ -111,18 +111,19 @@ func cmdDev(args []string, out io.Writer) error {
 	issuer := base + "/realms/" + *realm
 	outbox := mail.NewOutbox(100)
 	cfg := Config{
-		Mailer:            outbox,                             // no real email in dev: see /dev/mail
-		Listen:            fmt.Sprintf("127.0.0.1:%d", *port), // loopback only: this server is for development
-		BaseURL:           base,
-		Memory:            true,
-		MetricsOnMain:     true,
-		CSRFKey:           creds.CSRFKey,
-		BootstrapRealm:    *realm,
-		BootstrapUser:     *user,
-		BootstrapPassword: creds.Password,
-		AdminClientSecret: creds.AdminSecret,
-		ConsoleClientID:   devPlaygroundClient,
-		ConsoleRedirects:  []string{base + "/dev/"},
+		Mailer:                  outbox,                             // no real email in dev: see /dev/mail
+		Listen:                  fmt.Sprintf("127.0.0.1:%d", *port), // loopback only: this server is for development
+		BaseURL:                 base,
+		Memory:                  true,
+		MetricsOnMain:           true,
+		CSRFKey:                 creds.CSRFKey,
+		BootstrapRealm:          *realm,
+		BootstrapUser:           *user,
+		BootstrapPassword:       creds.Password,
+		AdminClientSecret:       creds.AdminSecret,
+		ConsoleClientID:         devPlaygroundClient,
+		ConsoleRedirects:        []string{base + "/dev/"},
+		BackchannelAllowPrivate: true, // dev: loopback IdP, apps on localhost
 		PostBootstrap: func(ctx context.Context, st core.Store, _ core.PasswordHasher) error {
 			err := st.CreateClient(ctx, core.Client{
 				Realm: *realm, ClientID: devAppClient, Name: "Demo app", Enabled: true,

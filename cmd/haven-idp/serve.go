@@ -18,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/admin"
+	"github.com/zyvorai/haven/internal/idp/backchannel"
 	"github.com/zyvorai/haven/internal/idp/bootstrap"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/keys"
@@ -25,6 +26,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/obs"
 	"github.com/zyvorai/haven/internal/idp/oidc"
 	"github.com/zyvorai/haven/internal/idp/password"
+	"github.com/zyvorai/haven/internal/idp/sessions"
 	"github.com/zyvorai/haven/internal/idp/store/memstore"
 	"github.com/zyvorai/haven/internal/idp/store/pgstore"
 )
@@ -75,6 +77,9 @@ type Config struct {
 	PostBootstrap func(ctx context.Context, st core.Store, h core.PasswordHasher) error
 	Mount         func(mux *http.ServeMux)
 	OnReady       func(addr string) // called once the listener is bound
+	// BackchannelAllowPrivate lifts the SSRF policy of back-channel logout
+	// (loopback/private targets, http to localhost). Dev only.
+	BackchannelAllowPrivate bool
 
 	OnMetricsReady func(addr string) // called once the metrics listener is bound
 }
@@ -240,9 +245,24 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	} else {
 		log.Info("email not configured: password reset and email verification are off (set HAVEN_IDP_SMTP_HOST)")
 	}
+	notifier := backchannel.New(backchannel.Config{
+		Store: st, Signer: signer, BaseURL: cfg.BaseURL, Logger: log, AllowPrivate: cfg.BackchannelAllowPrivate,
+	})
+	// Let in-flight back-channel logouts finish (bounded) on every exit path.
+	defer func() {
+		done := make(chan struct{})
+		go func() { notifier.Drain(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			log.Warn("back-channel logout drain timed out")
+		}
+	}()
+	sess := &sessions.Service{Store: st, Notifier: notifier}
 	oidcCfg := oidc.Config{
-		Actions: act,
-		Store:   st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL, Logger: log,
+		Sessions: sess,
+		Actions:  act,
+		Store:    st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL, Logger: log,
 		TrustProxy: cfg.TrustProxy,
 		CSRFKey:    []byte(cfg.CSRFKey),
 	}
@@ -258,7 +278,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	} else {
 		adminCfg = admin.Config{
 			Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL,
-			AdminRealm: adminRealm, Logger: log, Actions: act,
+			AdminRealm: adminRealm, Logger: log, Actions: act, Sessions: sess,
 		}
 		withObs(observer, &oidcCfg, &adminCfg)
 		mux.Handle("/admin/v1/", admin.New(adminCfg))

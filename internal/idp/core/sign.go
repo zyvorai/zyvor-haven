@@ -26,6 +26,13 @@ type Signer interface {
 	Rotate(ctx context.Context, realm string) error
 }
 
+// ExpiredVerifier is an optional Signer extension for flows that must accept
+// an expired token (OIDC RP-initiated logout with a stale id_token_hint).
+// Everything except the exp check is as strict as Verify.
+type ExpiredVerifier interface {
+	VerifyAllowExpired(ctx context.Context, realm, token string) (Claims, error)
+}
+
 // PasswordHasher hashes and verifies local passwords. Implementation:
 // internal/idp/password.
 type PasswordHasher interface {
