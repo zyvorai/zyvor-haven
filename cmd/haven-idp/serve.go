@@ -321,6 +321,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		CSRFKey:    []byte(cfg.CSRFKey),
 		SecretBox:  box,
 		WebAuthn:   oidc.WebAuthnConfig{RPID: cfg.WebAuthnRPID, Origins: cfg.WebAuthnOrigins},
+		DPoPNonce:  os.Getenv("HAVEN_IDP_DPOP_NONCE") == "1",
 		Federation: upstream.NewManager(safehttp.Options{AllowPrivate: cfg.FederationAllowPrivate}, nil),
 	}
 	adminCfg := admin.Config{}
