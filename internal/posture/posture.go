@@ -110,6 +110,13 @@ var rules = map[string]rule{
 	"HAVEN021": {"HAVEN021", SeverityMedium, "Refresh tokens are not rotated while public clients exist", "Enable Revoke Refresh Token so public-client refresh tokens are single use (RFC 9700)."},
 	"HAVEN022": {"HAVEN022", SeverityLow, "SSO session maximum lifespan exceeds 30 days", "Reduce the SSO session maximum lifespan to 30 days or less so users re-authenticate periodically."},
 	"HAVEN023": {"HAVEN023", SeverityLow, "Offline session idle timeout exceeds 90 days", "Reduce the offline session idle timeout to 90 days or less; offline tokens are long-lived bearer credentials."},
+	"HAVEN024": {"HAVEN024", SeverityLow, "Login events are kept forever", "Set an events expiration so the event table does not grow without bound and old sign-in data ages out."},
+	"HAVEN025": {"HAVEN025", SeverityMedium, "Refresh token reuse is allowed", "Set Refresh Token Max Reuse to 0 so a rotated refresh token cannot be replayed."},
+	"HAVEN026": {"HAVEN026", SeverityLow, "Brute-force lockout allows more than 10 failures", "Lower the maximum login failures to 10 or fewer (ANSSI suggests 5) and use temporary lockout."},
+	"HAVEN027": {"HAVEN027", SeverityLow, "Offline sessions have no maximum lifespan", "Enable Offline Session Max Limited so offline tokens expire even when they are used regularly."},
+	"HAVEN028": {"HAVEN028", SeverityLow, "Client gets every user role in its tokens (full scope allowed)", "Disable Full Scope Allowed and map only the roles this client needs through scopes."},
+	"HAVEN029": {"HAVEN029", SeverityMedium, "offline_access is a default scope", "Remove offline_access from the default scopes and offer it as optional so only clients that ask get long-lived offline tokens."},
+	"HAVEN030": {"HAVEN030", SeverityMedium, "Client overrides the access token lifespan above one hour", "Shorten the client access token lifespan override to one hour or less, or remove it."},
 	"HAVEN013": {"HAVEN013", SeverityLow, "Disabled client remains configured", "Remove stale clients or document why they are intentionally retained."},
 }
 
@@ -213,6 +220,20 @@ func evaluateClient(realm string, c idmodel.Client) []Finding {
 	}
 	if c.AuthCodeFlow && len(c.RedirectURIs) == 0 {
 		out = append(out, finding("HAVEN010", realm, c.ClientID, "standardFlowEnabled=true, redirectUris=[]"))
+	}
+	if c.FullScopeAllowed != nil && *c.FullScopeAllowed && !c.BearerOnly {
+		out = append(out, finding("HAVEN028", realm, c.ClientID, "fullScopeAllowed=true"))
+	}
+	for _, s := range c.DefaultScopes {
+		if strings.TrimSpace(s) == "offline_access" {
+			out = append(out, finding("HAVEN029", realm, c.ClientID, "defaultClientScopes contains offline_access"))
+			break
+		}
+	}
+	if v := strings.TrimSpace(c.Attrs["access.token.lifespan"]); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 3600 {
+			out = append(out, finding("HAVEN030", realm, c.ClientID, fmt.Sprintf("access.token.lifespan=%ds", n)))
+		}
 	}
 	return out
 }
@@ -443,6 +464,18 @@ func evaluateHardening(realm idmodel.Realm, hasPublicClient bool) []Finding {
 	}
 	if h.RefreshTokenRotation != nil && !*h.RefreshTokenRotation && hasPublicClient {
 		out = append(out, finding("HAVEN021", name, "", "revokeRefreshToken=false with an enabled public client"))
+	}
+	if h.EventsExpirationSeconds != nil && *h.EventsExpirationSeconds == 0 && (h.AuthEventsLogged == nil || *h.AuthEventsLogged) {
+		out = append(out, finding("HAVEN024", name, "", "eventsExpiration=0"))
+	}
+	if h.RefreshTokenRotation != nil && *h.RefreshTokenRotation && h.RefreshTokenMaxReuse != nil && *h.RefreshTokenMaxReuse > 0 {
+		out = append(out, finding("HAVEN025", name, "", fmt.Sprintf("revokeRefreshToken=true, refreshTokenMaxReuse=%d", *h.RefreshTokenMaxReuse)))
+	}
+	if h.LoginFailureLimit != nil && *h.LoginFailureLimit > 10 && realm.BruteForceProtection {
+		out = append(out, finding("HAVEN026", name, "", fmt.Sprintf("failureFactor=%d", *h.LoginFailureLimit)))
+	}
+	if h.OfflineSessionMaxLifespanEnabled != nil && !*h.OfflineSessionMaxLifespanEnabled {
+		out = append(out, finding("HAVEN027", name, "", "offlineSessionMaxLifespanEnabled=false"))
 	}
 	return out
 }

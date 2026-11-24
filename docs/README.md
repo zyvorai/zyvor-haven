@@ -25,7 +25,7 @@ hero:
 footnotes:
   - {marker: "1", text: "The README states only one tagged release exists, 0.1.0, and frames this repository as v0 — the Helm chart installs RBAC only today; the full Kubebuilder reconcile loop is v1, in progress.", href: "https://github.com/zyvorai/zyvor-haven#readme", href_label: "See the README."}
   - {marker: "2", text: "IdentityPlane, RealmBundle, and OIDCClient are the three CRDs; the controller applies them across a 10-step reconciliation order from namespace/NetworkPolicy creation through marking the plane Ready.", href: "architecture.md", href_label: "See Architecture."}
-  - {marker: "3", text: "Haven Guard's rule table lists HAVEN001 through HAVEN023 across critical/high/medium/low severity.", href: "security-posture.md", href_label: "See Security posture."}
+  - {marker: "3", text: "Haven Guard's rule table lists HAVEN001 through HAVEN030 across critical/high/medium/low severity.", href: "security-posture.md", href_label: "See Security posture."}
   - {marker: "4", text: "The CLI (./cli/haven) and Makefile targets cover deploy, status, doctor, admin, and backup.", href: "cli.md", href_label: "See CLI."}
 ---
 

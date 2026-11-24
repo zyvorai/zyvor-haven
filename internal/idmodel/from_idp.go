@@ -38,6 +38,11 @@ func FromRealm(r idp.Realm) Realm {
 			AuthEventsLogged:      h.EventsEnabled,
 			AdminEventsLogged:     h.AdminEventsEnabled,
 			RefreshTokenRotation:  h.RevokeRefreshToken,
+
+			EventsExpirationSeconds:          h.EventsExpiration,
+			RefreshTokenMaxReuse:             h.RefreshTokenMaxReuse,
+			LoginFailureLimit:                h.FailureFactor,
+			OfflineSessionMaxLifespanEnabled: h.OfflineSessionMaxLifespanEnabled,
 		}
 	}
 	return out
@@ -54,6 +59,8 @@ func FromClient(c idp.Client) Client {
 		PasswordFlow: c.DirectAccessGrantsEnabled, ServiceAccount: c.ServiceAccountsEnabled,
 		Attrs:                c.Attributes,
 		BackchannelLogoutURL: c.BackchannelLogoutURL,
+		FullScopeAllowed:     c.FullScopeAllowed,
+		DefaultScopes:        c.DefaultClientScopes,
 	}
 	if out.BackchannelLogoutURL == "" {
 		out.BackchannelLogoutURL = c.Attributes[BackchannelLogoutAttr]

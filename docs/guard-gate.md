@@ -22,7 +22,7 @@ the console.
 
 ## How a decision is made
 
-1. Guard (`internal/posture`, rules HAVEN001 to HAVEN023) evaluates the realm **before** and
+1. Guard (`internal/posture`, rules HAVEN001 to HAVEN030) evaluates the realm **before** and
    **after** the proposed write. A client write evaluates the whole realm, because some rules look
    across clients (for example HAVEN021).
 2. Findings are compared by rule, realm and client. A finding is **new** if it is in the after state
