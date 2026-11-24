@@ -55,7 +55,7 @@ import (
 const usage = `haven-idp: Haven's own identity server
 
 Usage:
-  haven-idp dev     [--port 8081] [--realm demo] [--redirect URL]... [--open]
+  haven-idp dev     [--port 8081] [--realm demo] [--redirect URL]... [--open] [--persist DIR]
   haven-idp init    [--dir .] [--base-url URL] [--realm platform] [--user admin] [--memory] [--force] [--print]
   haven-idp serve   [--env-file haven-idp.env]
   haven-idp validate -f FILE [--fail-on high]

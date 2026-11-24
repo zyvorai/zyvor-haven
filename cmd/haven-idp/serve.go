@@ -41,6 +41,9 @@ type Config struct {
 	BaseURL string // public base URL, required
 	DSN     string // PostgreSQL DSN
 	Memory  bool   // allow the in-memory store (data lost on restart)
+	// PersistDir (dev only, needs Memory) keeps the in-memory store's state in
+	// this directory across restarts (state.json, mode 0600).
+	PersistDir string
 
 	CSRFKey    string
 	TrustProxy bool
@@ -200,6 +203,20 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		}
 		defer pg.Close()
 		st = pg
+	case cfg.Memory && cfg.PersistDir != "":
+		ms, pers, err := memstore.OpenPersistent(cfg.PersistDir)
+		if err != nil {
+			return errors.New("open persisted dev state: " + err.Error())
+		}
+		log.Warn("dev state is persisted to disk (plain JSON incl. password hashes and signing keys; dev only)", "dir", pers.Dir())
+		st = ms
+		pctx, pcancel := context.WithCancel(context.Background())
+		pdone := make(chan struct{})
+		go func() {
+			defer close(pdone)
+			pers.Run(pctx, 2*time.Second, func(err error) { log.Error("persist dev state", "error", err.Error()) })
+		}()
+		defer func() { pcancel(); <-pdone }() // final save after the server has stopped
 	case cfg.Memory:
 		log.Warn("using the in-memory store: all data is lost on restart")
 		st = memstore.New()

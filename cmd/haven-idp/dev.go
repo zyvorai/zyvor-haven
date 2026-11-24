@@ -84,6 +84,7 @@ func cmdDev(args []string, out io.Writer) error {
 	user := fs.String("user", "demo", "test user name")
 	open := fs.Bool("open", false, "open the playground in your browser")
 	reset := fs.Bool("reset-creds", false, "generate a new test password and secrets")
+	persist := fs.String("persist", "", "keep users, clients and keys in this directory so they survive restarts (dev only; mode 0600/0700)")
 	var redirects multiFlag
 	fs.Var(&redirects, "redirect", "redirect URI for the "+devAppClient+" client (repeatable; default http://localhost:3000/callback)")
 	if err := fs.Parse(args); err != nil {
@@ -108,6 +109,13 @@ func cmdDev(args []string, out io.Writer) error {
 		return fmt.Errorf("dev credentials: %w", err)
 	}
 
+	persistDir, secretKey := "", ""
+	if *persist != "" {
+		if persistDir, secretKey, err = preparePersist(*persist); err != nil {
+			return err
+		}
+	}
+
 	base := fmt.Sprintf("http://127.0.0.1:%d", *port)
 	issuer := base + "/realms/" + *realm
 	outbox := mail.NewOutbox(100)
@@ -116,6 +124,8 @@ func cmdDev(args []string, out io.Writer) error {
 		Listen:                  fmt.Sprintf("127.0.0.1:%d", *port), // loopback only: this server is for development
 		BaseURL:                 base,
 		Memory:                  true,
+		PersistDir:              persistDir,
+		SecretKey:               secretKey, // empty without --persist: serve picks a per-process key
 		MetricsOnMain:           true,
 		CSRFKey:                 creds.CSRFKey,
 		BootstrapRealm:          *realm,
@@ -126,7 +136,12 @@ func cmdDev(args []string, out io.Writer) error {
 		ConsoleRedirects:        []string{base + "/dev/"},
 		BackchannelAllowPrivate: true, // dev: loopback IdP, apps on localhost
 		FederationAllowPrivate:  true, // dev: upstream providers may be local haven-idp instances
-		PostBootstrap: func(ctx context.Context, st core.Store, _ core.PasswordHasher) error {
+		PostBootstrap: func(ctx context.Context, st core.Store, h core.PasswordHasher) error {
+			if persistDir != "" {
+				if err := syncDevPassword(ctx, st, h, *realm, *user, creds.Password); err != nil {
+					return err
+				}
+			}
 			err := st.CreateClient(ctx, core.Client{
 				Realm: *realm, ClientID: devAppClient, Name: "Demo app", Enabled: true,
 				Public: true, AuthCodeFlow: true, RequirePKCE: true, RedirectURIs: redirects,
@@ -152,6 +167,9 @@ func cmdDev(args []string, out io.Writer) error {
 		},
 		OnReady: func(string) {
 			printDevBanner(out, base, issuer, *realm, *user, creds, redirects, playgroundHandler != nil)
+			if persistDir != "" {
+				fmt.Fprintf(out, "Persisting to %s (state.json, secret.key: keep this directory private; delete it to start over)\n\n", persistDir)
+			}
 			if *open && playgroundHandler != nil {
 				openBrowser(base + "/dev/")
 			}
