@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
+import { Art, SkeletonBlock } from '../components/graphics/Art';
 import { DataTable } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { api, type Realm } from '../api/client';
@@ -53,6 +54,7 @@ export function RealmsPage() {
         <div className="console-content">
           <div className="console-content-inner">
             <ConsolePageHeader
+              art="realm"
               eyebrow="Identity"
               title="Realm Studio"
               subtitle="Create and manage Keycloak realms as tenant boundaries."
@@ -63,19 +65,24 @@ export function RealmsPage() {
               }
             />
           {err && (
-            <div className="settings-offline-hint" role="alert" style={{ maxWidth: 560, marginBottom: 20 }}>
+            <div className="settings-offline-hint settings-offline-hint--art" role="alert">
+              <Art name="offline" size={110} />
+              <div>
               <strong>Keycloak unreachable</strong>
               <p>{err}</p>
               <Link to="/settings?focus=keycloak" className="btn btn-primary">
                 Configure in Settings
               </Link>
+              </div>
             </div>
           )}
           {loading ? (
-            <p style={{ color: 'var(--zy-muted)' }}>Loading realms…</p>
+            <SkeletonBlock card label="Loading realms…" rows={3} />
           ) : err ? null : (
             <DataTable
               rows={realms}
+              empty="No realms yet"
+              emptyArt="realm"
               keyField={(r) => r.realm}
               onRowClick={(r) => nav(`/realms/${encodeURIComponent(r.realm)}`)}
               columns={[

@@ -13,7 +13,7 @@ function Icon({ size = 18, children, ...rest }: IconProps & { children: ReactNod
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
@@ -24,9 +24,9 @@ function Icon({ size = 18, children, ...rest }: IconProps & { children: ReactNod
   );
 }
 
-/** Soft fill accent — reads as dual-tone without hard color. */
+/** Gradient accent fill (defined once by GraphicDefs) — dual-tone, themes with the page. */
 function Soft({ d, ...rest }: { d?: string } & SVGProps<SVGPathElement>) {
-  return <path d={d} fill="currentColor" fillOpacity="0.18" stroke="none" {...rest} />;
+  return <path d={d} fill="url(#hv-accent)" fillOpacity="0.28" stroke="none" {...rest} />;
 }
 
 export function IconDeck(props: IconProps) {
@@ -106,6 +106,7 @@ export function IconFederation(props: IconProps) {
       <circle cx="7" cy="8" r="3" />
       <circle cx="17" cy="8" r="3" />
       <circle cx="12" cy="17" r="3" />
+      <Soft d="M12 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" />
       <path d="m9.5 9.8 1.1 4.2M14.5 9.8 13.4 14M9.8 17h4.4" />
     </Icon>
   );
@@ -124,6 +125,7 @@ export function IconCredentials(props: IconProps) {
 export function IconTimeMachine(props: IconProps) {
   return (
     <Icon {...props}>
+      <Soft d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z" />
       <circle cx="12" cy="12" r="8" />
       <path d="M12 7v5l3 2M6.2 5.8 3.8 6.2l.4-2.4" />
       <path d="M4.2 6.2A9.5 9.5 0 0 1 12 2.5" />
@@ -177,6 +179,91 @@ export function IconChevronRight(props: IconProps) {
   );
 }
 
+
+export function IconAccess(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <Soft d="M3.5 19.5c0-3.6 2.7-5.5 6-5.5s6 1.9 6 5.5H3.5Z" />
+      <circle cx="9.5" cy="8" r="3.5" />
+      <path d="M3.5 19.5c0-3.6 2.7-5.5 6-5.5s6 1.9 6 5.5" />
+      <path d="m16.5 9.5 1.8 1.8 3.2-3.6" />
+    </Icon>
+  );
+}
+
+export function IconSun(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.8v2M12 19.2v2M4.4 4.4l1.4 1.4M18.2 18.2l1.4 1.4M2.8 12h2M19.2 12h2M4.4 19.6l1.4-1.4M18.2 5.8l1.4-1.4" />
+    </Icon>
+  );
+}
+
+export function IconMoon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+    </Icon>
+  );
+}
+
+export function IconSearch(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4.5 4.5" />
+    </Icon>
+  );
+}
+
+export function IconPulse(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />
+    </Icon>
+  );
+}
+
+export function IconDatabase(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <Soft d="M5 6c0 1.7 3.1 3 7 3s7-1.3 7-3-3.1-3-7-3-7 1.3-7 3Z" />
+      <ellipse cx="12" cy="6" rx="7" ry="3" />
+      <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+    </Icon>
+  );
+}
+
+export function IconBackup(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <Soft d="M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Z" />
+      <path d="M12 16.5v-8M8.5 12 12 8.5l3.5 3.5" />
+      <circle cx="12" cy="12" r="8.5" />
+    </Icon>
+  );
+}
+
+export function IconCertificate(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <Soft d="M5 3.5h14v11H5z" />
+      <rect x="4" y="3.5" width="16" height="12" rx="2.5" />
+      <path d="m9 9.5 2 2 4-4M8.5 15.5 7.5 21l4.5-2.2 4.5 2.2-1-5.5" />
+    </Icon>
+  );
+}
+
+export function IconAlert(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 4 3 19.5h18L12 4Z" />
+      <path d="M12 10v4.5M12 17.2v.1" />
+    </Icon>
+  );
+}
+
 export const navIcons = {
   deck: IconDeck,
   deploy: IconDeploy,
@@ -186,7 +273,7 @@ export const navIcons = {
   guard: IconGuard,
   federation: IconFederation,
   credentials: IconCredentials,
-  access: IconClients,
+  access: IconAccess,
   timemachine: IconTimeMachine,
   atlas: IconAtlas,
   settings: IconSettings,

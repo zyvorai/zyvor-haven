@@ -1,12 +1,14 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
+import type { ReactNode } from 'react';
+
 type Props = {
   label: string;
   value: string;
   meta: string;
   ok?: boolean;
-  icon?: string;
+  icon?: ReactNode;
   variant?: 'live' | 'mock' | 'default';
 };
 

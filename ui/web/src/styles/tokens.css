@@ -1,21 +1,31 @@
 /* Copyright 2026 Zyvor AI Labs · https://zyvor.dev
  * SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0 */
+
+/* Haven console design tokens: the single source of truth for colour,
+ * spacing, radii, type, elevation and motion. Light is the base; dark is
+ * applied by the OS preference (until the app sets data-theme) and by
+ * data-theme="dark". The two dark blocks below must stay identical. */
 :root {
-  /* apple.com off-white (global) */
-  --zy-canvas: #fbfbfd;
+  color-scheme: light dark;
+
+  /* Surfaces and ink (apple.com) */
+  --zy-canvas: #f5f5f7;
   --zy-surface: #ffffff;
   --zy-surface-2: #f5f5f7;
   --zy-elevated: #ffffff;
   --zy-hairline: #d2d2d7;
   --zy-ink: #1d1d1f;
   --zy-slate: #6e6e73;
-  --zy-muted: #86868b;
+  --zy-muted: #6e6e73;
 
-  /* Apple blue + iPhone 17 Mist Blue accent */
+  /* Apple blue. --zy-500 is accent/link text; --zy-btn is a filled button. */
   --zy-500: #0071e3;
   --zy-600: #0077ed;
   --zy-700: #006edb;
+  --zy-btn: #0071e3;
+  --zy-btn-hover: #0077ed;
   --zy-tint: rgba(0, 113, 227, 0.1);
+  --zy-ring: rgba(0, 113, 227, 0.25);
   --zy-mist: #96aed1;
   --zy-mist-tint: rgba(150, 174, 209, 0.22);
 
@@ -24,14 +34,44 @@
   --zyvor-orange-dark: #cc420a;
   --zyvor-orange-tint: rgba(255, 90, 21, 0.1);
 
+  /* Status */
   --zy-ok: #248a3d;
   --zy-ok-tint: rgba(36, 138, 61, 0.1);
-  --zy-warn: #bf4800;
+  --zy-warn: #b64400;
   --zy-warn-tint: rgba(191, 72, 0, 0.1);
-  --zy-err: #e30000;
-  --zy-err-tint: rgba(227, 0, 0, 0.08);
-  --zy-danger: #e30000;
+  --zy-err: #d70015;
+  --zy-err-tint: rgba(215, 0, 21, 0.08);
+  --zy-danger: #d70015;
 
+  /* Severity (text-safe on --zy-surface) */
+  --zy-sev-critical: #8f0a1a;
+  --zy-sev-high: #d70015;
+  --zy-sev-medium: #b64400;
+  --zy-sev-low: #0066cc;
+  --zy-sev-info: #6e6e73;
+
+  /* Chart palette (fills; always paired with a text label or value) */
+  --zy-chart-1: #0071e3;
+  --zy-chart-2: #30b050;
+  --zy-chart-3: #ff9f0a;
+  --zy-chart-4: #ff453a;
+  --zy-chart-5: #5e5ce6;
+  --zy-chart-6: #30b0c7;
+  --zy-chart-track: rgba(0, 0, 0, 0.07);
+  --zy-chart-grid: rgba(0, 0, 0, 0.08);
+
+  /* Gradient accents for icons and illustrations */
+  --zy-grad-1: #0a84ff;
+  --zy-grad-2: #5e5ce6;
+  --zy-grad-3: #30b0c7;
+
+  /* Mesh backdrop (sign-in, empty states) */
+  --zy-mesh-1: rgba(10, 132, 255, 0.28);
+  --zy-mesh-2: rgba(94, 92, 230, 0.2);
+  --zy-mesh-3: rgba(48, 176, 199, 0.22);
+  --zy-mesh-4: rgba(255, 159, 10, 0.12);
+
+  /* Spacing */
   --zy-s1: 4px;
   --zy-s2: 8px;
   --zy-s3: 12px;
@@ -43,84 +83,202 @@
   --zy-s9: 88px;
   --zy-s10: 120px;
 
+  /* Radii */
   --zy-r-sm: 8px;
   --zy-r-md: 12px;
   --zy-r-lg: 18px;
   --zy-r-xl: 22px;
   --zy-r-pill: 980px;
 
+  /* Elevation */
   --zy-e1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 8px rgba(0, 0, 0, 0.04);
   --zy-e2: 0 4px 16px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04);
-  --zy-e3: 0 12px 40px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --zy-e3: 0 12px 40px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05);
 
-  --zy-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
-  --zy-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  /* Type */
+  --zy-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --zy-text: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --zy-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
 
+  /* Layout */
   --zy-max: 980px;
   --zy-max-narrow: 692px;
   --zy-gutter: 22px;
   --zy-nav-h: 44px;
-  --zy-sidebar-w: 196px;
-  --zy-sidebar-w-collapsed: 52px;
+  --zy-sidebar-w: 224px;
+  --zy-sidebar-w-collapsed: 60px;
+  --zy-control-h: 44px;
 
-  --zy-fast: 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
-  --zy-base: 0.32s cubic-bezier(0.25, 0.1, 0.25, 1);
-  --zy-slow: 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* Motion */
+  --zy-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --zy-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --zy-fast: 0.15s var(--zy-ease);
+  --zy-base: 0.25s var(--zy-ease);
+  --zy-slow: 0.8s var(--zy-ease-out);
 
-  --gnav-bg: rgba(251, 251, 253, 0.78);
+  /* Chrome */
+  --gnav-bg: rgba(255, 255, 255, 0.72);
+  --gnav-bg-solid: #ffffff;
   --gnav-border: rgba(0, 0, 0, 0.08);
-  --topbar-bg: rgba(251, 251, 253, 0.72);
-  --sidebar-bg: #ffffff;
+  --topbar-bg: rgba(245, 245, 247, 0.72);
+  --sidebar-bg: rgba(255, 255, 255, 0.72);
   --overlay-bg: rgba(0, 0, 0, 0.4);
   --palette-bg: rgba(255, 255, 255, 0.92);
+  --glass-bg: rgba(255, 255, 255, 0.72);
   --featured-gradient: linear-gradient(135deg, #ffffff 0%, var(--zy-mist-tint) 55%, #ffffff 100%);
   --card-border: var(--zy-hairline);
 }
 
-/* Apple-style dark — deeper canvas, elevated layers, soft hairlines */
-[data-theme="dark"] {
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --zy-canvas: #000000;
+    --zy-surface: #1d1d1f;
+    --zy-surface-2: #2c2c2e;
+    --zy-elevated: #3a3a3c;
+    --zy-hairline: #424245;
+    --zy-ink: #f5f5f7;
+    --zy-slate: #a1a1a6;
+    --zy-muted: #86868b;
+
+    --zy-500: #2997ff;
+    --zy-600: #0077ed;
+    --zy-700: #147ce5;
+    --zy-btn: #0071e3;
+    --zy-btn-hover: #0077ed;
+    --zy-tint: rgba(41, 151, 255, 0.16);
+    --zy-ring: rgba(41, 151, 255, 0.35);
+    --zy-mist: #8e9fb8;
+    --zy-mist-tint: rgba(142, 159, 184, 0.16);
+
+    --zy-ok: #30d158;
+    --zy-ok-tint: rgba(48, 209, 88, 0.14);
+    --zy-warn: #ff9f0a;
+    --zy-warn-tint: rgba(255, 159, 10, 0.14);
+    --zy-err: #ff6961;
+    --zy-err-tint: rgba(255, 105, 97, 0.14);
+    --zy-danger: #ff6961;
+
+    --zy-sev-critical: #ff8a80;
+    --zy-sev-high: #ff6961;
+    --zy-sev-medium: #ff9f0a;
+    --zy-sev-low: #64b5ff;
+    --zy-sev-info: #a1a1a6;
+
+    --zy-chart-1: #2997ff;
+    --zy-chart-2: #30d158;
+    --zy-chart-3: #ff9f0a;
+    --zy-chart-4: #ff6961;
+    --zy-chart-5: #7d7aff;
+    --zy-chart-6: #40c8e0;
+    --zy-chart-track: rgba(255, 255, 255, 0.1);
+    --zy-chart-grid: rgba(255, 255, 255, 0.1);
+
+    --zy-grad-1: #2997ff;
+    --zy-grad-2: #7d7aff;
+    --zy-grad-3: #40c8e0;
+
+    --zy-mesh-1: rgba(41, 151, 255, 0.34);
+    --zy-mesh-2: rgba(125, 122, 255, 0.28);
+    --zy-mesh-3: rgba(64, 200, 224, 0.2);
+    --zy-mesh-4: rgba(255, 159, 10, 0.1);
+
+    --zy-e1: 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 12px rgba(0, 0, 0, 0.45);
+    --zy-e2: 0 4px 24px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.06);
+    --zy-e3: 0 16px 48px rgba(0, 0, 0, 0.65), 0 2px 0 rgba(255, 255, 255, 0.04);
+
+    --gnav-bg: rgba(29, 29, 31, 0.72);
+    --gnav-bg-solid: #1d1d1f;
+    --gnav-border: rgba(255, 255, 255, 0.1);
+    --topbar-bg: rgba(0, 0, 0, 0.6);
+    --sidebar-bg: rgba(29, 29, 31, 0.72);
+    --overlay-bg: rgba(0, 0, 0, 0.62);
+    --palette-bg: rgba(44, 44, 46, 0.92);
+    --glass-bg: rgba(29, 29, 31, 0.72);
+    --featured-gradient: linear-gradient(145deg, #1d1d1f 0%, rgba(41, 151, 255, 0.16) 45%, #1d1d1f 100%);
+    --card-border: #424245;
+  }
+}
+
+[data-theme='dark'] {
   --zy-canvas: #000000;
-  --zy-surface: #1c1c1e;
+  --zy-surface: #1d1d1f;
   --zy-surface-2: #2c2c2e;
   --zy-elevated: #3a3a3c;
-  --zy-hairline: rgba(255, 255, 255, 0.12);
+  --zy-hairline: #424245;
   --zy-ink: #f5f5f7;
   --zy-slate: #a1a1a6;
-  --zy-muted: #6e6e73;
+  --zy-muted: #86868b;
 
   --zy-500: #2997ff;
   --zy-600: #0077ed;
   --zy-700: #147ce5;
+  --zy-btn: #0071e3;
+  --zy-btn-hover: #0077ed;
   --zy-tint: rgba(41, 151, 255, 0.16);
+  --zy-ring: rgba(41, 151, 255, 0.35);
   --zy-mist: #8e9fb8;
   --zy-mist-tint: rgba(142, 159, 184, 0.16);
-
-  --zyvor-orange-tint: rgba(255, 90, 21, 0.14);
 
   --zy-ok: #30d158;
   --zy-ok-tint: rgba(48, 209, 88, 0.14);
   --zy-warn: #ff9f0a;
   --zy-warn-tint: rgba(255, 159, 10, 0.14);
-  --zy-err: #ff453a;
-  --zy-err-tint: rgba(255, 69, 58, 0.14);
-  --zy-danger: #ff453a;
+  --zy-err: #ff6961;
+  --zy-err-tint: rgba(255, 105, 97, 0.14);
+  --zy-danger: #ff6961;
+
+  --zy-sev-critical: #ff8a80;
+  --zy-sev-high: #ff6961;
+  --zy-sev-medium: #ff9f0a;
+  --zy-sev-low: #64b5ff;
+  --zy-sev-info: #a1a1a6;
+
+  --zy-chart-1: #2997ff;
+  --zy-chart-2: #30d158;
+  --zy-chart-3: #ff9f0a;
+  --zy-chart-4: #ff6961;
+  --zy-chart-5: #7d7aff;
+  --zy-chart-6: #40c8e0;
+  --zy-chart-track: rgba(255, 255, 255, 0.1);
+  --zy-chart-grid: rgba(255, 255, 255, 0.1);
+
+  --zy-grad-1: #2997ff;
+  --zy-grad-2: #7d7aff;
+  --zy-grad-3: #40c8e0;
+
+  --zy-mesh-1: rgba(41, 151, 255, 0.34);
+  --zy-mesh-2: rgba(125, 122, 255, 0.28);
+  --zy-mesh-3: rgba(64, 200, 224, 0.2);
+  --zy-mesh-4: rgba(255, 159, 10, 0.1);
 
   --zy-e1: 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 12px rgba(0, 0, 0, 0.45);
   --zy-e2: 0 4px 24px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.06);
   --zy-e3: 0 16px 48px rgba(0, 0, 0, 0.65), 0 2px 0 rgba(255, 255, 255, 0.04);
 
-  --gnav-bg: rgba(22, 22, 24, 0.82);
-  --gnav-border: rgba(255, 255, 255, 0.08);
-  --topbar-bg: rgba(22, 22, 24, 0.72);
-  --sidebar-bg: #161617;
+  --gnav-bg: rgba(29, 29, 31, 0.72);
+  --gnav-bg-solid: #1d1d1f;
+  --gnav-border: rgba(255, 255, 255, 0.1);
+  --topbar-bg: rgba(0, 0, 0, 0.6);
+  --sidebar-bg: rgba(29, 29, 31, 0.72);
   --overlay-bg: rgba(0, 0, 0, 0.62);
   --palette-bg: rgba(44, 44, 46, 0.92);
-  --featured-gradient: linear-gradient(
-    145deg,
-    #1c1c1e 0%,
-    rgba(41, 151, 255, 0.14) 42%,
-    #2c2c2e 100%
-  );
-  --card-border: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(29, 29, 31, 0.72);
+  --featured-gradient: linear-gradient(145deg, #1d1d1f 0%, rgba(41, 151, 255, 0.16) 45%, #1d1d1f 100%);
+  --card-border: #424245;
+}
+
+/* An explicit light choice must beat the OS dark preference. */
+[data-theme='light'] {
+  color-scheme: light;
+}
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@media (forced-colors: active) {
+  :root {
+    --zy-hairline: CanvasText;
+    --card-border: CanvasText;
+    --zy-ring: Highlight;
+  }
 }

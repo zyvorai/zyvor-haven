@@ -36,10 +36,12 @@ function resolve(mode: ThemeMode): 'light' | 'dark' {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
-    return saved ?? 'light';
+    return saved ?? 'system';
   });
 
-  const resolved = useMemo(() => resolve(mode), [mode]);
+  const [sysTick, setSysTick] = useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const resolved = useMemo(() => resolve(mode), [mode, sysTick]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', resolved);
@@ -51,6 +53,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const onChange = () => {
       document.documentElement.setAttribute('data-theme', resolve('system'));
+      setSysTick((n) => n + 1);
     };
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);

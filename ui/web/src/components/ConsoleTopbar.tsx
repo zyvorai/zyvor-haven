@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
 import type { ReactNode } from 'react';
+import { IconSearch } from './NavIcons';
 
 type Props = {
   realm?: string;
@@ -20,6 +21,7 @@ export function ConsoleTopbar({ realm = 'platform', onOpenPalette, trailing }: P
         {trailing}
         {onOpenPalette && (
           <button type="button" className="console-palette-btn" onClick={onOpenPalette}>
+            <IconSearch size={16} />
             Command Palette
             <kbd>⌘K</kbd>
           </button>

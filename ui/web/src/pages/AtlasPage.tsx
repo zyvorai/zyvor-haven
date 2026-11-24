@@ -13,6 +13,22 @@ function nodeClass(s: NodeState) {
   return `atlas-node atlas-node--${s}`;
 }
 
+/** Animated connector between topology tiers. Dash flow is paused when the target is down. */
+function Flow({ state, split }: { state: NodeState; split?: boolean }) {
+  return (
+    <svg className={`atlas-flow atlas-flow--${state}`} viewBox="0 0 320 44" width="320" height="44" aria-hidden focusable="false" fill="none">
+      {split ? (
+        <>
+          <path d="M160 0v10c0 8-60 8-60 18v16" />
+          <path d="M160 0v10c0 8 60 8 60 18v16" />
+        </>
+      ) : (
+        <path d="M160 0v44" />
+      )}
+    </svg>
+  );
+}
+
 export function AtlasPage() {
   const [kc, setKc] = useState<KeycloakStatus | null>(null);
   const [plane, setPlane] = useState<PlaneStatus | null>(null);
@@ -51,7 +67,10 @@ export function AtlasPage() {
                 <div className="atlas-node-meta">:30742 · operator UI</div>
               </div>
             </div>
-            <div className="atlas-arrow">↓ Admin API / OIDC</div>
+            <div className="atlas-arrow">
+              <Flow state={ingressState} />
+              <span>↓ Admin API / OIDC</span>
+            </div>
             <div className="atlas-row">
               <div className={nodeClass(ingressState)}>
                 <div className="atlas-node-kicker">Edge</div>
@@ -61,7 +80,10 @@ export function AtlasPage() {
                 </div>
               </div>
             </div>
-            <div className="atlas-arrow">↓ Issuer</div>
+            <div className="atlas-arrow">
+              <Flow state={kcState} split />
+              <span>↓ Issuer</span>
+            </div>
             <div className="atlas-row atlas-row--split">
               <div className={nodeClass(kcState)}>
                 <div className="atlas-node-kicker">Identity</div>

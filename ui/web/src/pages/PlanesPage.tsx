@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
+import { Art, EmptyState, SkeletonBlock } from '../components/graphics/Art';
+import { RingGauge } from '../components/graphics/Charts';
 import { api, type PlaneStatus } from '../api/client';
 
 type PlaneRow = {
@@ -50,6 +52,7 @@ export function PlanesPage() {
       <div className="console-content">
         <div className="console-content-inner">
           <ConsolePageHeader
+            art="plane"
             eyebrow="Fleet"
             title="Planes"
             subtitle="IdentityPlane instances — health, profile, and endpoints."
@@ -60,21 +63,33 @@ export function PlanesPage() {
             }
           />
 
-          {err && <p style={{ color: 'var(--zy-danger)' }}>{err}</p>}
+          {err && (
+            <div className="inline-error" role="alert">
+              <Art name="offline" size={84} />
+              <p>{err}</p>
+            </div>
+          )}
           {loading ? (
-            <p style={{ color: 'var(--zy-muted)' }}>Loading planes…</p>
+            <div className="planes-grid">
+              <SkeletonBlock card label="Loading planes…" rows={3} />
+            </div>
           ) : rows.length === 0 ? (
             <div className="card empty-card">
-              <h3>No IdentityPlane yet</h3>
-              <p>Deploy a plane or connect Keycloak in Settings to start operating.</p>
-              <div className="btn-row" style={{ marginTop: 16 }}>
-                <Link to="/deploy" className="btn btn-primary">
-                  Deploy wizard
-                </Link>
-                <Link to="/settings?focus=keycloak" className="btn btn-ghost">
-                  Settings
-                </Link>
-              </div>
+              <EmptyState
+                art="plane"
+                title="No IdentityPlane yet"
+                body="Deploy a plane or connect Keycloak in Settings to start operating."
+                actions={
+                  <>
+                    <Link to="/deploy" className="btn btn-primary">
+                      Deploy wizard
+                    </Link>
+                    <Link to="/settings?focus=keycloak" className="btn btn-ghost">
+                      Settings
+                    </Link>
+                  </>
+                }
+              />
             </div>
           ) : (
             <div className="planes-grid">
@@ -86,6 +101,17 @@ export function PlanesPage() {
                       <div className="plane-card-ns">{p.namespace}</div>
                     </div>
                     <span className={`plane-phase ${p.ok ? 'ok' : 'warn'}`}>{p.phase}</span>
+                  </div>
+                  <div className="plane-card-gauge">
+                    <RingGauge
+                      size={96}
+                      value={[plane?.phaseCard, plane?.postgres, plane?.backup, plane?.certificate].filter((c) => c?.ok).length}
+                      max={4}
+                      tone={p.ok ? 'ok' : 'warn'}
+                      center={p.ok ? 'OK' : '!'}
+                      label={`Plane checks: ${[plane?.phaseCard, plane?.postgres, plane?.backup, plane?.certificate].filter((c) => c?.ok).length} of 4 healthy`}
+                    />
+                    <p className="plane-card-desc">{p.meta}</p>
                   </div>
                   <dl className="plane-meta">
                     <div>
@@ -101,7 +127,6 @@ export function PlanesPage() {
                       <dd>{plane?.certificate?.value ?? '—'}</dd>
                     </div>
                   </dl>
-                  <p className="plane-card-desc">{p.meta}</p>
                   <div className="plane-card-actions">
                     <Link to="/deck" className="btn btn-primary" style={{ padding: '8px 14px', fontSize: 13 }}>
                       Open Command Deck
