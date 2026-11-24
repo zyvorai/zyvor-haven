@@ -160,6 +160,18 @@ func (e *env) codeFlow(clientID, secret, redirect string) (map[string]any, strin
 	if err != nil {
 		e.t.Fatal(err)
 	}
+	// Dynamically registered clients go through the consent screen (consent.go).
+	if cp, _ := io.ReadAll(resp.Body); resp.StatusCode == 200 && strings.Contains(string(cp), "consent_decision") {
+		cm, dm := csrfRe.FindSubmatch(cp), regexp.MustCompile(`name="consent_proof" value="([^"]+)"`).FindSubmatch(cp)
+		if cm == nil || dm == nil {
+			e.t.Fatalf("consent page without csrf/digest: %s", cp)
+		}
+		resp.Body.Close()
+		resp, err = c.PostForm(authURL, url.Values{"consent_decision": {"allow"}, "consent_proof": {string(dm[1])}, "csrf": {string(cm[1])}})
+		if err != nil {
+			e.t.Fatal(err)
+		}
+	}
 	resp.Body.Close()
 	loc, _ := url.Parse(resp.Header.Get("Location"))
 	if resp.StatusCode != 302 || loc == nil || loc.Query().Get("code") == "" {

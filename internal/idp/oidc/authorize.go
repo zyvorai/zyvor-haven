@@ -61,7 +61,7 @@ func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 		p.errorPage(w, http.StatusNotFound, "Unknown realm.")
 		return
 	}
-	cl, err := p.authorizeClient(r.Context(), name, q.Get("client_id")) // store lookup (+ built-in device-login client, device.go)
+	cl, err := p.authorizeClientFor(r, name, q.Get("client_id")) // cimd.go: kill switch + metadata-document clients, then authorizeClient (device.go)
 	if err != nil || !cl.Enabled || !cl.AuthCodeFlow {
 		p.errorPage(w, http.StatusBadRequest, "Invalid client.")
 		return
@@ -192,6 +192,9 @@ func (p *Provider) ssoReuse(w http.ResponseWriter, r *http.Request, ar *authzReq
 func (p *Provider) issueCode(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, s core.Session, detail string) {
 	ctx := r.Context()
 	rl := ar.realm
+	if consentGateHook != nil && consentGateHook(p, w, r, ar, u, s, detail) { // consent.go
+		return
+	}
 	if err := p.cfg.Store.AddSessionClient(ctx, rl.Name, s.ID, ar.client.ClientID); err != nil {
 		p.cfg.Logger.Error("oidc: record session client", "err", err)
 		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
