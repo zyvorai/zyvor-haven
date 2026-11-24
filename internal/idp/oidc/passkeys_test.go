@@ -354,6 +354,18 @@ func TestPasskeyNegativeAssertions(t *testing.T) {
 			t.Fatal("accepted without a user handle")
 		}
 	})
+	t.Run("valid handle of a different user", func(t *testing.T) {
+		must(t, e.st.CreateUser(context.Background(), core.User{ID: "u9", Realm: "r", Username: "mallory", Enabled: true, EmailVerified: true}))
+		h, err := e.st.UserHandle(context.Background(), "r", "u9", bu([]byte("mallorys-own-user-handle-0123456")))
+		must(t, err)
+		hb, _ := base64.RawURLEncoding.DecodeString(h)
+		pg := fresh()
+		f := assertionForm(pg, "login", a, pkOrigin) // alice's credential and signature...
+		f.Set("pk_uh", bu(hb))                       // ...claimed by mallory's handle
+		if isCode(post(pg, f)) {
+			t.Fatal("credential accepted for a user whose handle it does not carry")
+		}
+	})
 	t.Run("garbage and oversize fields", func(t *testing.T) {
 		pg := fresh()
 		f := assertionForm(pg, "login", a, pkOrigin)
