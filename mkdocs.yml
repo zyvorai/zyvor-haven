@@ -99,6 +99,8 @@ nav:
       - DPoP (sender-constrained tokens): dpop.md
       - Password policy: password-policy.md
       - Device login (CLI, CI): device-flow.md
+      - Workload identity (no static secrets): workload-identity.md
+      - Agent and MCP identities: agent-identities.md
       - Add an app (wizard and Test login): add-an-app.md
       - Backups: backups.md
       - haven CLI (device login, kubectl): haven-cli.md
