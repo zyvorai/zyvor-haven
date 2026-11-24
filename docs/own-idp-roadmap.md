@@ -75,6 +75,7 @@ password reset (SMTP, single-use links; see
 [email-and-password-reset.md](email-and-password-reset.md)), and SSO sessions with single logout
 (`haven_sso` cookie, `prompt`/`max_age`, `sid`, RP-initiated and back-channel logout, Admin session
 routes; see [sso-and-logout.md](sso-and-logout.md)).
+The `haven` CLI client (device-flow login, `haven token`, kubectl exec plugin; see [haven-cli.md](haven-cli.md)) is built and tested against a fake RFC 8628 IdP but not yet run against the real device endpoint, and has no OS keychain or Windows cross-process lock.
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:
