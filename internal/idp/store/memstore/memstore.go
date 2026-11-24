@@ -31,6 +31,7 @@ type Store struct {
 	codes   map[string]core.AuthCode
 	refresh map[string]core.RefreshToken
 	actions map[string]core.ActionToken
+	sess    map[string]core.Session // key: id
 	events  []core.Event
 	rates   map[string]rateWindow
 }
@@ -54,6 +55,7 @@ func New() *Store {
 		codes:   map[string]core.AuthCode{},
 		refresh: map[string]core.RefreshToken{},
 		actions: map[string]core.ActionToken{},
+		sess:    map[string]core.Session{},
 		rates:   map[string]rateWindow{},
 	}
 }
@@ -162,6 +164,11 @@ func (s *Store) DeleteRealm(_ context.Context, name string) error {
 	}
 	delete(s.realms, lc(name))
 	n := r.Name
+	for k, v := range s.sess {
+		if v.Realm == n {
+			delete(s.sess, k)
+		}
+	}
 	for k, v := range s.users {
 		if v.Realm == n {
 			delete(s.users, k)
@@ -320,6 +327,11 @@ func (s *Store) DeleteUser(_ context.Context, realm, id string) error {
 		return nf("user " + id)
 	}
 	delete(s.users, id)
+	for k, v := range s.sess {
+		if v.Realm == realm && v.UserID == id {
+			delete(s.sess, k)
+		}
+	}
 	return nil
 }
 
@@ -669,6 +681,138 @@ func (s *Store) CountActionTokens(_ context.Context, realm, userID, purpose stri
 	return n, nil
 }
 
+// Sessions
+
+func cses(x core.Session) core.Session { x.Clients = cs(x.Clients); return x }
+
+func (s *Store) PutSession(_ context.Context, x core.Session) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.needRealm(x.Realm); err != nil {
+		return err
+	}
+	for _, o := range s.sess {
+		if o.ID == x.ID || o.CookieHash == x.CookieHash {
+			return dup("session")
+		}
+	}
+	if x.CreatedAt.IsZero() {
+		x.CreatedAt = time.Now().UTC()
+	}
+	s.sess[x.ID] = cses(x)
+	return nil
+}
+
+func (s *Store) GetSession(_ context.Context, realm, id string) (core.Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if x, ok := s.sess[id]; ok && x.Realm == realm {
+		return cses(x), nil
+	}
+	return core.Session{}, nf("session")
+}
+
+func (s *Store) GetSessionByCookie(_ context.Context, realm, cookieHash string) (core.Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, x := range s.sess {
+		if x.Realm == realm && x.CookieHash == cookieHash {
+			return cses(x), nil
+		}
+	}
+	return core.Session{}, nf("session")
+}
+
+func (s *Store) TouchSession(_ context.Context, realm, id string, lastSeen, idleExpires time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	x, ok := s.sess[id]
+	if !ok || x.Realm != realm {
+		return nf("session")
+	}
+	x.LastSeen, x.IdleExpires = lastSeen, idleExpires
+	s.sess[id] = x
+	return nil
+}
+
+func (s *Store) AddSessionClient(_ context.Context, realm, id, clientID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	x, ok := s.sess[id]
+	if !ok || x.Realm != realm {
+		return nf("session")
+	}
+	if !slices.Contains(x.Clients, clientID) {
+		x.Clients = append(slices.Clone(x.Clients), clientID)
+		s.sess[id] = x
+	}
+	return nil
+}
+
+func (s *Store) ListSessions(_ context.Context, realm, userID string, limit int) ([]core.Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if limit <= 0 {
+		limit = 100
+	}
+	out := []core.Session{}
+	for _, x := range s.sess {
+		if x.Realm == realm && (userID == "" || x.UserID == userID) {
+			out = append(out, cses(x))
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.After(out[j].CreatedAt)
+		}
+		return out[i].ID < out[j].ID
+	})
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (s *Store) TakeSession(_ context.Context, realm, id string) (core.Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	x, ok := s.sess[id]
+	if !ok || x.Realm != realm {
+		return core.Session{}, nf("session")
+	}
+	delete(s.sess, id)
+	return cses(x), nil
+}
+
+func (s *Store) TakeUserSessions(_ context.Context, realm, userID string) ([]core.Session, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []core.Session{}
+	for k, x := range s.sess {
+		if x.Realm == realm && x.UserID == userID {
+			out = append(out, cses(x))
+			delete(s.sess, k)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) RevokeSessionRefreshTokens(_ context.Context, realm, sessionID string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for k, t := range s.refresh {
+		if t.Realm == realm && t.SessionID == sessionID && !t.Revoked && !hasScope(t.Scope, "offline_access") {
+			t.Revoked = true
+			s.refresh[k] = t
+			n++
+		}
+	}
+	return n, nil
+}
+
+func hasScope(scope, want string) bool { return slices.Contains(strings.Fields(scope), want) }
+
 // Events
 
 func (s *Store) AppendEvent(_ context.Context, e core.Event) error {
@@ -747,6 +891,12 @@ func (s *Store) PurgeExpired(_ context.Context, now time.Time) (int, error) {
 	for k, w := range s.rates {
 		if !w.end.After(now) {
 			delete(s.rates, k)
+			n++
+		}
+	}
+	for k, x := range s.sess {
+		if !x.ExpiresAt.After(now) || !x.IdleExpires.After(now) {
+			delete(s.sess, k)
 			n++
 		}
 	}

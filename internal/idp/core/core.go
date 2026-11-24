@@ -67,7 +67,11 @@ type Client struct {
 	PasswordFlow   bool
 	ServiceAccount bool
 	RequirePKCE    bool
-	CreatedAt      time.Time
+	// BackchannelLogoutURI receives an OIDC Back-Channel Logout 1.0
+	// logout_token POST when a session this client took part in ends. Empty =
+	// the client is not notified. https only (http for loopback in dev).
+	BackchannelLogoutURI string
+	CreatedAt            time.Time
 }
 
 // Role and Group are realm-scoped names/paths.
@@ -110,6 +114,7 @@ type AuthCode struct {
 	CodeChallenge string
 	ChallengeMeth string // "S256"
 	AuthTime      time.Time
+	SessionID     string // SSO session this code was issued in
 	ExpiresAt     time.Time
 }
 
@@ -121,6 +126,7 @@ type RefreshToken struct {
 	Realm     string
 	ClientID  string
 	UserID    string // empty for client_credentials
+	SessionID string // SSO session; empty for client_credentials. Tokens with offline_access outlive it.
 	Scope     string
 	Used      bool
 	Revoked   bool
@@ -146,6 +152,25 @@ type ActionToken struct {
 	Email     string
 	CreatedAt time.Time
 	ExpiresAt time.Time
+}
+
+// Session is an SSO session: the browser's proof that a user already signed
+// in to this realm. The browser holds a random cookie; only its sha256 is
+// stored (CookieHash). ID is the public identifier (the OIDC `sid` claim, the
+// Admin API handle) and is not a credential.
+type Session struct {
+	ID          string
+	CookieHash  string
+	Realm       string
+	UserID      string
+	AuthTime    time.Time // when the user last authenticated with a credential
+	LastSeen    time.Time
+	IdleExpires time.Time // LastSeen + realm idle TTL
+	ExpiresAt   time.Time // absolute lifetime cap; never extended
+	IP          string
+	UserAgent   string   // truncated; shown to admins
+	Clients     []string // client ids that received a code in this session
+	CreatedAt   time.Time
 }
 
 // Event is an audit record (login, admin change).
@@ -226,6 +251,20 @@ type Store interface {
 	// after since: used to rate-limit emails per user.
 	CountActionTokens(ctx context.Context, realm, userID, purpose string, since time.Time) (int, error)
 
+	// SSO sessions. TakeSession and TakeUserSessions delete and return in one
+	// step so each session is ended (and its clients notified) exactly once.
+	PutSession(ctx context.Context, s Session) error // fills CreatedAt if zero
+	GetSession(ctx context.Context, realm, id string) (Session, error)
+	GetSessionByCookie(ctx context.Context, realm, cookieHash string) (Session, error)
+	TouchSession(ctx context.Context, realm, id string, lastSeen, idleExpires time.Time) error
+	AddSessionClient(ctx context.Context, realm, id, clientID string) error               // idempotent
+	ListSessions(ctx context.Context, realm, userID string, limit int) ([]Session, error) // userID "" = all; newest first
+	TakeSession(ctx context.Context, realm, id string) (Session, error)
+	TakeUserSessions(ctx context.Context, realm, userID string) ([]Session, error)
+	// RevokeSessionRefreshTokens revokes refresh tokens issued in a session
+	// except those with the offline_access scope. Returns the number revoked.
+	RevokeSessionRefreshTokens(ctx context.Context, realm, sessionID string) (int, error)
+
 	// Events
 	AppendEvent(ctx context.Context, e Event) error
 	ListEvents(ctx context.Context, realm string, limit int) ([]Event, error) // newest first
@@ -237,7 +276,7 @@ type Store interface {
 	// identifiers (IPs) are never stored. Shared across replicas.
 	HitRateLimit(ctx context.Context, key string, now time.Time, window time.Duration, max int) (allowed bool, err error)
 
-	// Housekeeping: delete expired codes/tokens (incl. action tokens) and
+	// Housekeeping: delete expired codes/tokens (incl. action tokens and ended SSO sessions) and
 	// finished rate-limit windows, returns rows removed.
 	PurgeExpired(ctx context.Context, now time.Time) (int, error)
 }

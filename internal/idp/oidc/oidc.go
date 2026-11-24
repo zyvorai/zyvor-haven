@@ -25,6 +25,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/obs"
+	"github.com/zyvorai/haven/internal/idp/sessions"
 )
 
 const (
@@ -57,6 +58,9 @@ type Config struct {
 	// Nil (or a Service without a Mailer) disables both: the pages answer 404
 	// and the login page shows no "Forgot password" link.
 	Actions *actions.Service
+	// Sessions ends SSO sessions (logout, admin revoke). Built from Store with
+	// no notifier when nil; set it to enable back-channel logout.
+	Sessions *sessions.Service
 	// Obs receives protocol and security signals (enums and realm names
 	// only). Nil records nothing.
 	Obs obs.Recorder
@@ -154,6 +158,13 @@ func (p *Provider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func HashSecret(secret string) string {
 	s := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(s[:])
+}
+
+func (p *Provider) sessions() *sessions.Service {
+	if p.cfg.Sessions != nil {
+		return p.cfg.Sessions
+	}
+	return &sessions.Service{Store: p.cfg.Store}
 }
 
 func (p *Provider) now() time.Time { return p.cfg.Clock() }
