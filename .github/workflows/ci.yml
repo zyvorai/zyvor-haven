@@ -61,6 +61,34 @@ jobs:
             GOOS=linux GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /dev/null ./cmd/haven-idp
           done
 
+      - name: Cross-build haven-idp and haven for macOS (CGO off)
+        run: |
+          for arch in amd64 arm64; do
+            for cmd in haven-idp haven; do
+              GOOS=darwin GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /dev/null ./cmd/$cmd
+            done
+          done
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test (macOS: launchd plist, Keychain wrapper, paths, CLI)
+        run: go test -race -count=1 ./cmd/haven ./cmd/haven-idp ./internal/havencli ./internal/keychain ./internal/idp/store/memstore
+
+      - name: Build both architectures
+        run: make build-darwin
+
+      - name: Build the (unsigned) installer package
+        run: make macos-pkg VERSION=0.0.0-ci
+
   ui:
     name: UI
     runs-on: ubuntu-latest

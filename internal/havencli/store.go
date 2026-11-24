@@ -5,6 +5,7 @@ package havencli
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"github.com/zyvorai/haven/internal/keychain"
 )
 
 // Profile is one stored login. The tokens are secrets: they live only in the
@@ -30,6 +33,27 @@ type Profile struct {
 	IDExpiry     time.Time `json:"id_expires_at,omitzero"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at,omitzero"`
+	// Keychain marks a profile whose tokens live in the macOS Keychain instead
+	// of this file (opt-in: `haven login --keychain`). The file then keeps only
+	// the non-secret metadata and expiry times.
+	Keychain bool `json:"keychain,omitempty"`
+}
+
+// Vault is the secret store behind `--keychain`; *keychain.Client implements it.
+type Vault interface {
+	Available() bool
+	GetBlob(ctx context.Context, service, account string) (string, error)
+	SetBlob(ctx context.Context, service, account, secret string) error
+	DeleteBlob(ctx context.Context, service, account string) error
+}
+
+const keychainService = "haven-cli"
+
+// tokenSet is what goes into the Keychain for a profile.
+type tokenSet struct {
+	AccessToken  string `json:"a,omitempty"`
+	IDToken      string `json:"i,omitempty"`
+	RefreshToken string `json:"r,omitempty"`
 }
 
 type credsFile struct {
@@ -48,8 +72,9 @@ func validProfileName(n string) error {
 
 // store is the credentials file in the haven config directory.
 type store struct {
-	dir  string
-	warn io.Writer
+	dir   string
+	warn  io.Writer
+	vault Vault // nil when the platform has no Keychain
 }
 
 // configDir resolves $XDG_CONFIG_HOME/haven, falling back to ~/.config/haven.
@@ -69,7 +94,7 @@ func newStore(env *Env) (*store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &store{dir: d, warn: env.Stderr}, nil
+	return &store{dir: d, warn: env.Stderr, vault: env.Vault}, nil
 }
 
 func (s *store) path() string     { return filepath.Join(s.dir, "credentials.json") }
@@ -123,7 +148,63 @@ func (s *store) load() (*credsFile, error) {
 	if f.Profiles == nil {
 		f.Profiles = map[string]*Profile{}
 	}
+	for name, p := range f.Profiles {
+		if p != nil && p.Keychain {
+			if err := s.loadTokens(name, p); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return &f, nil
+}
+
+func (s *store) vaultReady(name string) error {
+	if s.vault == nil || !s.vault.Available() {
+		return fmt.Errorf("profile %q keeps its tokens in the macOS Keychain, which is not available here; run `haven login --profile %s` again", name, name)
+	}
+	return nil
+}
+
+// loadTokens fills p's tokens from the Keychain. A missing item leaves them
+// empty (the profile then reads as expired and asks for a new login).
+func (s *store) loadTokens(name string, p *Profile) error {
+	if err := s.vaultReady(name); err != nil {
+		return err
+	}
+	raw, err := s.vault.GetBlob(context.Background(), keychainService, name)
+	if errors.Is(err, keychain.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reading the Keychain item for profile %q: %w", name, err)
+	}
+	b, err := base64.StdEncoding.DecodeString(raw)
+	var ts tokenSet
+	if err != nil || json.Unmarshal(b, &ts) != nil {
+		return fmt.Errorf("the Keychain item for profile %q is damaged; run `haven login --profile %s` again", name, name)
+	}
+	p.AccessToken, p.IDToken, p.RefreshToken = ts.AccessToken, ts.IDToken, ts.RefreshToken
+	return nil
+}
+
+// onDiskKeychainProfiles lists the profile names the file currently marks as
+// Keychain-backed (errors are ignored: this is only used for cleanup).
+func (s *store) onDiskKeychainProfiles() []string {
+	b, err := os.ReadFile(s.path())
+	if err != nil {
+		return nil
+	}
+	var f credsFile
+	if json.Unmarshal(b, &f) != nil {
+		return nil
+	}
+	var out []string
+	for n, p := range f.Profiles {
+		if p != nil && p.Keychain {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // save writes atomically: temp file in the same directory (0600), fsync, rename.
@@ -132,7 +213,28 @@ func (s *store) save(f *credsFile) error {
 		return err
 	}
 	f.Version = 1
-	b, err := json.MarshalIndent(f, "", "  ")
+	stale := s.onDiskKeychainProfiles()
+	disk := &credsFile{Version: 1, Profiles: make(map[string]*Profile, len(f.Profiles))}
+	for name, p := range f.Profiles {
+		if p == nil || !p.Keychain {
+			disk.Profiles[name] = p
+			continue
+		}
+		if err := s.vaultReady(name); err != nil {
+			return err
+		}
+		raw, err := json.Marshal(tokenSet{AccessToken: p.AccessToken, IDToken: p.IDToken, RefreshToken: p.RefreshToken})
+		if err != nil {
+			return err
+		}
+		if err := s.vault.SetBlob(context.Background(), keychainService, name, base64.StdEncoding.EncodeToString(raw)); err != nil {
+			return fmt.Errorf("storing tokens in the Keychain for profile %q: %w", name, err)
+		}
+		c := *p // the file keeps no secrets for this profile
+		c.AccessToken, c.IDToken, c.RefreshToken = "", "", ""
+		disk.Profiles[name] = &c
+	}
+	b, err := json.MarshalIndent(disk, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -166,6 +268,18 @@ func (s *store) save(f *credsFile) error {
 		return err
 	}
 	ok = true
+	// Remove Keychain items of profiles that were deleted or moved back to the file.
+	for _, name := range stale {
+		if p := f.Profiles[name]; p != nil && p.Keychain {
+			continue
+		}
+		if s.vault == nil || !s.vault.Available() {
+			continue
+		}
+		if err := s.vault.DeleteBlob(context.Background(), keychainService, name); err != nil {
+			fmt.Fprintf(s.warn, "haven: warning: could not delete the Keychain item for profile %q (%v); remove service %q account %q in Keychain Access\n", name, err, keychainService, name)
+		}
+	}
 	return nil
 }
 
