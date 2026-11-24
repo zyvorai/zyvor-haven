@@ -88,6 +88,9 @@ func (p *Provider) authorizeClient(ctx context.Context, realm, clientID string) 
 			Public: true, AuthCodeFlow: true, RequirePKCE: true,
 			RedirectURIs: []string{p.deviceURL(realm) + "/continue"}}, nil
 	}
+	if clientID == cibaClientID { // CIBA approver login (ciba.go)
+		return p.cibaLoginClient(realm)
+	}
 	return p.cfg.Store.GetClientByClientID(ctx, realm, clientID)
 }
 

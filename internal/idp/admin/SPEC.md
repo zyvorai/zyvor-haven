@@ -372,3 +372,15 @@ routes manage that token. Optional store extension `core.SCIMStore` (501 without
 
 Events (admin events flag): `ADMIN_ACTION scim-token issued|revoked` (no token material). SCIM writes are audited as
 `ADMIN_CREATE|UPDATE|DELETE|ACTION` with actor `scim:{realm}`.
+## CIBA (client-initiated backchannel authentication)
+
+See `docs/ciba.md`. Optional store extension (`core.CIBAStore`); a store without it answers 501. Pg migration
+`0019_ciba.sql`. The opt-in is keyed by the client's opaque id, so a deleted and re-created `clientId` does not inherit it.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/clients/{id}/ciba` | `{"enabled": bool}`; 404 unknown client |
+| `PUT /realms/{r}/clients/{id}/ciba` | `{"enabled": bool}` -> 200; unknown fields 400; enabling a public client or a service account is 400 |
+
+Events (admin events flag): `UPDATE client-ciba`. Protocol events (auth events flag): `CIBA_AUTH_REQUEST`,
+`CIBA_AUTH_REQUEST_ERROR`, `CIBA_APPROVE`, `CIBA_DENY`, `CIBA_TOKEN`.
