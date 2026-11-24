@@ -7,7 +7,7 @@
 //
 // Usage:
 //   HAVEN_BASE_URL=http://host:30742 \
-//   HAVEN_USER=admin HAVEN_PASSWORD=<keycloak admin password> \
+//   HAVEN_USER=admin HAVEN_PASSWORD=<haven-idp admin password: secret platform-idp, key admin-password> \
 //   OUT_DIR=/path/to/save/screenshots \
 //   node scripts/haven-drive.js
 //

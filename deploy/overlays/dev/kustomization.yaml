@@ -4,7 +4,6 @@ namespace: identity
 resources:
   - namespace.yaml
   - postgres.yaml
-  # keycloak.yaml is DEPRECATED and no longer deployed (see its header); haven-idp replaces it.
   - idp.yaml
   - ingress.yaml
 labels:

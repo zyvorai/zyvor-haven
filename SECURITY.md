@@ -23,4 +23,4 @@ We will acknowledge receipt and work with you on a coordinated disclosure. Do no
 
 ## Scope
 
-Haven is an identity plane that composes Keycloak and CloudNativePG. Reports about those upstream projects should also be filed with their maintainers; we welcome cross-reports that show how a Haven deploy path is affected.
+Haven is an identity plane that runs its own identity server (haven-idp) on CloudNativePG. Reports about the upstream project (CloudNativePG) should also be filed with their maintainers; we welcome cross-reports that show how a Haven deploy path is affected.

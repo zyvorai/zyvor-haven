@@ -20,7 +20,7 @@ labels: bug
 
 - Haven commit / tag:
 - Cluster (kind / k3s / other):
-- Keycloak / CNPG versions (if known):
+- haven-idp / CNPG versions (if known):
 
 ## Additional context
 

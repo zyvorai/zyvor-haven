@@ -13,10 +13,6 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: haven-idp
-        # DEPRECATED legacy Keycloak engine; re-add only while migrating:
-        # - podSelector:
-        #     matchLabels:
-        #       app: keycloak
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: haven

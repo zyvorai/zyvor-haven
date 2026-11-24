@@ -14,7 +14,6 @@
 # Environment:
 #   HAVEN_NODE_PORT       default 30742
 #   HAVEN_IMAGE_TAG       default dev
-#   KEYCLOAK_NODE_PORT    default 30180 (existing Keycloak on host)
 
 set -euo pipefail
 
@@ -48,7 +47,6 @@ DEPLOYMENTS_SUBDIR="${DEPLOYMENTS_SUBDIR:-.deployment}"
 HAVEN_CHECKOUT="${HAVEN_CHECKOUT:-haven}"
 HAVEN_IMAGE_TAG="${HAVEN_IMAGE_TAG:-dev}"
 NODE_PORT="${HAVEN_NODE_PORT:-30742}"
-KEYCLOAK_PORT="${KEYCLOAK_NODE_PORT:-30180}"
 
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REMOTE_DIR="\$HOME/${DEPLOYMENTS_SUBDIR}/${HAVEN_CHECKOUT}"
@@ -77,7 +75,6 @@ axiom_ui_set_total 7
 axiom_ui_banner "Haven Console Remote Deploy" "${USER}@${HOST}"
 axiom_ui_kv "Checkout" "${DEPLOYMENTS_SUBDIR}/${HAVEN_CHECKOUT}"
 axiom_ui_kv "UI" "http://${HOST}:${NODE_PORT}"
-axiom_ui_kv "Keycloak" "http://${HOST}:${KEYCLOAK_PORT}"
 axiom_ui_kv "NodePort" "${NODE_PORT}"
 
 if $UNINSTALL_MODE; then
@@ -101,26 +98,15 @@ else
   info "Synced"
 fi
 
-step 3 7 "Sync Keycloak admin credentials"
+step 3 7 "Sync haven-idp admin client secret"
 _ssh 'kubectl create namespace haven-ui --dry-run=client -o yaml | kubectl apply -f -' >/dev/null
-KC_PASS=$(_ssh 'export KUBECONFIG=$HOME/.kube/config; \
-  pw=$(kubectl get deploy keycloak -n argus-enterprise -o jsonpath="{range .spec.template.spec.containers[0].env[*]}{.name}={.value}{\"\\n\"}{end}" 2>/dev/null | sed -n "s/^KEYCLOAK_ADMIN_PASSWORD=//p" | head -1); \
-  if [ -n "$pw" ]; then echo "$pw"; exit 0; fi; \
-  kubectl get secret argus-keycloak-admin -n argus-enterprise -o jsonpath="{.data.password}" 2>/dev/null | base64 -d' || true)
-if [ -n "$KC_PASS" ]; then
-  _ssh "kubectl -n haven-ui create secret generic haven-keycloak-admin \\
-  --from-literal=KEYCLOAK_URL=http://${HOST}:${KEYCLOAK_PORT} \\
-  --from-literal=KEYCLOAK_ADMIN_USER=admin \\
-  --from-literal=KEYCLOAK_ADMIN_PASSWORD='${KC_PASS}' \\
-  --dry-run=client -o yaml | kubectl apply -f -"
-  info "Keycloak credentials synced to haven-keycloak-admin"
+# The console (namespace haven-ui) cannot read Secrets across namespaces, so copy the value
+# from the plane Secret platform-idp (key admin-client-secret) into haven-ui/haven-idp-admin.
+IDP_SECRET=$(_ssh 'kubectl -n identity get secret platform-idp -o jsonpath="{.data.admin-client-secret}" 2>/dev/null | base64 -d' || true)
+if [ -n "$IDP_SECRET" ]; then
+  info "Found identity/platform-idp admin client secret (applied after the manifests in step 5)"
 else
-  warn "No Argus Keycloak secret — using lab defaults (admin/changeme on :${KEYCLOAK_PORT})"
-  _ssh "kubectl -n haven-ui create secret generic haven-keycloak-admin \\
-  --from-literal=KEYCLOAK_URL=http://${HOST}:${KEYCLOAK_PORT} \\
-  --from-literal=KEYCLOAK_ADMIN_USER=admin \\
-  --from-literal=KEYCLOAK_ADMIN_PASSWORD='changeme' \\
-  --dry-run=client -o yaml | kubectl apply -f -"
+  warn "No identity/platform-idp secret yet — keeping the dev placeholder from deploy/k8s/ui/deployment.yaml"
 fi
 
 step 4 7 "Build + import haven-console image"
@@ -132,22 +118,19 @@ else
 fi
 
 step 5 7 "Apply Kubernetes manifests (NodePort ${NODE_PORT})"
-K8S_RESULT=$(_ssh "export HAVEN_HOST='${HOST}'; export HAVEN_NODE_PORT='${NODE_PORT}'; export KEYCLOAK_PORT='${KEYCLOAK_PORT}'; ${REMOTE_SH_PREFIX}; \
+K8S_RESULT=$(_ssh "export HAVEN_HOST='${HOST}'; export HAVEN_NODE_PORT='${NODE_PORT}'; ${REMOTE_SH_PREFIX}; \
 python3 - <<'PY'
 from pathlib import Path
 import os, re
 
 host = os.environ['HAVEN_HOST']
 node_port = os.environ['HAVEN_NODE_PORT']
-kc_port = os.environ['KEYCLOAK_PORT']
 
 p = Path('deploy/k8s/ui/deployment.yaml')
 text = p.read_text()
 text = re.sub(r'nodePort: [0-9]+', f'nodePort: {node_port}', text)
-text = text.replace('KEYCLOAK_HOST', host)
 p.write_text(text)
 print(f'nodePort -> {node_port}')
-print(f'keycloak -> http://{host}:{kc_port}')
 PY
 kubectl create namespace haven-ui --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n haven-ui delete deploy/haven-web svc/haven-web-nodeport --ignore-not-found 2>/dev/null || true
@@ -156,17 +139,9 @@ kubectl apply -f deploy/k8s/ui/deployment.yaml
 kubectl apply -f config/crd/haven.identity_identityplanes.yaml 2>/dev/null || true
 kubectl apply -f deploy/k8s/controller/deployment.yaml 2>/dev/null || true
 kubectl apply -f config/samples/identityplane-dev.yaml 2>/dev/null || true
-if [ -n '${KC_PASS}' ]; then
-  kubectl -n haven-ui create secret generic haven-keycloak-admin \\
-    --from-literal=KEYCLOAK_URL=http://${HOST}:${KEYCLOAK_PORT} \\
-    --from-literal=KEYCLOAK_ADMIN_USER=admin \\
-    --from-literal=KEYCLOAK_ADMIN_PASSWORD='${KC_PASS}' \\
-    --dry-run=client -o yaml | kubectl apply -f -
-else
-  kubectl -n haven-ui create secret generic haven-keycloak-admin \\
-    --from-literal=KEYCLOAK_URL=http://${HOST}:${KEYCLOAK_PORT} \\
-    --from-literal=KEYCLOAK_ADMIN_USER=admin \\
-    --from-literal=KEYCLOAK_ADMIN_PASSWORD='changeme' \\
+if [ -n '${IDP_SECRET}' ]; then
+  kubectl -n haven-ui create secret generic haven-idp-admin \\
+    --from-literal=HAVEN_IDP_ADMIN_CLIENT_SECRET='${IDP_SECRET}' \\
     --dry-run=client -o yaml | kubectl apply -f -
 fi
 if kubectl -n haven-ui rollout status deploy/haven-console --timeout=180s 2>/dev/null; then
@@ -187,9 +162,10 @@ if [ "$K8S_RESULT" = "K8S_ROLLOUT_FAILED" ]; then
   _ssh "mkdir -p \"\$HOME/${DEPLOYMENTS_SUBDIR}/${HAVEN_CHECKOUT}/.run\"
 podman rm -f haven-console 2>/dev/null || true
 podman run -d --name haven-console -p ${NODE_PORT}:8080 \\
-  -e KEYCLOAK_URL=http://${HOST}:${KEYCLOAK_PORT} \\
-  -e KEYCLOAK_ADMIN_USER=admin \\
-  -e KEYCLOAK_ADMIN_PASSWORD='${KC_PASS:-changeme}' \\
+  -e HAVEN_IDP_BACKEND=native \\
+  -e HAVEN_IDP_URL=http://${HOST}:8081 \\
+  -e HAVEN_IDP_ADMIN_REALM=platform \\
+  -e HAVEN_IDP_ADMIN_CLIENT_SECRET='${IDP_SECRET:-CHANGE_ME_DEV_ONLY_admin_client_secret}' \\
   -e HAVEN_BOOTSTRAP_REALM=platform \\
   -e HAVEN_LAB_LOGIN=1 \\
   localhost/haven-console:${HAVEN_IMAGE_TAG}"
@@ -216,4 +192,4 @@ axiom_ui_panel "Access" \
   "API health:    ${UI_URL}/api/v1/health" \
   "" \
   "Redeploy:      ./scripts/deploy-remote.sh ${HOST} ${USER} --quick"
-info "Identity ops run through Haven — Keycloak admin is Settings → Advanced only"
+info "Identity ops run through Haven — haven-idp is managed through the console"

@@ -14,9 +14,6 @@ metadata:
   labels:
     haven.identity/profile: dev
 spec:
-  # engine: native is the haven-idp default. Needs the spec.engine CRD field (own-idp branch);
-  # until that CRD is applied, validation rejects this line: comment it out.
-  engine: native
   profile: dev
   hostname: auth.127.0.0.1.nip.io
   consoleHostname: haven.127.0.0.1.nip.io
@@ -24,18 +21,6 @@ spec:
     vendor: postgres
     instances: 1
     storage: 8Gi
-  keycloak:
-    instances: 1
-    version: "26.8.2"
-    features:
-      - persistent-user-sessions
-    resources:
-      requests:
-        cpu: "500m"
-        memory: 768Mi
-      limits:
-        cpu: "2"
-        memory: 1536Mi
   expose:
     class: ingress
     networkPolicy: false

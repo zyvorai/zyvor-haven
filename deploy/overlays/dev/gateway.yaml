@@ -37,7 +37,6 @@ spec:
       backendRefs:
         - name: platform-idp
           port: 8081
-          # legacy Keycloak backend: platform-service port 8080
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

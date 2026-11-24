@@ -12,26 +12,13 @@ if [[ -f "${ROOT}/versions.env" ]]; then
 fi
 
 CNPG_VERSION="${CNPG_VERSION:-1.30.2}"
-KEYCLOAK_OPERATOR_REF="${KEYCLOAK_OPERATOR_REF:-26.8.2}"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-v1.21.3}"
-KEYCLOAK_OPERATOR_NS="${KEYCLOAK_OPERATOR_NS:-keycloak}"
-# Keycloak is deprecated (haven-idp is the default engine). Opt in only for migration.
-INSTALL_KEYCLOAK_OPERATOR="${INSTALL_KEYCLOAK_OPERATOR:-0}"
 
 cnpg_minor="${CNPG_VERSION%.*}"
 
 echo "==> CloudNativePG ${CNPG_VERSION}"
 kubectl apply --server-side --force-conflicts -f \
   "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${cnpg_minor}/releases/cnpg-${CNPG_VERSION}.yaml"
-
-if [[ "${INSTALL_KEYCLOAK_OPERATOR}" == "1" ]]; then
-  echo "==> Keycloak Operator ${KEYCLOAK_OPERATOR_REF} (namespace ${KEYCLOAK_OPERATOR_NS})"
-  kubectl create namespace "${KEYCLOAK_OPERATOR_NS}" --dry-run=client -o yaml | kubectl apply -f -
-  # Upstream kustomization targets namespace "keycloak". Overlay if redirected.
-  kubectl apply -k "github.com/keycloak/keycloak-k8s-resources/kubernetes?ref=${KEYCLOAK_OPERATOR_REF}"
-else
-  echo "==> Keycloak Operator skipped (deprecated; set INSTALL_KEYCLOAK_OPERATOR=1 to install)"
-fi
 
 echo "==> cert-manager ${CERT_MANAGER_VERSION}"
 kubectl apply -f \
@@ -41,16 +28,6 @@ echo "==> Wait for operators"
 kubectl -n cnpg-system rollout status deployment/cnpg-controller-manager --timeout=180s
 kubectl -n cert-manager rollout status deployment/cert-manager --timeout=180s
 kubectl -n cert-manager rollout status deployment/cert-manager-webhook --timeout=180s
-
-if [[ "${INSTALL_KEYCLOAK_OPERATOR}" == "1" ]]; then
-  # Deployment name is keycloak-operator in current upstream manifests.
-  if kubectl -n "${KEYCLOAK_OPERATOR_NS}" get deploy keycloak-operator >/dev/null 2>&1; then
-    kubectl -n "${KEYCLOAK_OPERATOR_NS}" rollout status deployment/keycloak-operator --timeout=180s
-  else
-    echo "warn: keycloak-operator Deployment not named as expected; listing:"
-    kubectl -n "${KEYCLOAK_OPERATOR_NS}" get deploy,pods
-  fi
-fi
 
 echo
 echo "Operators ready."

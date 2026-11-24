@@ -1,6 +1,6 @@
 # Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 # SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
-.PHONY: crds operators dev prod doctor wait secrets-prod realm-import ui-install ui-dev ui-build console-build console-test console-run controller-build controller-deploy docs-install docs-serve docs-build image-console image-controller image-idp images idp-build idp-dev build-haven build-darwin macos-pkg
+.PHONY: crds operators dev prod doctor wait secrets-prod ui-install ui-dev ui-build console-build console-test console-run controller-build controller-deploy docs-install docs-serve docs-build image-console image-controller image-idp images idp-build idp-dev build-haven build-darwin macos-pkg
 
 IMAGE_REGISTRY ?= ghcr.io/zyvorai
 VERSION ?= 0.1.0
@@ -16,7 +16,7 @@ dev: crds
 	kubectl apply -k deploy/overlays/dev
 
 prod: crds
-	@echo "Prod overlay needs secrets + TLS + CNPG CA. See deploy/overlays/prod/README.md"
+	@echo "Prod overlay needs secrets + TLS. See deploy/overlays/prod/README.md"
 	kubectl apply -k deploy/overlays/prod
 
 wait:
@@ -31,18 +31,11 @@ admin:
 secrets-prod:
 	bash hack/gen-prod-secrets.sh
 
-sync-ca:
-	bash hack/sync-cnpg-ca.sh
-
 samples-dev:
 	kubectl apply -f config/samples/identityplane-dev.yaml
 
 samples-prod:
 	kubectl apply -f config/samples/identityplane-prod.yaml
-
-# Legacy (Keycloak engine only).
-realm-import:
-	kubectl apply -f config/samples/keycloakrealmimport-platform.yaml
 
 ui-install:
 	cd ui/web && npm install
