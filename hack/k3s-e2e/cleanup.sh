@@ -3,7 +3,7 @@
 cd ~/haven-deploy 2>/dev/null || { echo "~/haven-deploy not found: nothing to clean"; exit 0; }
 K="sudo -n k3s kubectl"
 NS=haven-e2e; SYS=haven-e2e-system
-CRDS="identityplanes.identity.haven.dev realmbundles.identity.haven.dev oidcclients.identity.haven.dev"
+CRDS="identityplanes.identity.haven.dev oidcclients.identity.haven.dev"
 say() { echo "[$(date -u +%T)] $*"; }
 has() { grep -q "^$1=1" state.env 2>/dev/null; }
 

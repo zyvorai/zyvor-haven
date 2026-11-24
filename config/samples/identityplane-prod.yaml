@@ -62,17 +62,6 @@ spec:
     tracing: true
 ---
 apiVersion: identity.haven.dev/v1alpha1
-kind: RealmBundle
-metadata:
-  name: platform
-  namespace: identity
-spec:
-  planeRef: platform
-  realm: platform
-  displayName: Private Cloud
-  blueprint: platform-sso
----
-apiVersion: identity.haven.dev/v1alpha1
 kind: OIDCClient
 metadata:
   name: zeus-os

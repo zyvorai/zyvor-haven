@@ -99,12 +99,12 @@ export function Landing() {
               <div className="step">
                 <div className="step-num">3</div>
                 <div>
-                  <h3 className="step-title">Optional first realm</h3>
+                  <h3 className="step-title">Sign in</h3>
                   <p className="step-desc">
-                    Apply a sample realm for platform single sign-on clients.
+                    Print the command that reads the generated admin password, then sign in to the console.
                   </p>
                   <pre className="code-block">
-                    <span className="cmd">$</span> make realm-import
+                    <span className="cmd">$</span> make admin
                   </pre>
                 </div>
               </div>

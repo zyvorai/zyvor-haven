@@ -5,7 +5,7 @@ cd ~/haven-deploy || exit 1
 K="sudo -n k3s kubectl"
 NS=haven-e2e; SYS=haven-e2e-system
 CNPG_VER=1.30.2; CNPG_MINOR=1.30
-CRDS="identityplanes.identity.haven.dev realmbundles.identity.haven.dev oidcclients.identity.haven.dev"
+CRDS="identityplanes.identity.haven.dev oidcclients.identity.haven.dev"
 : > state.env
 say() { echo "[$(date -u +%T)] $*"; }
 fail() { say "FAILED: $*"; diag; exit 1; }

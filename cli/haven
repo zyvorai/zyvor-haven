@@ -73,7 +73,7 @@ case "$cmd" in
       echo
       echo "--- endpoints ---"
       kubectl get identityplane "$NAME" -n "$NS" \
-        -o jsonpath='issuer={.status.endpoints.issuer}{"\n"}console={.status.endpoints.console}{"\n"}account={.status.endpoints.account}{"\n"}'
+        -o jsonpath='issuer={.status.endpoints.issuer}{"\n"}console={.status.endpoints.console}{"\n"}'
       echo
     else
       echo "(no IdentityPlane CR — compose path only)"
