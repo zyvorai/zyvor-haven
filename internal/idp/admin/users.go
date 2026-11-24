@@ -213,6 +213,7 @@ func (a *api) deleteUser(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	a.dropFedLinks(r.Context(), rl.Name, cur.ID) // federation.go
 	a.audit(r, rl, "DELETE", "user", cur.Username)
 	noContent(w)
 }

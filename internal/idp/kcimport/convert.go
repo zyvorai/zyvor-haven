@@ -40,9 +40,12 @@ type Options struct {
 
 // Result is the converted export.
 type Result struct {
-	Spec   *configcode.Spec // realm settings, roles, groups, clients
-	Users  []idp.ImportUser // sorted by username; contains password hashes
-	Report Report
+	Spec  *configcode.Spec // realm settings, roles, groups, clients
+	Users []idp.ImportUser // sorted by username; contains password hashes
+	// IdentityProviders are the converted OIDC/Google/Microsoft providers in
+	// Admin API shape: disabled, WITHOUT client secrets (masked in exports).
+	IdentityProviders []idp.IdentityProvider
+	Report            Report
 }
 
 type converter struct {
@@ -51,6 +54,7 @@ type converter struct {
 	spec     configcode.Spec
 	sourceNm string
 	users    []idp.ImportUser
+	idps     []idp.IdentityProvider
 	seenUser map[string]struct{}
 	roleSeen map[string]struct{}
 	groupSet map[string]struct{}
@@ -205,7 +209,7 @@ func (c *converter) object(dec *json.Decoder) error {
 		case "users":
 			err = forEach(dec, c.user)
 		case "identityProviders":
-			err = countArr("identity_providers")
+			err = forEach(dec, c.identityProvider) // identityproviders.go
 		case "identityProviderMappers":
 			err = countArr("identity_providers")
 		case "userFederationProviders", "userFederationMappers":
@@ -608,7 +612,7 @@ func (c *converter) finish(o Options) (*Result, error) {
 	}
 	c.w.finish(&c.rep)
 	spec := c.spec
-	return &Result{Spec: &spec, Users: c.users, Report: c.rep}, nil
+	return &Result{Spec: &spec, Users: c.users, IdentityProviders: c.idps, Report: c.rep}, nil
 }
 
 // emailVerification deals with unverified emails. Keycloak lets such a user sign

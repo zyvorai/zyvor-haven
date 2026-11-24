@@ -90,5 +90,5 @@ not been run on a real cluster. The Ingress annotation half of #4 is **not** don
 
 Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across
-replicas); federation is not implemented on the native backend; rotated-secret
+replicas); federation (identity brokering) covers upstream OIDC only (Google, Microsoft Entra ID, generic OIDC; see [federation.md](federation.md)) and does not cover SAML, GitHub, LDAP/SCIM, an account-linking UI, storing upstream tokens or IdP-initiated login; rotated-secret
 overlap is unsupported; `--prune` removes clients only.

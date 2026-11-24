@@ -53,6 +53,9 @@ type Config struct {
 	// Sessions ends SSO sessions for the session routes, user disable and
 	// password reset. Built from Store with no notifier when nil.
 	Sessions *sessions.Service
+	// AllowPrivateUpstreams lets identity-provider issuers use http on
+	// loopback. Dev and tests only; pair it with the same flag on oidc.Config.
+	AllowPrivateUpstreams bool
 }
 
 type api struct {

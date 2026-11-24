@@ -58,8 +58,7 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
 | PUT `/realms/{r}/users/{id}/groups/{gid}` | join |
 | GET, POST `/realms/{r}/roles` | `[]idp.Role` / create |
 | GET, POST `/realms/{r}/groups` | `[]idp.Group` / create (`path` = "/"+name) |
-| GET, POST `/realms/{r}/identity-providers` | GET returns `[]`; POST 501 (federation is not implemented in v1) |
-| DELETE `/realms/{r}/identity-providers/{alias}` | 404 |
+| `/realms/{r}/identity-providers[/{alias}]`, `/realms/{r}/users/{id}/federated-identities[/{alias}]` | upstream OIDC identity brokering: see "Identity providers" at the end of this file (a store without federation answers `[]` / 501) |
 | GET `/realms/{r}/events?max=50` | `[]idp.AdminEvent` (from `core.Event` with Type prefix `ADMIN_`, newest first) |
 | GET `/realms/{r}/keys` | `[]idp.Key` (`providerId` "ecdsa-generated", `type` "EC", `status` ACTIVE/PASSIVE, `kid`) |
 | GET `/realms/{r}/export` | native export (below) |
@@ -140,3 +139,66 @@ because the server stores only a hash and `GET .../secret` is 501. The console's
 create-client handler uses it for confidential clients and returns
 `201 {"id","secret"}` with `Cache-Control: no-store`; the UI must show the secret
 once. Providers that can read secrets back (Keycloak) keep the old 201-with-no-body response.
+
+## Identity providers (identity brokering, `internal/idp/admin/federation.go`)
+Upstream OpenID Connect providers ("Sign in with ..."): Google, Microsoft Entra ID and any
+generic OIDC provider. Authorization code + PKCE (S256) + nonce only. GitHub (not OIDC) and
+SAML are not supported: `providerId` other than `oidc`, `google`, `microsoft` is a 400.
+Needs the store's `core.FedStore` (memstore and pgstore have it; migration 0011); without
+it GET list answers `[]`, POST 501, other routes 404.
+
+| Route | Behaviour |
+|---|---|
+| GET `/realms/{r}/identity-providers` | `[]idp.IdentityProvider`, by alias |
+| POST `/realms/{r}/identity-providers` | create; 201 `{"alias"}` + Location; 409 duplicate alias; 400 invalid; at most 50 per realm |
+| GET `/realms/{r}/identity-providers/{alias}` | one provider; 404 |
+| PUT `/realms/{r}/identity-providers/{alias}` | replace (full body, as GET returns it); 204; the alias cannot change |
+| DELETE `/realms/{r}/identity-providers/{alias}` | 204; removes the provider and its federated identities, never the users |
+| GET `/realms/{r}/users/{id}/federated-identities` | `[{identityProvider (alias), userId (upstream sub), userName "", createdAt, lastLoginAt (epoch ms)}]` |
+| DELETE `/realms/{r}/users/{id}/federated-identities/{alias}` | unlink; 204; 404 when not linked |
+
+Mutations audit as `ADMIN_<CREATE|UPDATE|DELETE>` with detail `identity-provider <alias>` /
+`federated-identity <username> <alias>` (no config, no secrets). Deleting a user removes its links
+(pg: foreign key cascade; the delete handler also calls `DeleteFedLinksForUser` for other stores).
+
+Wire shape: `idp.IdentityProvider{alias, displayName, providerId, enabled, trustEmail, config}`.
+`storeToken:true` and `firstBrokerLoginFlowAlias` are rejected (upstream tokens are never stored).
+`alias` matches `[a-z0-9-]{1,32}`; `displayName` is at most 64 characters (defaults to "Google",
+"Microsoft" or the alias). `config` keys (anything else is a 400; every value is a string):
+
+| key | meaning |
+|---|---|
+| `issuer` | generic: the exact `iss` of the provider (https, no userinfo/query/fragment; http only for loopback when the server runs with AllowPrivate = dev). Fixed for google/microsoft (accepted if equal, else 400) |
+| `discoveryUrl` | generic: discovery document URL. Default `{issuer}/.well-known/openid-configuration`. Without `issuer` it must end in `/.well-known/openid-configuration` (the issuer is derived). The discovery `issuer` must equal the issuer exactly or login fails |
+| `clientId` | required |
+| `clientSecret` | **write-only**. Stored only via secretbox bound to `idp|{realm}|{alias}`. GET/list show `"clientSecret":"**********"` when one is stored and never the value; a PUT that sends the mask (or omits the key) keeps the stored secret; any other value replaces it. Without `HAVEN_IDP_SECRET_KEY` a create/update carrying a secret answers 409 `HAVEN_IDP_SECRET_KEY is not set: ...`; GET/list still work. A provider without a secret is a public PKCE client |
+| `scopes` | space separated, must include `openid`; default `openid email profile` |
+| `tenant` | microsoft only: a tenant id (GUID), or `common` (default), `organizations`, `consumers` = multi-tenant: the ID token issuer is then matched against the token's `tid` claim (`https://login.microsoftonline.com/{tid}/v2.0`), the link subject becomes `{tid}/{sub}`, and `linkExistingByEmail=true` is refused |
+| `hostedDomain` | google only: sends `hd` and requires the ID token's `hd` to equal it |
+| `usernameClaim` | claim for the new user's username; default `preferred_username` (falls back to the email local part) |
+| `linkExistingByEmail` | `"true"`/`"false"` (default false). See `docs/federation.md`: account-takeover risk |
+| `autoCreateUsers` | `"true"`/`"false"` (default false): create a local user on first login |
+| `roleMappings` | compact JSON string `[{"claim":"groups","value":"eng","roles":["developer"]}]`; a claim is a top-level name or a dotted path, an array claim matches when it contains the value |
+| `roleSyncMode` | `import` (default: only adds roles) or `sync` (also removes roles federation itself added earlier and the mappings no longer grant; never touches roles an administrator assigned) |
+
+Responses always show every config key explicitly (defaults filled in) plus `issuer` for the presets.
+
+### Login flow (`internal/idp/oidc/federation.go`)
+* The login page lists `Continue with <displayName>` for each enabled provider.
+* `GET /realms/{r}/broker/{alias}/login?<original /auth query>` re-validates the authorization
+  request (client, exact redirect URI, PKCE, state), stores a single-use login state row
+  (`core.FedLoginState`: sha256 of the `state`, sha256 of the browser-binding cookie `haven_fed`,
+  nonce, the original query; 10 minutes) and redirects to the upstream authorization endpoint
+  (PKCE S256 with a verifier derived from the server CSRF key and the state, so nothing secret is
+  stored; nonce). Rate limit: 30 starts per 5 minutes per IP (fail closed).
+* `GET /realms/{r}/broker/{alias}/endpoint?code&state` consumes the state (any outcome), checks the
+  cookie, exchanges the code (`client_secret_basic`, or `client_secret_post` when only that is
+  advertised), validates the ID token (alg RS256/ES256/PS256 only, JWKS `kid` selection with one
+  rate-limited refresh, iss, aud/azp, exp/iat/nbf with 60 s skew, nonce), resolves the user and
+  ends in the same `completeLogin` as a password login (event `LOGIN`, detail `federated:{alias}`).
+  Local MFA steps are not run (`federatedRunsAuthSteps`).
+* Failures render a generic page; `LOGIN_ERROR` events carry `federated:{alias}:{kind}` with a fixed
+  kind (`unknown_state`, `browser_mismatch`, `bad_nonce`, `bad_signature`, `blocked_address`, ...).
+
+Tables (pg migration `0011_federation.sql`): `fed_providers`, `fed_links (realm, alias, subject)
+unique`, `fed_login_states`.

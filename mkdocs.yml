@@ -87,6 +87,7 @@ nav:
       - Migrate from Keycloak: migrate-from-keycloak.md
       - Import a Keycloak realm: import-from-keycloak.md
       - Email and password reset: email-and-password-reset.md
+      - Federation (Sign in with Google, Entra, OIDC): federation.md
       - SSO sessions and single logout: sso-and-logout.md
       - Password policy: password-policy.md
       - Add an app (wizard and Test login): add-an-app.md

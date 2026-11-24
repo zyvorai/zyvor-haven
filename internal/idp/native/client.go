@@ -475,7 +475,7 @@ func (c *Client) JoinGroup(ctx context.Context, realm, userID, groupID string) e
 	return c.call(ctx, http.MethodPut, userPath(realm, userID)+"/groups/"+esc(groupID), nil, nil)
 }
 
-// Federation (not implemented by the server in v1; 501/404 surface unchanged).
+// Federation: the Admin API serves OIDC/Google/Microsoft identity providers (internal/idp/admin/federation.go); a store without federation answers [] / 501.
 
 func (c *Client) ListIdentityProviders(ctx context.Context, realm string) ([]idp.IdentityProvider, error) {
 	return list[idp.IdentityProvider](ctx, c, realmPath(realm)+"/identity-providers")

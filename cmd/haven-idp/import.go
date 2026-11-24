@@ -104,6 +104,16 @@ func runImportKeycloak(f cfgFlags, realm, outDir string, trustEmails bool, io_ c
 		if err := writeImportFiles(outDir, yamlOut, res.Users); err != nil {
 			return exitError, err
 		}
+		if len(res.IdentityProviders) > 0 { // no secrets in it (they are masked in exports)
+			idpPath := filepath.Join(outDir, "identity-providers.json")
+			if err := createNew(idpPath, 0o644, func(w io.Writer) error {
+				enc := json.NewEncoder(w)
+				enc.SetIndent("", "  ")
+				return enc.Encode(res.IdentityProviders)
+			}); err != nil {
+				return exitError, err
+			}
+		}
 	}
 	if f.format == "json" {
 		return exitOK, writeJSON(io_.Stdout, res.Report)
