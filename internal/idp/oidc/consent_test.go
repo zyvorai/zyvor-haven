@@ -22,9 +22,9 @@ import (
 
 const cbC = "http://localhost:8765/callback"
 
-// cenv is a denv with the CIMD fetch client allowed to reach loopback and a
+// consentEnv is a denv with the CIMD fetch client allowed to reach loopback and a
 // metadata-document server whose answers a test controls.
-type cenv struct {
+type consentEnv struct {
 	*denv
 	srv  *httptest.Server
 	mu   sync.Mutex
@@ -35,9 +35,9 @@ type cenv struct {
 	name  string
 }
 
-func newCEnv(t *testing.T, allowPrivate bool, o devOpts) *cenv {
+func newConsentEnv(t *testing.T, allowPrivate bool, o devOpts) *consentEnv {
 	t.Helper()
-	e := &cenv{denv: newDEnv(t, o), hits: map[string]int{}, serve: map[string]func(http.ResponseWriter, *http.Request){},
+	e := &consentEnv{denv: newDEnv(t, o), hits: map[string]int{}, serve: map[string]func(http.ResponseWriter, *http.Request){},
 		redir: []string{cbC}, name: "Demo MCP"}
 	e.srv = httptest.NewServer(http.HandlerFunc(e.handle))
 	t.Cleanup(e.srv.Close)
@@ -48,11 +48,13 @@ func newCEnv(t *testing.T, allowPrivate bool, o devOpts) *cenv {
 	}
 	e.h = New(Config{Store: st, Signer: fakeSigner{now: clock}, Hasher: fakeHasher{}, BaseURL: idpBase, Clock: clock,
 		CSRFKey:    []byte("0123456789abcdef0123456789abcdef"),
-		Federation: upstream.NewManager(safehttp.Options{AllowPrivate: allowPrivate}, clock)})
+		Federation: upstream.NewManager(safehttp.Options{AllowPrivate: allowPrivate}, clock),
+		// resources the consent tests ask for must be on the RFC 8707 allow-list
+		Resources: &ResourcePolicy{Realms: map[string]RealmResources{"r": {Resources: []string{"https://mcp.example/mcp", "https://other.example/mcp"}}}}})
 	return e
 }
 
-func (e *cenv) handle(w http.ResponseWriter, r *http.Request) {
+func (e *consentEnv) handle(w http.ResponseWriter, r *http.Request) {
 	e.mu.Lock()
 	e.hits[r.URL.Path]++
 	h := e.serve[r.URL.Path]
@@ -66,10 +68,10 @@ func (e *cenv) handle(w http.ResponseWriter, r *http.Request) {
 		e.srv.URL+r.URL.Path, e.name, `"`+strings.Join(e.redir, `","`)+`"`)
 }
 
-func (e *cenv) hitCount(path string) int { e.mu.Lock(); defer e.mu.Unlock(); return e.hits[path] }
-func (e *cenv) id(path string) string    { return e.srv.URL + path }
+func (e *consentEnv) hitCount(path string) int { e.mu.Lock(); defer e.mu.Unlock(); return e.hits[path] }
+func (e *consentEnv) id(path string) string    { return e.srv.URL + path }
 
-func (e *cenv) policy(p core.ConsentPolicy) {
+func (e *consentEnv) policy(p core.ConsentPolicy) {
 	e.t.Helper()
 	p.Realm = "r"
 	if err := e.denv.st.PutConsentPolicy(context.Background(), p); err != nil {
@@ -124,7 +126,7 @@ func isConsentPage(w *httptest.ResponseRecorder) bool {
 	return w.Code == 200 && strings.Contains(w.Body.String(), "consent_decision")
 }
 
-func codeOf(t *testing.T, w *httptest.ResponseRecorder) string {
+func consentCodeOf(t *testing.T, w *httptest.ResponseRecorder) string {
 	t.Helper()
 	if w.Code != 302 {
 		t.Fatalf("want redirect with code, got %d: %s", w.Code, w.Body)
@@ -144,13 +146,13 @@ func errOfRedirect(w *httptest.ResponseRecorder) string {
 	return loc.Query().Get("error")
 }
 
-func (e *cenv) exchange(clientID, code string) (int, map[string]any) {
+func (e *consentEnv) exchange(clientID, code string) (int, map[string]any) {
 	c, out, _ := e.post(base+"token", url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {cbC},
 		"client_id": {clientID}, "code_verifier": {verifier}}, "", "", "")
 	return c, out
 }
 
-func (e *cenv) receipts() []core.ConsentReceipt {
+func (e *consentEnv) receipts() []core.ConsentReceipt {
 	rs, err := e.denv.st.ListConsentReceipts(context.Background(), "r", "", 0, 0)
 	if err != nil {
 		e.t.Fatal(err)
@@ -267,7 +269,7 @@ func TestCacheTTL(t *testing.T) {
 // ---- CIMD resolution ----
 
 func TestCIMDOffByDefault(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	b := e.browser()
 	w := b.do("GET", base+"auth?"+cq(e.id("/c/app.json"), nil).Encode(), nil)
 	if w.Code != 400 || !strings.Contains(w.Body.String(), "Invalid client") {
@@ -282,7 +284,7 @@ func TestCIMDOffByDefault(t *testing.T) {
 }
 
 func TestCIMDFullFlowAndAlwaysConsent(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	id := e.id("/c/app.json")
 	b := e.browser()
@@ -319,7 +321,7 @@ func TestCIMDFullFlowAndAlwaysConsent(t *testing.T) {
 	}
 
 	// Allow: code, token exchange, grant, receipt, event.
-	code := codeOf(t, b.consentDecide(w, q, "allow"))
+	code := consentCodeOf(t, b.consentDecide(w, q, "allow"))
 	if st, tok := e.exchange(id, code); st != 200 || tok["access_token"] == nil {
 		t.Fatalf("token exchange for the CIMD client: %d %v", st, tok)
 	}
@@ -352,15 +354,15 @@ func TestCIMDFullFlowAndAlwaysConsent(t *testing.T) {
 }
 
 func TestCIMDRememberOptIn(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true, RememberCIMD: true})
 	id := e.id("/c/app.json")
 	b := e.browser()
 	q := cq(id, nil)
 	w := b.authorize(q)
-	codeOf(t, b.consentDecide(w, q, "allow"))
+	consentCodeOf(t, b.consentDecide(w, q, "allow"))
 	// Remembered: straight to a code.
-	codeOf(t, b.authorize(q))
+	consentCodeOf(t, b.authorize(q))
 	// More scopes than the grant covers: asked again.
 	if w := b.authorize(cq(id, map[string]string{"scope": "openid profile email"})); !isConsentPage(w) {
 		t.Fatalf("a wider scope must re-ask: %d", w.Code)
@@ -382,13 +384,13 @@ func TestCIMDRememberOptIn(t *testing.T) {
 }
 
 func TestCIMDFingerprintChangeReasks(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true, RememberCIMD: true})
 	id := e.id("/c/app.json")
 	b := e.browser()
 	q := cq(id, nil)
-	codeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
-	codeOf(t, b.authorize(q))
+	consentCodeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
+	consentCodeOf(t, b.authorize(q))
 	// The document changes its name and adds a redirect URI: the cache expires,
 	// the new document is fetched, and the old consent no longer applies.
 	e.mu.Lock()
@@ -405,7 +407,7 @@ func TestCIMDFingerprintChangeReasks(t *testing.T) {
 }
 
 func TestCIMDCache(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	id := e.id("/c/app.json")
 	for i := 0; i < 3; i++ {
@@ -433,7 +435,7 @@ func TestCIMDCache(t *testing.T) {
 }
 
 func TestCIMDRefusals(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	var evil sync.Mutex
 	evilHits := 0
@@ -485,7 +487,7 @@ func TestCIMDRefusals(t *testing.T) {
 }
 
 func TestCIMDRedirectURIExact(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	id := e.id("/c/app.json")
 	for _, ru := range []string{"http://localhost:8765/callback/", "http://localhost:8766/callback", "http://localhost:8765/callback?x=1",
@@ -502,7 +504,7 @@ func TestCIMDRedirectURIExact(t *testing.T) {
 }
 
 func TestCIMDHostAllowlistAndRateLimit(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true, CIMDHosts: []string{"docs.example"}})
 	if w := e.browser().do("GET", base+"auth?"+cq(e.id("/c/app.json"), nil).Encode(), nil); w.Code != 400 {
 		t.Fatalf("host not on the allowlist: %d", w.Code)
@@ -527,7 +529,7 @@ func TestCIMDHostAllowlistAndRateLimit(t *testing.T) {
 func TestCIMDSSRFBlocked(t *testing.T) {
 	// Production policy (no AllowPrivate): even a syntactically fine https URL
 	// that points at a loopback address is refused at dial time.
-	e := newCEnv(t, false, devOpts{})
+	e := newConsentEnv(t, false, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	u, _ := url.Parse(e.srv.URL)
 	for _, id := range []string{"https://" + u.Host + "/c/app.json", "https://127.0.0.1:1/c.json", "https://[::1]:1/c.json",
@@ -549,7 +551,7 @@ func TestCIMDSSRFBlocked(t *testing.T) {
 // ---- consent screen ----
 
 func TestConsentDecisionSecurity(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	e.name = `<script>alert(1)</script>"><img src=x onerror=alert(2)>`
 	id := e.id("/c/app.json")
@@ -629,11 +631,11 @@ func TestConsentDecisionSecurity(t *testing.T) {
 		t.Fatal("a grant exists after only rejected requests")
 	}
 	// The real thing still works afterwards.
-	codeOf(t, post(b, good()))
+	consentCodeOf(t, post(b, good()))
 }
 
 func TestConsentDeny(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	id := e.id("/c/app.json")
 	q := cq(id, nil)
@@ -653,7 +655,7 @@ func TestConsentDeny(t *testing.T) {
 }
 
 func TestConsentRequiredByKind(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	ctx := context.Background()
 	// "app" is an admin-registered client: no consent by default.
 	b := e.browser()
@@ -689,15 +691,15 @@ func TestConsentRequiredByKind(t *testing.T) {
 		t.Fatalf("DCR client: %d %s", w.Code, w.Body)
 	}
 	// DCR clients' grants are remembered by default.
-	codeOf(t, b.consentDecide(w, dq, "allow"))
-	codeOf(t, b.authorize(dq))
+	consentCodeOf(t, b.consentDecide(w, dq, "allow"))
+	consentCodeOf(t, b.authorize(dq))
 	if w := e.browser().authorize(cq(e.id("/c/app.json"), nil)); !isConsentPage(w) {
 		t.Fatalf("a CIMD client in SkipClients must still be asked: %d", w.Code)
 	}
 }
 
 func TestConsentPromptNone(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{RequireAll: true})
 	b := e.browser()
 	q := authQuery(nil)
@@ -706,9 +708,9 @@ func TestConsentPromptNone(t *testing.T) {
 		t.Fatalf("no session: %d", w.Code)
 	}
 	w := b.authorize(q)
-	codeOf(t, b.consentDecide(w, q, "allow"))
+	consentCodeOf(t, b.consentDecide(w, q, "allow"))
 	// Remembered grant covers it: prompt=none yields a code.
-	codeOf(t, b.do("GET", base+"auth?"+authQuery(map[string]string{"prompt": "none"}).Encode(), nil))
+	consentCodeOf(t, b.do("GET", base+"auth?"+authQuery(map[string]string{"prompt": "none"}).Encode(), nil))
 	// A wider scope is not covered: consent_required, no code, no page.
 	if w := b.do("GET", base+"auth?"+authQuery(map[string]string{"prompt": "none", "scope": "openid email roles"}).Encode(), nil); errOfRedirect(w) != "consent_required" {
 		t.Fatalf("prompt=none beyond the grant: %d %s", w.Code, w.Header().Get("Location"))
@@ -716,7 +718,7 @@ func TestConsentPromptNone(t *testing.T) {
 }
 
 func TestConsentInvalidResource(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{RequireAll: true})
 	b := e.browser()
 	for _, res := range []string{"not a uri", "https://x.example/a#frag", "http://public.example/mcp", "javascript:alert(1)", "https://u:p@x.example/"} {
@@ -730,11 +732,11 @@ func TestConsentInvalidResource(t *testing.T) {
 // ---- account page, revocation, kill switch ----
 
 func TestAccountConsentsRevoke(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{RequireAll: true})
 	b := e.browser()
 	q := authQuery(nil)
-	code := codeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
+	code := consentCodeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
 	_, tok, _ := e.post(base+"token", url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {cb},
 		"client_id": {"app"}, "code_verifier": {verifier}}, "", "", "")
 	rt, _ := tok["refresh_token"].(string)
@@ -803,19 +805,19 @@ func TestAccountConsentsRevoke(t *testing.T) {
 }
 
 func TestKillSwitchClientBlocksEverything(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true, RememberCIMD: true})
 	ctx := context.Background()
 	id := e.id("/c/app.json")
 	q := cq(id, nil)
 	b := e.browser()
-	code := codeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
+	code := consentCodeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
 	_, tok := e.exchange(id, code)
 	rt, _ := tok["refresh_token"].(string)
 	if rt == "" {
 		// the dev realm hands refresh tokens for offline_access only; ask for it
 		q = cq(id, map[string]string{"scope": "openid offline_access"})
-		code = codeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
+		code = consentCodeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
 		_, tok = e.exchange(id, code)
 		rt, _ = tok["refresh_token"].(string)
 	}
@@ -860,7 +862,7 @@ func TestKillSwitchClientBlocksEverything(t *testing.T) {
 }
 
 func TestKillSwitchAgent(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	ctx := context.Background()
 	as, _ := core.StoreAs[core.AgentStore](e.denv.st)
 	ag, err := as.CreateAgent(ctx, core.Agent{Realm: "r", Name: "bot", Kind: "agent", ClientID: "agent-bot", OwnerUserID: "u1",
@@ -894,12 +896,12 @@ func TestKillSwitchAgent(t *testing.T) {
 }
 
 func TestReceiptChainDetectsTampering(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{RequireAll: true})
 	for i := 0; i < 3; i++ {
 		b := e.browser()
 		q := authQuery(map[string]string{"prompt": "consent"})
-		codeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
+		consentCodeOf(t, b.consentDecide(b.authorize(q), q, "allow"))
 	}
 	rs := e.receipts()
 	if len(rs) != 3 {
@@ -921,7 +923,7 @@ func TestReceiptChainDetectsTampering(t *testing.T) {
 type noConsentStore struct{ core.Store }
 
 func TestFeatureOffFailsClosed(t *testing.T) {
-	e := newCEnv(t, true, devOpts{store: func(s core.Store) core.Store { return noConsentStore{s} }})
+	e := newConsentEnv(t, true, devOpts{store: func(s core.Store) core.Store { return noConsentStore{s} }})
 	if w := e.browser().do("GET", base+"auth?"+cq(e.id("/c/app.json"), nil).Encode(), nil); w.Code != 400 || e.hitCount("/c/app.json") != 0 {
 		t.Fatalf("CIMD without a ConsentStore: %d, fetched %d", w.Code, e.hitCount("/c/app.json"))
 	}
@@ -935,7 +937,7 @@ func TestFeatureOffFailsClosed(t *testing.T) {
 }
 
 func TestDiscoveryAdvertisesCIMDOnlyWhenEnabled(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	get := func() string {
 		w := httptest.NewRecorder()
 		e.h.ServeHTTP(w, httptest.NewRequest("GET", "/realms/r/.well-known/openid-configuration", nil))
@@ -954,7 +956,7 @@ func TestDiscoveryAdvertisesCIMDOnlyWhenEnabled(t *testing.T) {
 // client row: it covers a document nobody has fetched yet and survives the
 // client row being deleted.
 func TestKillSwitchBlocksUnseenAndDeletedCIMDClient(t *testing.T) {
-	e := newCEnv(t, true, devOpts{})
+	e := newConsentEnv(t, true, devOpts{})
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	ctx := context.Background()
 	unseen := e.id("/c/unseen.json")

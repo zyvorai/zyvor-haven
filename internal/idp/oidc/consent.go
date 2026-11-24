@@ -36,10 +36,10 @@ import (
 // SSO session of the logged-in user.
 
 const (
-	consentProofTTL = 10 * time.Minute
-	consentLimit    = 60 // decisions per user and window
-	consentWindow   = time.Minute
-	maxResourceLen  = 512
+	consentProofTTL       = 10 * time.Minute
+	consentLimit          = 60 // decisions per user and window
+	consentWindow         = time.Minute
+	consentMaxResourceLen = 512
 )
 
 type consentDoneKey struct{}
@@ -122,7 +122,7 @@ func (p *Provider) requestedResources(r *http.Request) ([]string, error) {
 	allowPrivate := p.cfg.Federation != nil && p.cfg.Federation.AllowPrivate()
 	var out []string
 	for _, v := range vals {
-		if _, err := safehttp.ValidateURL(v, allowPrivate, "resource", maxResourceLen); err != nil {
+		if _, err := safehttp.ValidateURL(v, allowPrivate, "resource", consentMaxResourceLen); err != nil {
 			return nil, err
 		}
 		if !slices.Contains(out, v) {
