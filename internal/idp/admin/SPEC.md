@@ -311,3 +311,32 @@ Responses always show every config key explicitly (defaults filled in) plus `iss
 
 Tables (pg migration `0011_federation.sql`): `fed_providers`, `fed_links (realm, alias, subject)
 unique`, `fed_login_states`.
+
+## Workload identities and agent/MCP identities
+
+See `docs/workload-identity.md` and `docs/agent-identities.md`. Both are optional store extensions
+(`core.WorkloadStore`, `core.AgentStore`); a store without them answers 501. Request bodies reject unknown
+fields. Creating either also creates an inert backing client (public, no secret, no flows); a `clientId`
+that already exists is 409 and never adopted. Pg migrations `0015_workload_identities.sql`,
+`0016_agent_identities.sql`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/workload-identities` | list; `inlineJwks` bool instead of the JWKS body |
+| `POST /realms/{r}/workload-identities` | `{name, clientId?, issuer, jwksUri` xor `jwks, audience, subject, scopes[], ttlSeconds?}` -> 201; 400 on wildcard/empty pins, non-https issuer, bad keys, scope `openid`/`offline_access`, ttl outside 30..3600; 409 duplicate name/client |
+| `GET /realms/{r}/workload-identities/{id}` | 404 unknown |
+| `POST .../{id}/enable`, `POST .../{id}/disable` | returns the identity |
+| `DELETE .../{id}` | 204; also deletes the backing client |
+| `GET /realms/{r}/agents[?owner=]` | list |
+| `POST /realms/{r}/agents` | `{name, ownerUserId, scopes[], roles[]?, audiences[]?, tokenTtlSeconds?}` -> 201; owner must exist and be enabled; every role must be held by the owner; ttl 30..900 |
+| `GET /realms/{r}/agents/{id}` | |
+| `POST .../{id}/enable`, `POST .../{id}/disable` | |
+| `DELETE .../{id}` | 204; deletes credentials and backing client |
+| `GET .../{id}/credentials` | `[{id, scopes, note, state, createdBy, createdAt, expiresAt, revokedAt?, revokedBy?, lastUsedAt?}]`; never the secret |
+| `POST .../{id}/credentials` | `{ttlSeconds? 60..604800, scopes[]?, note?}` -> 201 `{credential, secret, tokenType, clientId}` (secret once); 409 when disabled or 5 active |
+| `DELETE .../{id}/credentials/{cid}` | 204; 409 already ended |
+| `POST .../{id}/revoke-credentials` | `{"revoked": n}` |
+
+Events (admin events flag): `WORKLOAD_IDENTITY_CREATE|ENABLE|DISABLE|DELETE`, `AGENT_CREATE|ENABLE|DISABLE|DELETE`,
+`AGENT_CREDENTIAL_ISSUED`, `AGENT_CREDENTIAL_REVOKED`. Token endpoint events (auth events flag):
+`WORKLOAD_TOKEN`, `WORKLOAD_TOKEN_ERROR`, `AGENT_TOKEN`, `AGENT_TOKEN_ERROR`.

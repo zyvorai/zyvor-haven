@@ -84,6 +84,7 @@ OAuth dynamic client registration (RFC 7591/7592) behind
 admin-issued initial access tokens (no anonymous mode, no software statements or JWT-secured registration, per-client
 scope is recorded but not enforced at authorize; see [dynamic-client-registration.md](dynamic-client-registration.md)).
 TOTP two-step verification with recovery codes (login step, enforced enrollment via a per-realm `requireMfa` policy, account page, Admin reset; see [mfa-totp.md](mfa-totp.md)); not done there: QR code, `amr`/`acr` claims, a link to the account page.
+Workload identity (RFC 8693 token exchange and RFC 7523 JWT bearer: a Kubernetes projected service-account token, verified against pinned issuer, audience and subject and an inline or SSRF-safely fetched JWKS, is exchanged for a short-lived secretless token; see [workload-identity.md](workload-identity.md)) and agent/MCP identities (owner-bound, scoped, short-TTL revocable credentials, delegated tokens with an RFC 8693 `act` claim, audited, Admin API only; see [agent-identities.md](agent-identities.md)) are done with software-signed test tokens only: not run against a real cluster or MCP client, no `jti` single-use, no delegation chains or owner self-service page.
 WebAuthn passkeys (first factor and second factor, account page, Admin API; hand-rolled verifier, attestation `none`/`packed` self only, tested with software authenticators and a headless-Chrome virtual authenticator, not with real hardware; see [passkeys.md](passkeys.md)).
 
 Item 9 (offline weak/leaked-password checks) is partially done;

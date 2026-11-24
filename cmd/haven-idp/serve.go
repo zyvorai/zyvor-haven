@@ -447,6 +447,14 @@ func purgeLoop(ctx context.Context, st core.Store, log *slog.Logger) {
 			} else if n > 0 {
 				log.Info("purged expired grants", "count", n)
 			}
+			// Agent identities: drop long-ended credential rows.
+			if as, ok := core.StoreAs[core.AgentStore](st); ok {
+				if n, err := as.PurgeAgentCredentials(ctx, now); err != nil {
+					log.Warn("purge agent credentials failed", "error", err.Error())
+				} else if n > 0 {
+					log.Info("purged agent credentials", "count", n)
+				}
+			}
 			if ds, ok := core.StoreAs[core.DeviceStore](st); ok {
 				if n, err := ds.PurgeExpiredDeviceCodes(ctx, now); err != nil {
 					log.Warn("purge expired device codes failed", "error", err.Error())
