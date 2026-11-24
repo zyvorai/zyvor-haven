@@ -63,6 +63,9 @@ type Config struct {
 	// IdP client secrets). Nil disables the features that need it (they must
 	// fail closed and say why), it never falls back to storing plaintext.
 	SecretBox *secretbox.Box
+	// WebAuthn overrides the passkey relying party (passkeys.go). Zero = derive
+	// it from BaseURL.
+	WebAuthn WebAuthnConfig
 	// Sessions ends SSO sessions (logout, admin revoke). Built from Store with
 	// no notifier when nil; set it to enable back-channel logout.
 	Sessions *sessions.Service

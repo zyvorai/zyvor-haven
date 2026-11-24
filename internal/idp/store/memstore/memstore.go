@@ -34,6 +34,7 @@ type Store struct {
 	sess    map[string]core.Session // key: id
 	events  []core.Event
 	rates   map[string]rateWindow
+	pk      passkeyState // passkeys.go
 }
 
 type rateWindow struct {
@@ -164,6 +165,7 @@ func (s *Store) DeleteRealm(_ context.Context, name string) error {
 	}
 	delete(s.realms, lc(name))
 	n := r.Name
+	s.pkDrop(n, "")
 	for k, v := range s.sess {
 		if v.Realm == n {
 			delete(s.sess, k)
@@ -327,6 +329,7 @@ func (s *Store) DeleteUser(_ context.Context, realm, id string) error {
 		return nf("user " + id)
 	}
 	delete(s.users, id)
+	s.pkDrop(realm, id)
 	for k, v := range s.sess {
 		if v.Realm == realm && v.UserID == id {
 			delete(s.sess, k)

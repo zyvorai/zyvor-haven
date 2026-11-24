@@ -27,6 +27,8 @@
 //	                             created in the bootstrap realm, rotated on restart when changed
 //	HAVEN_IDP_SECRET_KEY         32-byte key (base64 or hex; comma separated for rotation, newest first) that encrypts
 //	                             TOTP seeds and upstream IdP secrets; _FILE variant supported; `haven-idp keygen` makes one
+//	HAVEN_IDP_WEBAUTHN_RPID      passkey relying party id (default: host of HAVEN_IDP_BASE_URL); see docs/passkeys.md
+//	HAVEN_IDP_WEBAUTHN_ORIGINS   comma-separated allowed passkey origins (default: HAVEN_IDP_BASE_URL's origin)
 //	HAVEN_IDP_METRICS_LISTEN     serve Prometheus /metrics (only) on this separate address, e.g. :9100 (empty = off)
 //	HAVEN_IDP_AUDIT              audit event sink: stdout, file:PATH or webhook:URL (empty = none)
 //	HAVEN_IDP_AUDIT_WEBHOOK_SECRET HMAC secret signing webhook audit deliveries

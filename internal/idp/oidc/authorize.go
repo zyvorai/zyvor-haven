@@ -310,6 +310,7 @@ button{margin-top:1rem;width:100%;padding:.6rem;font-size:1rem;cursor:pointer}
 <label for="u">Username or email</label><input id="u" name="username" value="{{.Username}}" autocomplete="username" autofocus required maxlength="256">
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required maxlength="1024">
 <button type="submit">Sign in</button></form>
+{{if .Passkey}}{{template "passkey" .}}{{end}}
 {{if .ForgotURL}}<p class="sub"><a href="{{.ForgotURL}}">Forgot your password?</a></p>{{end}}
 {{else if .Form}}<h1>{{.Title}}</h1>
 {{if .Message}}<p class="sub">{{.Message}}</p>{{end}}
@@ -332,6 +333,7 @@ type pageData struct {
 	Title, Nonce, Realm, Client, Error, Username, CSRF, Action, Message string
 	Token, Form, ForgotURL                                              string
 	Login                                                               bool
+	Passkey                                                             *PasskeyLogin // set by passkeys.go via loginPageHook
 }
 
 func (p *Provider) errorPage(w http.ResponseWriter, status int, msg string) {
@@ -359,10 +361,14 @@ func (p *Provider) loginPage(w http.ResponseWriter, r *http.Request, ar *authzRe
 	if cn == "" {
 		cn = ar.client.ClientID
 	}
-	w.WriteHeader(http.StatusOK)
-	_ = pageTmpl.Execute(w, pageData{Title: "Sign in", Nonce: nonce, Login: true, Realm: disp, Client: cn,
+	pd := pageData{Title: "Sign in", Nonce: nonce, Login: true, Realm: disp, Client: cn,
 		Error: errMsg, Username: username, CSRF: csrf, ForgotURL: p.forgotURL(ar.realm.Name),
-		Action: r.URL.Path + "?" + r.URL.RawQuery})
+		Action: r.URL.Path + "?" + r.URL.RawQuery}
+	if loginPageHook != nil {
+		loginPageHook(p, w, ar, nonce, &pd) // passkeys: adds the button and its nonce'd script
+	}
+	w.WriteHeader(http.StatusOK)
+	_ = pageTmpl.Execute(w, pd)
 }
 
 // ---- login ----
