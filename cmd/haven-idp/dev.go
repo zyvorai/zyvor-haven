@@ -28,6 +28,7 @@ import (
 const (
 	devPlaygroundClient = "dev-playground"
 	devAppClient        = "demo-app"
+	devCLIClient        = "demo-cli" // public, device flow (haven login)
 )
 
 // playgroundHandler serves the browser-based OIDC playground at /dev/. It is
@@ -132,6 +133,14 @@ func cmdDev(args []string, out io.Writer) error {
 			if err != nil && !errors.Is(err, idp.ErrConflict) {
 				return err
 			}
+			// Device flow demo client: no redirect URIs needed.
+			err = st.CreateClient(ctx, core.Client{
+				Realm: *realm, ClientID: devCLIClient, Name: "Demo CLI", Enabled: true,
+				Public: true, DeviceFlow: true,
+			})
+			if err != nil && !errors.Is(err, idp.ErrConflict) {
+				return err
+			}
 			return nil
 		},
 		Mount: func(mux *http.ServeMux) {
@@ -166,6 +175,7 @@ func printDevBanner(w io.Writer, base, issuer, realm, user string, c devCreds, r
 	p("  Dev mailbox  %s/dev/mail   password-reset and verification emails land here\n", base)
 	p("  Test user    %s / %s\n", user, c.Password)
 	p("  Test client  %s (public, PKCE S256)  redirect: %s\n", devAppClient, strings.Join(redirects, ", "))
+	p("  CLI client   %s (public, device flow)   haven login --issuer %s --client-id %s\n", devCLIClient, issuer, devCLIClient)
 	p("  Admin API    %s/admin/v1   (client haven-admin)\n", base)
 	p("  Metrics      %s/metrics   (Prometheus)\n\n", base)
 	p("Use it from an app:\n")

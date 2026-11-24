@@ -189,3 +189,12 @@ Events (when `Realm.AdminEventsLogged`): `ROLE_GRANT_CREATED`, `ROLE_GRANT_REVOK
 `UserID` = the user, `Detail` = `grant <role> until <RFC3339> by <actor>`) and `ROLE_GRANT_EXPIRED` (appended by the
 purge loop once per expired grant, `Detail` = `grant <role> until <RFC3339>`). The reason text is never
 put in an event. Obs: `AdminOp(realm,"role-grant","create"|"delete",ok)`, `AdminOp(realm,"grants-policy","update",ok)`.
+## Device authorization grant (RFC 8628)
+* Client: `DeviceFlowEnabled`=`core.Client.DeviceFlow` (`deviceFlowEnabled`, omitted
+  when false). Default false; opt-in per client. Client PUT is a full replace, so
+  omitting the key switches the flow off (like `redirectUris`). Create/update with
+  `serviceAccountsEnabled: true` and `deviceFlowEnabled: true` -> 400
+  `deviceFlowEnabled cannot be combined with serviceAccountsEnabled`.
+* Config as code: `clients[].deviceFlowEnabled` (same validation).
+* Protocol endpoints and behaviour: `docs/device-flow.md`. There is no Admin API for
+  pending device requests.

@@ -61,7 +61,7 @@ func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 		p.errorPage(w, http.StatusNotFound, "Unknown realm.")
 		return
 	}
-	cl, err := p.cfg.Store.GetClientByClientID(r.Context(), name, q.Get("client_id"))
+	cl, err := p.authorizeClient(r.Context(), name, q.Get("client_id")) // store lookup (+ built-in device-login client, device.go)
 	if err != nil || !cl.Enabled || !cl.AuthCodeFlow {
 		p.errorPage(w, http.StatusBadRequest, "Invalid client.")
 		return

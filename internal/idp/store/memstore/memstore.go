@@ -34,6 +34,7 @@ type Store struct {
 	sess    map[string]core.Session // key: id
 	events  []core.Event
 	rates   map[string]rateWindow
+	dev     deviceState // device flow rows (device.go)
 }
 
 type rateWindow struct {

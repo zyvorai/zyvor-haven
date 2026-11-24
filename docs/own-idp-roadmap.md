@@ -79,6 +79,7 @@ realm create/update and client create/update (off, warn or enforce, audited over
 route; see [guard-gate.md](guard-gate.md)); users, roles, groups and realm import are not gated.
 The `haven` CLI client (device-flow login, `haven token`, kubectl exec plugin; see [haven-cli.md](haven-cli.md)) is built and tested against a fake RFC 8628 IdP but not yet run against the real device endpoint, and has no OS keychain or Windows cross-process lock.
 #13 is partly done: time-boxed *role* grants (reason, expiry, realm policy, audit, Admin API) are in [time-boxed-access.md](time-boxed-access.md); there is no approval workflow, no break-glass alerting, no group-membership expiry and no Access Review integration yet.
+The OAuth device authorization grant (RFC 8628) for terminals and CI (opt-in per client, login reuses the normal flow incl. extra auth steps; fixed TTL/interval, no admin view of pending requests; see [device-flow.md](device-flow.md)).
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:
