@@ -290,10 +290,18 @@ func (k *jwk) parse() bool {
 			return false
 		}
 		x, y := b64Int(k.X), b64Int(k.Y)
-		if x == nil || y == nil || !elliptic.P256().IsOnCurve(x, y) {
+		if x == nil || y == nil || x.BitLen() > 256 || y.BitLen() > 256 {
 			return false
 		}
-		k.pub = &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+		pt := make([]byte, 65) // SEC 1 uncompressed point; parsing checks it is on the curve
+		pt[0] = 4
+		x.FillBytes(pt[1:33])
+		y.FillBytes(pt[33:])
+		pub, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), pt)
+		if err != nil {
+			return false
+		}
+		k.pub = pub
 	default:
 		return false
 	}
@@ -319,7 +327,7 @@ func (m *Manager) keys(ctx context.Context, uri string, force bool) ([]jwk, erro
 		lastForced = c.forcedAt
 	}
 	canForce := lastForced.IsZero() || m.now().Sub(lastForced) >= jwksRefetchGap
-	if fresh && !(force && canForce) {
+	if fresh && (!force || !canForce) {
 		keys := c.keys
 		m.mu.Unlock()
 		return keys, nil

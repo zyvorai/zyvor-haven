@@ -121,6 +121,7 @@ func (p *Provider) pkAccountPage(w http.ResponseWriter, r *http.Request, rl core
 		return
 	}
 	csrf := p.newCSRF(rl.Name + "|passkeys")
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: pkCSRFCookie, Value: csrf, Path: pkAccountPath(rl.Name),
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)
@@ -227,7 +228,7 @@ func (p *Provider) pkAccountPost(w http.ResponseWriter, r *http.Request, rl core
 	}
 	ip := p.clientIP(r)
 	redirect := func(code string) {
-		http.Redirect(w, r, pkAccountPath(rl.Name)+"?m="+code, http.StatusSeeOther)
+		http.Redirect(w, r, pkAccountPath(rl.Name)+"?m="+code, http.StatusSeeOther) // #nosec G710 -- fixed in-realm account path and a code chosen by the handler, no user-supplied target
 	}
 	page := func(status int, msg string) {
 		p.pkAccountPage(w, r, rl, st, rp, sess, u, status, "", msg)
@@ -259,6 +260,7 @@ func (p *Provider) pkAccountPost(w http.ResponseWriter, r *http.Request, rl core
 			page(http.StatusForbidden, "That password is not correct.")
 			return
 		}
+		// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 		http.SetCookie(w, &http.Cookie{Name: pkReauthCook, Value: p.signPending(rl.Name, u.ID, "pk-reauth", sess.ID, pkRecentAuth),
 			Path: pkAccountPath(rl.Name), HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(pkRecentAuth.Seconds())})
 		redirect("reauth")

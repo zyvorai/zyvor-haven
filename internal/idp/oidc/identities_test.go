@@ -37,8 +37,8 @@ type identFake struct {
 
 // HitRateLimit is a fixed-window counter that never resets (tests are short).
 func (f *identFake) HitRateLimit(_ context.Context, key string, _ time.Time, _ time.Duration, max int) (bool, error) {
-	f.fakeStore.mu.Lock()
-	defer f.fakeStore.mu.Unlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.rl == nil {
 		f.rl = map[string]int{}
 	}

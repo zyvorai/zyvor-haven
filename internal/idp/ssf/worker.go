@@ -240,7 +240,7 @@ func (w *Worker) post(target, auth, set string) (string, bool) {
 		}
 		return "network_error", true
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.CopyN(io.Discard, resp.Body, 4<<10)
 	code := resp.StatusCode
 	switch {

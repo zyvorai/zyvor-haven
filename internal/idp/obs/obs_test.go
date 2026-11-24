@@ -159,7 +159,7 @@ func TestCardinalityGuards(t *testing.T) {
 func TestMetricsOutputHasNoUserData(t *testing.T) {
 	o, _ := newObs(t, nil, nil)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/realms/", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
+	mux.HandleFunc("/realms/", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("ok")) })
 	h := o.Middleware(mux)
 	req := httptest.NewRequest("GET", "/realms/acme/login?username=alice&password=hunter2&client_id=secretclient", nil)
 	req.Header.Set("Authorization", "Bearer sekrettoken")
@@ -182,7 +182,7 @@ func TestMiddlewareRouteAndAccessLog(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /realms/{realm}/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
-		w.Write([]byte("hello"))
+		_, _ = w.Write([]byte("hello"))
 	})
 	h := o.Middleware(mux)
 

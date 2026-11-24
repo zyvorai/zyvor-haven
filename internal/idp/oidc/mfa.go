@@ -212,6 +212,7 @@ func (p *Provider) mfaEvent(r *http.Request, rl core.Realm, typ, userID, clientI
 // template text; data is what it renders.
 func (p *Provider) mfaPage(w http.ResponseWriter, r *http.Request, rl core.Realm, csrfPath string, status int, title, errMsg, body string, data any) {
 	csrf := p.newCSRF(rl.Name)
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: csrf, Path: csrfPath,
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)

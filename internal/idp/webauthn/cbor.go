@@ -127,16 +127,17 @@ func (d *decoder) item(depth int) (any, error) {
 		}
 		return -1 - int64(arg), nil
 	case 2, 3:
+		// #nosec G115 -- d.left() is never negative and arg is bounded by it on the checks around this line
 		if arg > uint64(d.left()) { // never allocate more than the input holds
 			return nil, cborErr("string longer than input")
 		}
-		s, _ := d.take(int(arg))
+		s, _ := d.take(int(arg)) // #nosec G115 -- d.left() is never negative and arg is bounded by it on the checks around this line
 		if major == 2 {
 			return append([]byte(nil), s...), nil
 		}
 		return string(s), nil
 	case 4:
-		if arg > maxItems || arg > uint64(d.left()) {
+		if arg > maxItems || arg > uint64(d.left()) { // #nosec G115 -- d.left() is never negative and arg is bounded by it on the checks around this line
 			return nil, cborErr("array too large")
 		}
 		out := make([]any, 0, int(arg))
@@ -149,7 +150,7 @@ func (d *decoder) item(depth int) (any, error) {
 		}
 		return out, nil
 	case 5:
-		if arg > maxItems || arg*2 > uint64(d.left()) {
+		if arg > maxItems || arg*2 > uint64(d.left()) { // #nosec G115 -- d.left() is never negative and arg is bounded by it on the checks around this line
 			return nil, cborErr("map too large")
 		}
 		out := make(Map, int(arg))

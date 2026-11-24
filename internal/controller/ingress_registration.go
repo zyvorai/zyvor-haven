@@ -422,7 +422,7 @@ func (r *IngressRegistrationReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		if err := r.Create(ctx, oc); err != nil {
 			if kerrors.IsAlreadyExists(err) {
-				return ctrl.Result{Requeue: true}, nil // raced: next pass checks ownership
+				return ctrl.Result{RequeueAfter: time.Second}, nil // raced: next pass checks ownership
 			}
 			return ctrl.Result{}, err
 		}
@@ -473,7 +473,7 @@ func applyIngressManaged(oc *havenv1.OIDCClient, b ingressSpec) {
 
 func (r *IngressRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Recorder == nil {
-		r.Recorder = mgr.GetEventRecorderFor("haven-ingress-registration")
+		r.Recorder = mgr.GetEventRecorderFor("haven-ingress-registration") //nolint:staticcheck // Recorder is a record.EventRecorder; GetEventRecorder returns the new events API type, so migrating means changing the reconciler field and every Event call
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("ingress-registration").

@@ -476,6 +476,7 @@ func (p *Provider) deviceRender(w http.ResponseWriter, rl core.Realm, status int
 	if v.Mode != "done" {
 		csrf := p.newCSRF(rl.Name)
 		v.CSRF = csrf
+		// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 		http.SetCookie(w, &http.Cookie{Name: deviceCSRFCookie, Value: csrf, Path: "/realms/" + rl.Name + "/device",
 			HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	}

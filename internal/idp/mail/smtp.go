@@ -235,17 +235,18 @@ func (s *smtpSender) deliver(ctx context.Context, rcpt string, data []byte) erro
 		return err
 	}
 	// Closing the connection unblocks any in-flight I/O when the context ends.
-	stop := context.AfterFunc(dctx, func() { raw.Close() })
+	stop := context.AfterFunc(dctx, func() { _ = raw.Close() })
 	defer stop()
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 	_ = raw.SetDeadline(deadline)
 
 	tlsCfg := &tls.Config{
-		ServerName:         cfg.Host,
-		MinVersion:         tls.VersionTLS12,
+		ServerName: cfg.Host,
+		MinVersion: tls.VersionTLS12,
+		// #nosec G402 -- explicit operator opt-in for lab SMTP servers; verification is on by default
 		InsecureSkipVerify: cfg.InsecureSkipVerify, //nolint:gosec // explicit opt-in
 	}
-	var conn net.Conn = raw
+	conn := raw
 	if cfg.TLS == "implicit" {
 		tc := tls.Client(raw, tlsCfg)
 		if err := tc.HandshakeContext(dctx); err != nil {
@@ -257,7 +258,7 @@ func (s *smtpSender) deliver(ctx context.Context, rcpt string, data []byte) erro
 	if err != nil {
 		return ctxErr(dctx, err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	if err := s.session(c, tlsCfg, rcpt, data); err != nil {
 		return ctxErr(dctx, err)
 	}

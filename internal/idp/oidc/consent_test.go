@@ -41,8 +41,8 @@ func newConsentEnv(t *testing.T, allowPrivate bool, o devOpts) *consentEnv {
 		redir: []string{cbC}, name: "Demo MCP"}
 	e.srv = httptest.NewServer(http.HandlerFunc(e.handle))
 	t.Cleanup(e.srv.Close)
-	clock := func() time.Time { e.denv.mu.Lock(); defer e.denv.mu.Unlock(); return e.denv.now }
-	var st core.Store = e.denv.st
+	clock := func() time.Time { e.mu.Lock(); defer e.mu.Unlock(); return e.now }
+	var st core.Store = e.st
 	if o.store != nil {
 		st = o.store(st)
 	}
@@ -64,7 +64,7 @@ func (e *consentEnv) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"client_id":%q,"client_name":%q,"client_uri":"https://demo.example","redirect_uris":[%s],"token_endpoint_auth_method":"none","grant_types":["authorization_code","refresh_token"],"response_types":["code"]}`,
+	_, _ = fmt.Fprintf(w, `{"client_id":%q,"client_name":%q,"client_uri":"https://demo.example","redirect_uris":[%s],"token_endpoint_auth_method":"none","grant_types":["authorization_code","refresh_token"],"response_types":["code"]}`,
 		e.srv.URL+r.URL.Path, e.name, `"`+strings.Join(e.redir, `","`)+`"`)
 }
 
@@ -74,7 +74,7 @@ func (e *consentEnv) id(path string) string    { return e.srv.URL + path }
 func (e *consentEnv) policy(p core.ConsentPolicy) {
 	e.t.Helper()
 	p.Realm = "r"
-	if err := e.denv.st.PutConsentPolicy(context.Background(), p); err != nil {
+	if err := e.st.PutConsentPolicy(context.Background(), p); err != nil {
 		e.t.Fatal(err)
 	}
 }
@@ -153,7 +153,7 @@ func (e *consentEnv) exchange(clientID, code string) (int, map[string]any) {
 }
 
 func (e *consentEnv) receipts() []core.ConsentReceipt {
-	rs, err := e.denv.st.ListConsentReceipts(context.Background(), "r", "", 0, 0)
+	rs, err := e.st.ListConsentReceipts(context.Background(), "r", "", 0, 0)
 	if err != nil {
 		e.t.Fatal(err)
 	}
@@ -215,8 +215,8 @@ func TestParseCIMD(t *testing.T) {
 		}
 	}
 	// Optional fields: an invalid client_uri is dropped, not fatal; names are cleaned.
-	d, err = parseCIMD(id, []byte(with(`"client_uri":"javascript:x","client_name":"Evil‮App\u0007 `+strings.Repeat("x", 200)+`"`)), false)
-	if err != nil || d.ClientURI != "" || strings.ContainsAny(d.Name, "‮\u0007") || len([]rune(d.Name)) > cimdMaxName {
+	d, err = parseCIMD(id, []byte(with(`"client_uri":"javascript:x","client_name":"Evil\u202eApp\u0007 `+strings.Repeat("x", 200)+`"`)), false)
+	if err != nil || d.ClientURI != "" || strings.ContainsAny(d.Name, "\u202e\u0007") || len([]rune(d.Name)) > cimdMaxName {
 		t.Errorf("optional fields: %+v %v", d, err)
 	}
 	// Unknown members are ignored.
@@ -278,7 +278,7 @@ func TestCIMDOffByDefault(t *testing.T) {
 	if e.hitCount("/c/app.json") != 0 {
 		t.Fatal("the document was fetched although the realm did not opt in")
 	}
-	if _, err := e.denv.st.GetClientByClientID(context.Background(), "r", e.id("/c/app.json")); err == nil {
+	if _, err := e.st.GetClientByClientID(context.Background(), "r", e.id("/c/app.json")); err == nil {
 		t.Fatal("a client was created while the feature is off")
 	}
 }
@@ -315,7 +315,7 @@ func TestCIMDFullFlowAndAlwaysConsent(t *testing.T) {
 		t.Error("CSP nonce does not match the page")
 	}
 	// The materialised client is a public, PKCE-only, auth-code client.
-	cl, err := e.denv.st.GetClientByClientID(context.Background(), "r", id)
+	cl, err := e.st.GetClientByClientID(context.Background(), "r", id)
 	if err != nil || !cl.Public || !cl.RequirePKCE || !cl.AuthCodeFlow || cl.SecretHash != "" || cl.PasswordFlow || cl.ServiceAccount || len(cl.RedirectURIs) != 1 {
 		t.Fatalf("cimd client row: %+v %v", cl, err)
 	}
@@ -325,7 +325,7 @@ func TestCIMDFullFlowAndAlwaysConsent(t *testing.T) {
 	if st, tok := e.exchange(id, code); st != 200 || tok["access_token"] == nil {
 		t.Fatalf("token exchange for the CIMD client: %d %v", st, tok)
 	}
-	gs, _ := e.denv.st.ListConsentGrants(context.Background(), "r", "u1", id, false, e.now, 10)
+	gs, _ := e.st.ListConsentGrants(context.Background(), "r", "u1", id, false, e.now, 10)
 	if len(gs) != 1 || strings.Join(gs[0].Scopes, " ") != "openid profile" || strings.Join(gs[0].Resources, " ") != "https://mcp.example/mcp" {
 		t.Fatalf("grant: %+v", gs)
 	}
@@ -334,7 +334,7 @@ func TestCIMDFullFlowAndAlwaysConsent(t *testing.T) {
 		t.Fatalf("receipts: %+v", rs)
 	}
 	var sawEvent bool
-	evs, _ := e.denv.st.ListEvents(context.Background(), "r", 100)
+	evs, _ := e.st.ListEvents(context.Background(), "r", 100)
 	for _, ev := range evs {
 		sawEvent = sawEvent || ev.Type == "CONSENT_GRANT"
 	}
@@ -444,7 +444,7 @@ func TestCIMDRefusals(t *testing.T) {
 		evilHits++
 		evil.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"client_id":%q,"redirect_uris":[%q]}`, r.Host, cbC)
+		_, _ = fmt.Fprintf(w, `{"client_id":%q,"redirect_uris":[%q]}`, r.Host, cbC)
 	}))
 	defer evilSrv.Close()
 	set := func(path string, f func(http.ResponseWriter, *http.Request)) {
@@ -455,19 +455,19 @@ func TestCIMDRefusals(t *testing.T) {
 	set("/c/redirect.json", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, evilSrv.URL+"/x", http.StatusFound) })
 	set("/c/other-id.json", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"client_id":"https://elsewhere.example/c.json","redirect_uris":[%q]}`, cbC)
+		_, _ = fmt.Fprintf(w, `{"client_id":"https://elsewhere.example/c.json","redirect_uris":[%q]}`, cbC)
 	})
 	set("/c/html.json", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	})
 	set("/c/big.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"client_id":%q,"client_name":"%s","redirect_uris":[%q]}`, e.srv.URL+r.URL.Path, strings.Repeat("x", cimdMaxBody), cbC)
+		_, _ = fmt.Fprintf(w, `{"client_id":%q,"client_name":"%s","redirect_uris":[%q]}`, e.srv.URL+r.URL.Path, strings.Repeat("x", cimdMaxBody), cbC)
 	})
 	set("/c/secret.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"client_id":%q,"client_secret":"s","redirect_uris":[%q]}`, e.srv.URL+r.URL.Path, cbC)
+		_, _ = fmt.Fprintf(w, `{"client_id":%q,"client_secret":"s","redirect_uris":[%q]}`, e.srv.URL+r.URL.Path, cbC)
 	})
 	set("/c/404.json", func(w http.ResponseWriter, _ *http.Request) { http.NotFound(w, nil) })
 	for _, path := range []string{"/c/redirect.json", "/c/other-id.json", "/c/html.json", "/c/big.json", "/c/secret.json", "/c/404.json"} {
@@ -475,7 +475,7 @@ func TestCIMDRefusals(t *testing.T) {
 		if w.Code != 400 || !strings.Contains(w.Body.String(), "Invalid client") {
 			t.Errorf("%s: want Invalid client, got %d", path, w.Code)
 		}
-		if _, err := e.denv.st.GetClientByClientID(context.Background(), "r", e.id(path)); err == nil {
+		if _, err := e.st.GetClientByClientID(context.Background(), "r", e.id(path)); err == nil {
 			t.Errorf("%s: a client was created from a refused document", path)
 		}
 	}
@@ -609,7 +609,7 @@ func TestConsentDecisionSecurity(t *testing.T) {
 	oc, op := csrfRe.FindStringSubmatch(other.Body.String()), digestRe.FindStringSubmatch(other.Body.String())
 	noCode("proof of another request", post(b, url.Values{"csrf": {oc[1]}, "consent_proof": {op[1]}, "consent_decision": {"allow"}}), 409)
 	// A proof issued to another user's session is worthless to this one.
-	if err := e.denv.st.CreateUser(context.Background(), core.User{ID: "u2", Realm: "r", Username: "bob", Enabled: true, EmailVerified: true, PasswordHash: "H:pw"}); err != nil {
+	if err := e.st.CreateUser(context.Background(), core.User{ID: "u2", Realm: "r", Username: "bob", Enabled: true, EmailVerified: true, PasswordHash: "H:pw"}); err != nil {
 		t.Fatal(err)
 	}
 	bobPage := e.browser().authorizeAs(q, "bob")
@@ -627,7 +627,7 @@ func TestConsentDecisionSecurity(t *testing.T) {
 	if n := len(e.receipts()); n != 0 {
 		t.Fatalf("receipts were written by rejected requests: %d", n)
 	}
-	if gs, _ := e.denv.st.ListConsentGrants(context.Background(), "r", "", "", true, e.now, 10); len(gs) != 0 {
+	if gs, _ := e.st.ListConsentGrants(context.Background(), "r", "", "", true, e.now, 10); len(gs) != 0 {
 		t.Fatal("a grant exists after only rejected requests")
 	}
 	// The real thing still works afterwards.
@@ -649,7 +649,7 @@ func TestConsentDeny(t *testing.T) {
 	if len(rs) != 1 || rs[0].Type != core.ReceiptDeny {
 		t.Fatalf("receipts: %+v", rs)
 	}
-	if gs, _ := e.denv.st.ListConsentGrants(context.Background(), "r", "", "", true, e.now, 10); len(gs) != 0 {
+	if gs, _ := e.st.ListConsentGrants(context.Background(), "r", "", "", true, e.now, 10); len(gs) != 0 {
 		t.Fatal("deny created a grant")
 	}
 }
@@ -675,8 +675,8 @@ func TestConsentRequiredByKind(t *testing.T) {
 	}
 	// A dynamically registered client always needs consent, and SkipClients
 	// cannot exempt it (nor a CIMD client).
-	dc, _ := core.StoreAs[core.DCRStore](e.denv.st)
-	if err := e.denv.st.CreateClient(ctx, core.Client{ID: "dcr1", Realm: "r", ClientID: "hc_dyn", Name: "Dyn", Enabled: true, Public: true,
+	dc, _ := core.StoreAs[core.DCRStore](e.st)
+	if err := e.st.CreateClient(ctx, core.Client{ID: "dcr1", Realm: "r", ClientID: "hc_dyn", Name: "Dyn", Enabled: true, Public: true,
 		AuthCodeFlow: true, RequirePKCE: true, RedirectURIs: []string{cb}}); err != nil {
 		t.Fatal(err)
 	}
@@ -763,7 +763,7 @@ func TestAccountConsentsRevoke(t *testing.T) {
 	}
 	// Another user cannot revoke it: create bob and his session.
 	ctx := context.Background()
-	if err := e.denv.st.CreateUser(ctx, core.User{ID: "u2", Realm: "r", Username: "bob", Enabled: true, EmailVerified: true, PasswordHash: "H:pw"}); err != nil {
+	if err := e.st.CreateUser(ctx, core.User{ID: "u2", Realm: "r", Username: "bob", Enabled: true, EmailVerified: true, PasswordHash: "H:pw"}); err != nil {
 		t.Fatal(err)
 	}
 	bob := e.browser()
@@ -778,7 +778,7 @@ func TestAccountConsentsRevoke(t *testing.T) {
 	if r := bob.do("POST", acct, url.Values{"action": {"revoke"}, "grant_id": {gid}, "csrf": {bcsrf}}); r.Code != 404 {
 		t.Fatalf("bob revoking alice's grant: %d", r.Code)
 	}
-	if _, err := e.denv.st.GetActiveConsentGrant(ctx, "r", "u1", "app", e.now); err != nil {
+	if _, err := e.st.GetActiveConsentGrant(ctx, "r", "u1", "app", e.now); err != nil {
 		t.Fatal("alice's grant was revoked by bob")
 	}
 	// Alice revokes: grant ends, refresh token dies, receipt written.
@@ -788,7 +788,7 @@ func TestAccountConsentsRevoke(t *testing.T) {
 	if c, out, _ := e.post(base+"token", url.Values{"grant_type": {"refresh_token"}, "refresh_token": {rt}, "client_id": {"app"}}, "", "", ""); c == 200 {
 		t.Fatalf("refresh token still works after revoke: %v", out)
 	}
-	if _, err := e.denv.st.GetActiveConsentGrant(ctx, "r", "u1", "app", e.now); err == nil {
+	if _, err := e.st.GetActiveConsentGrant(ctx, "r", "u1", "app", e.now); err == nil {
 		t.Fatal("grant still active")
 	}
 	rs := e.receipts()
@@ -825,7 +825,7 @@ func TestKillSwitchClientBlocksEverything(t *testing.T) {
 		t.Fatalf("no refresh token: %v", tok)
 	}
 
-	res, err := core.KillClient(ctx, e.denv.st, e.denv.st, "r", id, "admin:root", "compromised", e.now)
+	res, err := core.KillClient(ctx, e.st, e.st, "r", id, "admin:root", "compromised", e.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -846,11 +846,11 @@ func TestKillSwitchClientBlocksEverything(t *testing.T) {
 		t.Fatalf("blocked client re-resolved: %d", w.Code)
 	}
 	// Idempotent.
-	if _, err := core.KillClient(ctx, e.denv.st, e.denv.st, "r", id, "admin:root", "again", e.now); err != nil {
+	if _, err := core.KillClient(ctx, e.st, e.st, "r", id, "admin:root", "again", e.now); err != nil {
 		t.Fatal(err)
 	}
 	// Unkill: resolvable again, but consent is needed again (grants stayed revoked).
-	if err := core.UnkillClient(ctx, e.denv.st, e.denv.st, "r", id, "admin:root", e.now); err != nil {
+	if err := core.UnkillClient(ctx, e.st, e.st, "r", id, "admin:root", e.now); err != nil {
 		t.Fatal(err)
 	}
 	if w := e.browser().authorize(cq(id, nil)); !isConsentPage(w) {
@@ -864,13 +864,13 @@ func TestKillSwitchClientBlocksEverything(t *testing.T) {
 func TestKillSwitchAgent(t *testing.T) {
 	e := newConsentEnv(t, true, devOpts{})
 	ctx := context.Background()
-	as, _ := core.StoreAs[core.AgentStore](e.denv.st)
+	as, _ := core.StoreAs[core.AgentStore](e.st)
 	ag, err := as.CreateAgent(ctx, core.Agent{Realm: "r", Name: "bot", Kind: "agent", ClientID: "agent-bot", OwnerUserID: "u1",
 		AllowedScopes: []string{"openid"}, TokenTTL: 300, Enabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := e.denv.st.CreateClient(ctx, core.Client{Realm: "r", ClientID: "agent-bot", Enabled: true, Public: true}); err != nil {
+	if err := e.st.CreateClient(ctx, core.Client{Realm: "r", ClientID: "agent-bot", Enabled: true, Public: true}); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
@@ -879,7 +879,7 @@ func TestKillSwitchAgent(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	res, err := core.KillClient(ctx, e.denv.st, e.denv.st, "r", ag.ClientID, "admin:root", "rogue agent", e.now)
+	res, err := core.KillClient(ctx, e.st, e.st, "r", ag.ClientID, "admin:root", "rogue agent", e.now)
 	if err != nil || !res.AgentDisabled || res.CredentialsEnd != 2 || !res.ClientDisabled {
 		t.Fatalf("agent kill: %+v %v", res, err)
 	}
@@ -910,7 +910,7 @@ func TestReceiptChainDetectsTampering(t *testing.T) {
 	if err := core.VerifyConsentChain(rs, 0, ""); err != nil {
 		t.Fatal(err)
 	}
-	e.denv.st.TamperConsentReceipt("r", 2, func(r *core.ConsentReceipt) { r.Scopes = []string{"openid", "roles"} })
+	e.st.TamperConsentReceipt("r", 2, func(r *core.ConsentReceipt) { r.Scopes = []string{"openid", "roles"} })
 	if err := core.VerifyConsentChain(e.receipts(), 0, ""); err == nil || !strings.Contains(err.Error(), "seq 2") {
 		t.Fatalf("an edited receipt was not detected: %v", err)
 	}
@@ -960,7 +960,7 @@ func TestKillSwitchBlocksUnseenAndDeletedCIMDClient(t *testing.T) {
 	e.policy(core.ConsentPolicy{CIMDEnabled: true})
 	ctx := context.Background()
 	unseen := e.id("/c/unseen.json")
-	if _, err := core.KillClient(ctx, e.denv.st, e.denv.st, "r", unseen, "admin:root", "pre-emptive", e.now); err != nil {
+	if _, err := core.KillClient(ctx, e.st, e.st, "r", unseen, "admin:root", "pre-emptive", e.now); err != nil {
 		t.Fatal(err)
 	}
 	if w := e.browser().do("GET", base+"auth?"+cq(unseen, nil).Encode(), nil); w.Code != 400 || e.hitCount("/c/unseen.json") != 0 {
@@ -969,11 +969,11 @@ func TestKillSwitchBlocksUnseenAndDeletedCIMDClient(t *testing.T) {
 	// Seen client, killed, then its row deleted (an admin cleanup): the block still holds.
 	id := e.id("/c/app.json")
 	e.browser().do("GET", base+"auth?"+cq(id, nil).Encode(), nil)
-	if _, err := core.KillClient(ctx, e.denv.st, e.denv.st, "r", id, "admin:root", "x", e.now); err != nil {
+	if _, err := core.KillClient(ctx, e.st, e.st, "r", id, "admin:root", "x", e.now); err != nil {
 		t.Fatal(err)
 	}
-	cl, _ := e.denv.st.GetClientByClientID(ctx, "r", id)
-	if err := e.denv.st.DeleteClient(ctx, "r", cl.ID); err != nil {
+	cl, _ := e.st.GetClientByClientID(ctx, "r", id)
+	if err := e.st.DeleteClient(ctx, "r", cl.ID); err != nil {
 		t.Fatal(err)
 	}
 	hits := e.hitCount("/c/app.json")

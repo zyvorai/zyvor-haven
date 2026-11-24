@@ -175,7 +175,7 @@ func (m *Manager) checkClaims(s Spec, c Claims, nonce string) error {
 		want = strings.Replace(s.Issuer, microsoftTenantTpl, strings.ToLower(tid), 1)
 		iss = strings.ToLower(iss)
 	}
-	if iss == "" || !(iss == want || (s.Type == TypeGoogle && iss == "accounts.google.com")) {
+	if iss == "" || (iss != want && (s.Type != TypeGoogle || iss != "accounts.google.com")) {
 		return fail("issuer_mismatch", nil)
 	}
 	if !audOK(c["aud"], s.ClientID) {

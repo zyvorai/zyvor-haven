@@ -86,7 +86,7 @@ func goFields(t reflect.Type) map[string]any {
 			continue
 		}
 		ft := f.Type
-		for ft.Kind() == reflect.Ptr || ft.Kind() == reflect.Slice {
+		for ft.Kind() == reflect.Pointer || ft.Kind() == reflect.Slice {
 			ft = ft.Elem()
 		}
 		if ft.Kind() == reflect.Struct && ft.PkgPath() == t.PkgPath() {

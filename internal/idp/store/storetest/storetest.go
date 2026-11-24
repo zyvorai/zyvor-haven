@@ -172,7 +172,7 @@ func realmCase(t *testing.T, s core.Store) {
 
 func users(t *testing.T, s core.Store) {
 	mkRealm(t, s, "acme")
-	in := core.User{
+	in := core.User{ // #nosec G101 -- test fixture with a dummy password hash
 		ID: "u-1", Realm: "acme", Username: "alice", Email: "alice@example.com", FirstName: "Alice",
 		LastName: "A", Enabled: true, EmailVerified: true, PendingActions: []string{"UPDATE_PASSWORD"},
 		PasswordHash: "$argon2id$x", Roles: []string{"admin", "dev"}, Groups: []string{"/eng", "/eng/core"},

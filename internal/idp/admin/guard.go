@@ -94,7 +94,7 @@ func (g GuardConfig) waivers(now time.Time) ([]posture.Waiver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read waivers: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(f, guardWaiverMax+1))
 	if err != nil {
 		return nil, fmt.Errorf("read waivers: %w", err)
@@ -395,7 +395,7 @@ func (a *api) guardEvaluate(w http.ResponseWriter, r *http.Request) {
 	)
 	cur, err := a.cfg.Store.GetRealm(r.Context(), name)
 	exists := err == nil
-	if err != nil && !(errors.Is(err, idp.ErrNotFound) && env.Kind == "realm") {
+	if err != nil && (!errors.Is(err, idp.ErrNotFound) || env.Kind != "realm") {
 		a.fail(w, r, err)
 		return
 	}

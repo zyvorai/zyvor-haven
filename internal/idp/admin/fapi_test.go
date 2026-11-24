@@ -20,11 +20,18 @@ func ecJWKS(t *testing.T, withPrivate bool) map[string]any {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pad := func(b []byte) []byte { return append(make([]byte, 32-len(b)), b...) }
+	pb, err := k.PublicKey.Bytes() // 0x04 || X || Y
+	if err != nil {
+		t.Fatal(err)
+	}
 	jwk := map[string]any{"kty": "EC", "crv": "P-256", "kid": "k1", "use": "sig",
-		"x": base64.RawURLEncoding.EncodeToString(pad(k.X.Bytes())), "y": base64.RawURLEncoding.EncodeToString(pad(k.Y.Bytes()))}
+		"x": base64.RawURLEncoding.EncodeToString(pb[1:33]), "y": base64.RawURLEncoding.EncodeToString(pb[33:])}
 	if withPrivate {
-		jwk["d"] = base64.RawURLEncoding.EncodeToString(pad(k.D.Bytes()))
+		db, err := k.Bytes()
+		if err != nil {
+			t.Fatal(err)
+		}
+		jwk["d"] = base64.RawURLEncoding.EncodeToString(db)
 	}
 	return map[string]any{"keys": []any{jwk}}
 }

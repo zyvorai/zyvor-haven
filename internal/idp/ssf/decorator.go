@@ -40,7 +40,7 @@ func (s *store) EmitSignal(ctx context.Context, sig core.Signal) { s.t.Emit(ctx,
 // token-claims-change when those fields changed. Failed-login counters and
 // lock times are ignored.
 func (s *store) UpdateUser(ctx context.Context, u core.User) error {
-	old, oerr := s.Store.GetUser(ctx, u.Realm, u.ID)
+	old, oerr := s.GetUser(ctx, u.Realm, u.ID)
 	if err := s.Store.UpdateUser(ctx, u); err != nil {
 		return err
 	}

@@ -299,6 +299,7 @@ func (i *IdP) token(w http.ResponseWriter, r *http.Request) {
 		i.ClaimsHook(claims)
 	}
 	tok := i.mint(claims)
+	// #nosec G101 -- test IdP answering with a throwaway opaque token
 	_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "opaque-upstream-access", "token_type": "Bearer", "id_token": tok})
 }
 

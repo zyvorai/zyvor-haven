@@ -146,7 +146,7 @@ func newOIDC(issuerRaw string, o netOpts, warn io.Writer) (*oidc, error) {
 		return nil, err
 	}
 	if iu.Scheme == "http" && !isLoopbackHost(iu.Hostname()) {
-		fmt.Fprintf(warn, "haven: WARNING: --insecure-http: talking to %s over plain HTTP; tokens can be read and stolen on the network\n", iu.Host)
+		_, _ = fmt.Fprintf(warn, "haven: WARNING: --insecure-http: talking to %s over plain HTTP; tokens can be read and stolen on the network\n", iu.Host)
 	}
 	hc, err := httpClient(o)
 	if err != nil {
@@ -163,7 +163,7 @@ func (c *oidc) do(req *http.Request) (int, []byte, error) {
 		// url.Error carries the URL; request bodies (tokens) are never part of it.
 		return 0, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
 		return 0, nil, err
@@ -335,7 +335,7 @@ func (c *oidc) deviceAuthorize(ctx context.Context, endpoint, clientID, scope st
 			continue
 		}
 		u, err := url.Parse(s)
-		if err != nil || u.Host == "" || (u.Scheme != "https" && !(u.Scheme == "http" && (isLoopbackHost(u.Hostname()) || c.opts.InsecureHTTP))) {
+		if err != nil || u.Host == "" || (u.Scheme != "https" && (u.Scheme != "http" || (!isLoopbackHost(u.Hostname()) && !c.opts.InsecureHTTP))) {
 			return nil, errors.New("device authorization response has a verification URI that is not https; refusing")
 		}
 	}

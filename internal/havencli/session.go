@@ -177,7 +177,7 @@ func (a *app) cmdToken(ctx context.Context, args []string) error {
 	if *idTok {
 		tok = p.IDToken
 	}
-	fmt.Fprintln(a.env.Stdout, tok)
+	_, _ = fmt.Fprintln(a.env.Stdout, tok)
 	return nil
 }
 
@@ -220,7 +220,7 @@ func (a *app) cmdExecCredential(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.env.Stdout, "%s\n", b)
+	_, _ = fmt.Fprintf(a.env.Stdout, "%s\n", b)
 	return nil
 }
 
@@ -294,35 +294,35 @@ func (a *app) cmdWhoami(ctx context.Context, args []string) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(rep)
 	}
-	fmt.Fprintf(out, "Profile:  %s\nIssuer:   %s\nClient:   %s\n", c.profile, p.Issuer, p.ClientID)
+	_, _ = fmt.Fprintf(out, "Profile:  %s\nIssuer:   %s\nClient:   %s\n", c.profile, p.Issuer, p.ClientID)
 	if who := identity(idClaims); who != "" {
-		fmt.Fprintf(out, "Identity: %s\n", who)
+		_, _ = fmt.Fprintf(out, "Identity: %s\n", who)
 	}
 	if t, ok := rep["access_token_expires_at"]; ok {
-		fmt.Fprintf(out, "Access token expires: %v\n", t)
+		_, _ = fmt.Fprintf(out, "Access token expires: %v\n", t)
 	}
 	if p.IDToken != "" {
 		verified, _ := rep["id_token_signature_verified"].(bool)
 		switch {
 		case verified:
-			fmt.Fprintf(out, "ID token signature: verified against the issuer's JWKS (%v)\n", rep["id_token_signature_alg"])
+			_, _ = fmt.Fprintf(out, "ID token signature: verified against the issuer's JWKS (%v)\n", rep["id_token_signature_alg"])
 		default:
 			n1, _ := rep["id_token_signature_note"].(string)
 			e1, _ := rep["id_token_error"].(string)
 			reason := n1 + e1
-			fmt.Fprintf(out, "ID token signature: NOT verified (%s); the claims below are decoded, not trusted\n", clean(reason, 200))
+			_, _ = fmt.Fprintf(out, "ID token signature: NOT verified (%s); the claims below are decoded, not trusted\n", clean(reason, 200))
 		}
-		fmt.Fprintln(out, "\nID token claims:")
+		_, _ = fmt.Fprintln(out, "\nID token claims:")
 		printClaims(out, idClaims)
 	}
-	fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out)
 	if uerr != nil {
-		fmt.Fprintf(out, "Userinfo: failed: %s\n", clean(uerr.Error(), 200))
+		_, _ = fmt.Fprintf(out, "Userinfo: failed: %s\n", clean(uerr.Error(), 200))
 	} else {
-		fmt.Fprintln(out, "Userinfo:")
+		_, _ = fmt.Fprintln(out, "Userinfo:")
 		printClaims(out, ui)
 		if e, ok := rep["userinfo_error"]; ok {
-			fmt.Fprintf(out, "  warning: %v\n", e)
+			_, _ = fmt.Fprintf(out, "  warning: %v\n", e)
 		}
 	}
 	return nil
@@ -345,7 +345,7 @@ func printClaims(w writer, m map[string]any) {
 			b, _ := json.Marshal(x)
 			v = string(b)
 		}
-		fmt.Fprintf(w, "  %-20s %s\n", clean(k, 40), clean(v, 200))
+		_, _ = fmt.Fprintf(w, "  %-20s %s\n", clean(k, 40), clean(v, 200))
 	}
 }
 
@@ -367,7 +367,7 @@ func (a *app) cmdLogout(ctx context.Context, args []string) error {
 	if err != nil {
 		var ne *notLoggedInError
 		if errors.As(err, &ne) {
-			fmt.Fprintf(a.env.Stdout, "Profile %q is not logged in; nothing to do.\n", c.profile)
+			_, _ = fmt.Fprintf(a.env.Stdout, "Profile %q is not logged in; nothing to do.\n", c.profile)
 			return nil
 		}
 		return err
@@ -375,7 +375,7 @@ func (a *app) cmdLogout(ctx context.Context, args []string) error {
 	// Best effort remote revocation; local deletion always happens.
 	revoked := false
 	if err := a.revokeRemote(ctx, c.net, p); err != nil {
-		fmt.Fprintf(a.env.Stderr, "haven: warning: could not revoke at the server (%s); deleting local credentials anyway\n", clean(err.Error(), 200))
+		_, _ = fmt.Fprintf(a.env.Stderr, "haven: warning: could not revoke at the server (%s); deleting local credentials anyway\n", clean(err.Error(), 200))
 	} else {
 		revoked = true
 	}
@@ -383,9 +383,9 @@ func (a *app) cmdLogout(ctx context.Context, args []string) error {
 		return err
 	}
 	if revoked {
-		fmt.Fprintf(a.env.Stdout, "Logged out of profile %q: token revoked and local credentials deleted.\n", c.profile)
+		_, _ = fmt.Fprintf(a.env.Stdout, "Logged out of profile %q: token revoked and local credentials deleted.\n", c.profile)
 	} else {
-		fmt.Fprintf(a.env.Stdout, "Logged out of profile %q: local credentials deleted (server revocation did not succeed).\n", c.profile)
+		_, _ = fmt.Fprintf(a.env.Stdout, "Logged out of profile %q: local credentials deleted (server revocation did not succeed).\n", c.profile)
 	}
 	return nil
 }

@@ -160,7 +160,7 @@ func (s *Store) DeleteAgent(ctx context.Context, realm, id string) error {
 
 // ---- credentials ----
 
-const credCols = `id, realm, agent_id, secret_hash, scopes, note, created_by, created_at, expires_at, revoked_at, revoked_by, last_used_at`
+const credCols = `id, realm, agent_id, secret_hash, scopes, note, created_by, created_at, expires_at, revoked_at, revoked_by, last_used_at` // #nosec G101 -- SQL column list, no credential value
 
 func scanCred(row pgx.Row) (core.AgentCredential, error) {
 	var c core.AgentCredential

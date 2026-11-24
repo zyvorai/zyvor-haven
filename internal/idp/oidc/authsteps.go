@@ -179,6 +179,7 @@ func stepTemplate(body string) *template.Template {
 // body is trusted static template text, never user input.
 func (p *Provider) stepPage(w http.ResponseWriter, r *http.Request, ar *authzReq, status int, title, errMsg, body string, data any) {
 	csrf := p.newCSRF(ar.realm.Name)
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: csrf, Path: "/realms/" + ar.realm.Name + oidcPath + "/auth",
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)

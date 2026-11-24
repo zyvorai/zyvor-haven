@@ -140,7 +140,7 @@ func (f *fed) clientToken(rlm, id, secret string) string {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var out struct {
 		AccessToken string `json:"access_token"`
 	}
@@ -187,7 +187,7 @@ func (f *fed) admin(method, path string, body any) (int, []byte) {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	f.seen = append(f.seen, string(b))
 	return resp.StatusCode, b
@@ -211,7 +211,7 @@ func (b *browser) get(raw string) (*http.Response, string) {
 	if err != nil {
 		b.f.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	var hs strings.Builder
 	for k, v := range resp.Header {
@@ -321,7 +321,7 @@ func (f *fed) tokenExchange(code string) map[string]any {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
 		f.t.Fatalf("token: %d %s", resp.StatusCode, b)
@@ -744,13 +744,12 @@ func TestTrustEmailOffNeverMarksVerified(t *testing.T) {
 
 func TestLinkExistingByEmailMatrix(t *testing.T) {
 	type tc struct {
-		name         string
-		link, trust  bool
-		upVerified   bool
-		preLinked    bool // the local user already has a link for this alias (other subject)
-		twoUsers     bool // two local accounts share the email
-		wantLinked   bool
-		wantNewUsers int
+		name        string
+		link, trust bool
+		upVerified  bool
+		preLinked   bool // the local user already has a link for this alias (other subject)
+		twoUsers    bool // two local accounts share the email
+		wantLinked  bool
 	}
 	cases := []tc{
 		{name: "all conditions met", link: true, trust: true, upVerified: true, wantLinked: true},

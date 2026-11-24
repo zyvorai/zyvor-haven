@@ -115,7 +115,7 @@ func (e *scimEnv) scimAs(tok, method, path string, body any, hdr ...string) (int
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
 	var m map[string]any
 	_ = json.Unmarshal(raw, &m)
@@ -259,7 +259,7 @@ func TestSCIMAuthNegative(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode != 401 && resp.StatusCode != 404 && resp.StatusCode != 301 {
 			t.Errorf("realm %q: %d", rlm, resp.StatusCode)
 		}
@@ -838,7 +838,7 @@ func TestSCIMUnavailableWithoutStoreSupport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != 501 && resp.StatusCode != 404 {
 		t.Fatalf("got %d", resp.StatusCode)
 	}

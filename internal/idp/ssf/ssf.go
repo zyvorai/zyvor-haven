@@ -30,11 +30,11 @@ import (
 // Event type URIs.
 const (
 	EvSessionRevoked       = "https://schemas.openid.net/secevent/caep/event-type/session-revoked"
-	EvCredentialChange     = "https://schemas.openid.net/secevent/caep/event-type/credential-change"
-	EvTokenClaimsChange    = "https://schemas.openid.net/secevent/caep/event-type/token-claims-change"
+	EvCredentialChange     = "https://schemas.openid.net/secevent/caep/event-type/credential-change"   // #nosec G101 -- SSF/CAEP/RISC event-type URIs, not credentials
+	EvTokenClaimsChange    = "https://schemas.openid.net/secevent/caep/event-type/token-claims-change" // #nosec G101 -- SSF/CAEP/RISC event-type URIs, not credentials
 	EvAccountDisabled      = "https://schemas.openid.net/secevent/risc/event-type/account-disabled"
 	EvAccountEnabled       = "https://schemas.openid.net/secevent/risc/event-type/account-enabled"
-	EvCredentialCompromise = "https://schemas.openid.net/secevent/risc/event-type/credential-compromise"
+	EvCredentialCompromise = "https://schemas.openid.net/secevent/risc/event-type/credential-compromise" // #nosec G101 -- SSF/CAEP/RISC event-type URIs, not credentials
 	// EvSessionsRevoked is deprecated in RISC 1.0 final (use CAEP
 	// session-revoked) but still offered for receivers that ask for it.
 	EvSessionsRevoked = "https://schemas.openid.net/secevent/risc/event-type/sessions-revoked"

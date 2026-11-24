@@ -165,7 +165,7 @@ func fromFile(val, path, what string) (string, error) {
 	if val != "" || path == "" {
 		return val, nil
 	}
-	b, err := os.ReadFile(path) // #nosec G304 -- operator-provided secret path
+	b, err := os.ReadFile(path) // #nosec G304 G703 -- operator-provided secret path
 	if err != nil {
 		return "", fmt.Errorf("read %s file: %w", what, err)
 	}

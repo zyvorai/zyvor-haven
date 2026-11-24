@@ -27,7 +27,7 @@ type acctData struct {
 	Required     bool
 }
 
-const acctPW = `{{if .NeedPassword}}<label for="pw{{.State}}">Password (to confirm it is you)</label><input id="pw{{.State}}" name="password" type="password" autocomplete="current-password" required maxlength="1024">{{end}}`
+const acctPW = `{{if .NeedPassword}}<label for="pw{{.State}}">Password (to confirm it is you)</label><input id="pw{{.State}}" name="password" type="password" autocomplete="current-password" required maxlength="1024">{{end}}` // #nosec G101 -- HTML template fragment with a password input, no credential
 
 const acctBody = `{{with .Data}}{{if .Codes}}` + `<p class="err"><strong>Save these recovery codes now.</strong> They are shown only once and cannot be displayed again. Each works one time if you lose your authenticator.</p>
 <pre>{{range .Codes}}{{.}}

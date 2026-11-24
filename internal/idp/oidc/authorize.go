@@ -32,7 +32,6 @@ type authzReq struct {
 	scope     string
 	nonce     string
 	challenge string
-	promptNo  bool
 	resources []string // RFC 8707, canonical and allow-listed (resources.go)
 }
 
@@ -229,6 +228,7 @@ func (p *Provider) issueCode(w http.ResponseWriter, r *http.Request, ar *authzRe
 	p.cfg.Obs.Login(rl.Name, "success")
 	p.event(ctx, rl, "LOGIN", u.ID, ar.client.ClientID, p.clientIP(r), detail)
 	// Expire the CSRF cookie (harmless when none was set).
+	// #nosec G124 -- expiry cookie (MaxAge -1, empty value): deleted by name and path, its flags carry no data; Secure would follow p.secure
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: "/realms/" + rl.Name + oidcPath + "/auth", MaxAge: -1})
 	p.redirectWith(w, r, ar.redirect, url.Values{"code": {code}, "state": {ar.state}}, rl.Name)
 }
@@ -264,7 +264,7 @@ func (p *Provider) redirectWith(w http.ResponseWriter, r *http.Request, ru strin
 	q.Set("iss", p.issuer(realm))
 	u.RawQuery = q.Encode()
 	noStore(w)
-	http.Redirect(w, r, u.String(), http.StatusFound)
+	http.Redirect(w, r, u.String(), http.StatusFound) // #nosec G710 -- u is the client redirect_uri, already matched against the client registered URIs
 }
 
 // ---- CSRF ----
@@ -373,6 +373,7 @@ func (p *Provider) simplePage(w http.ResponseWriter, status int, title, msg stri
 
 func (p *Provider) loginPage(w http.ResponseWriter, r *http.Request, ar *authzReq, errMsg, username string) {
 	csrf := p.newCSRF(ar.realm.Name)
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: csrf, Path: "/realms/" + ar.realm.Name + oidcPath + "/auth",
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)

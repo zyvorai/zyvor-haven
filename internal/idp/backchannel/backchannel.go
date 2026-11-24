@@ -225,7 +225,7 @@ func (n *Notifier) post(target, body string) (string, bool) {
 		}
 		return "network_error", true
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.CopyN(io.Discard, resp.Body, maxDrainBody)
 	switch {
 	case resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent:

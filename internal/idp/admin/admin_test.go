@@ -83,7 +83,7 @@ func (e *env) clientToken(rlm, id, secret string) string {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var out struct {
 		AccessToken string `json:"access_token"`
 	}
@@ -120,7 +120,7 @@ func (e *env) call(method, path, token string, body any) (int, []byte, http.Head
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, b, resp.Header
 }
@@ -290,7 +290,7 @@ func (e *env) loginTokens(clientID, user, pw, redirect string) map[string]any {
 		e.t.Fatal(err)
 	}
 	page, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	m := csrfRe.FindSubmatch(page)
 	if resp.StatusCode != 200 || m == nil {
 		e.t.Fatalf("login page: %d %s", resp.StatusCode, page)
@@ -299,7 +299,7 @@ func (e *env) loginTokens(clientID, user, pw, redirect string) map[string]any {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	loc, _ := url.Parse(resp.Header.Get("Location"))
 	if resp.StatusCode != 302 || loc == nil || loc.Query().Get("code") == "" {
 		e.t.Fatalf("login did not redirect with a code: %d %s", resp.StatusCode, resp.Header.Get("Location"))
@@ -310,7 +310,7 @@ func (e *env) loginTokens(clientID, user, pw, redirect string) map[string]any {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var out map[string]any
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 || json.Unmarshal(b, &out) != nil {
@@ -748,7 +748,7 @@ func (e *env) loginIn(rlm, clientID, user, pw string) map[string]any {
 		e.t.Fatal(err)
 	}
 	page, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	m := csrfRe.FindSubmatch(page)
 	if m == nil {
 		e.t.Fatalf("login page: %d", resp.StatusCode)
@@ -757,7 +757,7 @@ func (e *env) loginIn(rlm, clientID, user, pw string) map[string]any {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	loc, _ := url.Parse(resp.Header.Get("Location"))
 	if resp.StatusCode != 302 || loc.Query().Get("code") == "" {
 		e.t.Fatalf("no code: %d", resp.StatusCode)
@@ -768,7 +768,7 @@ func (e *env) loginIn(rlm, clientID, user, pw string) map[string]any {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var out map[string]any
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 || json.Unmarshal(b, &out) != nil {

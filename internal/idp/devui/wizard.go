@@ -301,7 +301,7 @@ func (c Config) createClient(w http.ResponseWriter, r *http.Request) {
 		errOut(w, http.StatusBadGateway, "could not reach the dev IdP admin API")
 		return
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	rb, _ := io.ReadAll(io.LimitReader(res.Body, maxUpstream))
 	switch {
 	case res.StatusCode == http.StatusConflict:
@@ -383,7 +383,7 @@ func adminToken(ctx context.Context, cl *http.Client, c Config, base, realm stri
 	if err != nil {
 		return "", err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	b, _ := io.ReadAll(io.LimitReader(res.Body, maxUpstream))
 	var t struct {
 		AccessToken string `json:"access_token"`

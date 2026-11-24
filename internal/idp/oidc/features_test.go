@@ -19,7 +19,7 @@ func TestFeatureRegistries(t *testing.T) {
 	defer func() { featureRoutes, discoveryHooks = savedRoutes, savedDisc; delete(grantHooks, "urn:test:grant") }()
 
 	registerFeature(func(p *Provider, mux *http.ServeMux) {
-		mux.HandleFunc("GET /realms/{realm}/x-feature", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("hi")) })
+		mux.HandleFunc("GET /realms/{realm}/x-feature", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("hi")) })
 	})
 	registerDiscovery(func(_ *Provider, realm string, doc map[string]any) { doc["x_feature_realm"] = realm })
 	registerGrant("urn:test:grant", func(_ *Provider, _ *http.Request, _ core.Realm, _ core.Client, _ bool) (map[string]any, *tokenErr) {

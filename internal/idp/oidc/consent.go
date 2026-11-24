@@ -237,6 +237,7 @@ const consentBody = `{{with .Data}}<p><strong>{{.ClientName}}</strong> is asking
 func (p *Provider) consentPage(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, s core.Session, subj consentSubject, scopes, resources []string, errMsg string, status int) {
 	rl := ar.realm
 	csrf := p.newCSRF(rl.Name)
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: csrf, Path: "/realms/" + rl.Name + oidcPath + "/auth",
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)

@@ -15,6 +15,7 @@ package totp
 import (
 	"crypto/hmac"
 	"crypto/rand"
+	// #nosec G505 -- HMAC-SHA1 is the RFC 4226/6238 default, not a collision-resistant use
 	"crypto/sha1" //nolint:gosec // HMAC-SHA1 is the TOTP default (RFC 6238); it is not used as a collision-resistant hash.
 	"crypto/sha256"
 	"crypto/sha512"
@@ -92,12 +93,12 @@ func StepAt(t time.Time) int64 {
 
 // Code returns the current 6-digit SHA1 code for the time t.
 func Code(secret []byte, t time.Time) string {
-	return HOTP(SHA1, secret, uint64(StepAt(t)), Digits)
+	return HOTP(SHA1, secret, uint64(StepAt(t)), Digits) // #nosec G115 -- TOTP step counters are non-negative for any real clock; the conversion is the RFC 4226 counter encoding
 }
 
 // CodeAt returns the code of an explicit step.
 func CodeAt(secret []byte, step int64) string {
-	return HOTP(SHA1, secret, uint64(step), Digits)
+	return HOTP(SHA1, secret, uint64(step), Digits) // #nosec G115 -- TOTP step counters are non-negative for any real clock; the conversion is the RFC 4226 counter encoding
 }
 
 // NormalizeCode strips the spaces and hyphens people type into a code box.

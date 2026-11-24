@@ -53,7 +53,7 @@ func TestOIDCClientAgainstRealHavenIdP(t *testing.T) {
 		t.Fatal(err)
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
-	ln.Close()
+	_ = ln.Close()
 
 	home := filepath.Join(tmp, "home")
 	if err := os.MkdirAll(home, 0o700); err != nil {
@@ -91,7 +91,7 @@ func TestOIDCClientAgainstRealHavenIdP(t *testing.T) {
 	for {
 		resp, err := http.Get(base + "/realms/demo/.well-known/openid-configuration")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == 200 {
 				break
 			}
@@ -160,7 +160,7 @@ func TestOIDCClientAgainstRealHavenIdP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return resp.StatusCode
 	}
 	secretOf := func(name string) string { return string(e.secret(name).Data["client-secret"]) }

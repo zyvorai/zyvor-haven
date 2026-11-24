@@ -289,7 +289,7 @@ func TestWebhookDropsAndRedirects(t *testing.T) {
 			defer tsrv.Close()
 			h := &whRecv{handler: func(_ int32, w http.ResponseWriter, r *http.Request) bool {
 				if tc.status == 302 {
-					http.Redirect(w, r, tsrv.URL, 302)
+					http.Redirect(w, r, tsrv.URL, http.StatusFound)
 				} else {
 					w.WriteHeader(tc.status)
 				}

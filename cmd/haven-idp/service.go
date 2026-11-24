@@ -234,7 +234,7 @@ func osSvcEnv() (svcEnv, error) {
 // svcFlags are shared by the three commands.
 type svcFlags struct {
 	label, binary, envFile, dataDir, logPath, user, out string
-	system, force, noLoad, printOnly, purge             bool
+	system, force, noLoad, printOnly                    bool
 	env                                                 envList
 }
 
@@ -334,7 +334,7 @@ func preflight(o serviceOpts, e svcEnv, writing bool) error {
 		return fmt.Errorf("binary %s is not an executable file", o.Binary)
 	}
 	if fi.Mode().Perm()&0o022 != 0 {
-		fmt.Fprintf(e.Err, "haven-idp: warning: %s is writable by group/others; anyone who can replace it controls the service\n", o.Binary)
+		_, _ = fmt.Fprintf(e.Err, "haven-idp: warning: %s is writable by group/others; anyone who can replace it controls the service\n", o.Binary)
 	}
 	if !writing {
 		return nil
@@ -358,7 +358,7 @@ func ensurePrivateDir(dir string) error {
 		return err
 	}
 	if fi, err := os.Stat(dir); err == nil && fi.Mode().Perm()&0o077 != 0 {
-		return os.Chmod(dir, 0o700)
+		return os.Chmod(dir, 0o700) // #nosec G302 -- directory: needs the execute bit; 0700 is owner-only
 	}
 	return nil
 }
@@ -480,7 +480,7 @@ func cmdInstallService(args []string, e svcEnv) error {
 		return err
 	}
 	if f.printOnly {
-		fmt.Fprintf(e.Out, "# %s (%s)\n%s", p.PlistPath, p.Domain, plist)
+		_, _ = fmt.Fprintf(e.Out, "# %s (%s)\n%s", p.PlistPath, p.Domain, plist)
 		return nil
 	}
 	if err := preflight(o, e, !f.system); err != nil {
@@ -508,13 +508,13 @@ func installSystem(o serviceOpts, p servicePlan, plist []byte, out string, e svc
 	if err := writeFileAtomic(abs, plist, 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Out, "Wrote %s (a LaunchDaemon that runs as %q; no secrets inside).\n\n", abs, o.User)
-	fmt.Fprintf(e.Out, "haven-idp does not run sudo. To install it, run these yourself, as an administrator:\n\n")
+	_, _ = fmt.Fprintf(e.Out, "Wrote %s (a LaunchDaemon that runs as %q; no secrets inside).\n\n", abs, o.User)
+	_, _ = fmt.Fprintf(e.Out, "haven-idp does not run sudo. To install it, run these yourself, as an administrator:\n\n")
 	for _, c := range sudoInstall(o, p, abs) {
-		fmt.Fprintf(e.Out, "  %s\n", c)
+		_, _ = fmt.Fprintf(e.Out, "  %s\n", c)
 	}
-	fmt.Fprintf(e.Out, "\nTo remove it later: haven-idp uninstall-service --system --label %s\n", o.Label)
-	fmt.Fprintf(e.Out, "Note: a daemon cannot read your login Keychain; keep its secrets in 0600 files (HAVEN_IDP_SECRET_KEY_FILE etc.).\n")
+	_, _ = fmt.Fprintf(e.Out, "\nTo remove it later: haven-idp uninstall-service --system --label %s\n", o.Label)
+	_, _ = fmt.Fprintf(e.Out, "Note: a daemon cannot read your login Keychain; keep its secrets in 0600 files (HAVEN_IDP_SECRET_KEY_FILE etc.).\n")
 	return nil
 }
 
@@ -539,9 +539,9 @@ func installAgent(ctx context.Context, o serviceOpts, p servicePlan, plist []byt
 	if err := writeFileAtomic(p.PlistPath, plist, 0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(e.Out, "Wrote %s\n", p.PlistPath)
+	_, _ = fmt.Fprintf(e.Out, "Wrote %s\n", p.PlistPath)
 	if f.noLoad {
-		fmt.Fprintf(e.Out, "Not loading (--no-load). Load it with: launchctl bootstrap %s %s\n", p.Domain, shq(p.PlistPath))
+		_, _ = fmt.Fprintf(e.Out, "Not loading (--no-load). Load it with: launchctl bootstrap %s %s\n", p.Domain, shq(p.PlistPath))
 		return nil
 	}
 	if st.Loaded { // replacing a definition that launchd already has
@@ -552,7 +552,7 @@ func installAgent(ctx context.Context, o serviceOpts, p servicePlan, plist []byt
 	if out, exit, err := e.Launchctl(ctx, "bootstrap", p.Domain, p.PlistPath); err != nil || exit != 0 {
 		return fmt.Errorf("launchctl bootstrap failed (exit %d): %s", exit, firstLine(out))
 	}
-	fmt.Fprintf(e.Out, "Loaded %s. It starts at login and is restarted if it exits.\nLogs: %s\nStatus: haven-idp service-status --label %s\n", p.target(o.Label), o.LogPath, o.Label)
+	_, _ = fmt.Fprintf(e.Out, "Loaded %s. It starts at login and is restarted if it exits.\nLogs: %s\nStatus: haven-idp service-status --label %s\n", p.target(o.Label), o.LogPath, o.Label)
 	return nil
 }
 
@@ -575,8 +575,8 @@ func cmdUninstallService(args []string, e svcEnv) error {
 	}
 	p := planFor(f.system, f.label, e)
 	if f.system {
-		fmt.Fprintf(e.Out, "haven-idp does not run sudo. To remove the daemon, run:\n\n  sudo launchctl bootout %s\n  sudo rm %s\n\n", shq(p.target(f.label)), shq(p.PlistPath))
-		fmt.Fprintln(e.Out, "Its data directory and logs are left in place.")
+		_, _ = fmt.Fprintf(e.Out, "haven-idp does not run sudo. To remove the daemon, run:\n\n  sudo launchctl bootout %s\n  sudo rm %s\n\n", shq(p.target(f.label)), shq(p.PlistPath))
+		_, _ = fmt.Fprintln(e.Out, "Its data directory and logs are left in place.")
 		return nil
 	}
 	if err := requireMac(e); err != nil {
@@ -594,19 +594,19 @@ func cmdUninstallService(args []string, e svcEnv) error {
 		if out, exit, err := e.Launchctl(ctx, "bootout", p.target(f.label)); err != nil || exit != 0 {
 			return fmt.Errorf("launchctl bootout failed (exit %d): %s", exit, firstLine(out))
 		}
-		fmt.Fprintf(e.Out, "Stopped and unloaded %s (was pid %d).\n", p.target(f.label), st.PID)
+		_, _ = fmt.Fprintf(e.Out, "Stopped and unloaded %s (was pid %d).\n", p.target(f.label), st.PID)
 	}
 	switch err := os.Remove(p.PlistPath); {
 	case err == nil:
-		fmt.Fprintf(e.Out, "Removed %s\n", p.PlistPath)
+		_, _ = fmt.Fprintf(e.Out, "Removed %s\n", p.PlistPath)
 	case errors.Is(err, os.ErrNotExist):
 		if !st.Loaded {
-			fmt.Fprintf(e.Out, "Nothing to do: %s is not installed.\n", f.label)
+			_, _ = fmt.Fprintf(e.Out, "Nothing to do: %s is not installed.\n", f.label)
 		}
 	default:
 		return err
 	}
-	fmt.Fprintln(e.Out, "The data directory, env file and logs were left in place.")
+	_, _ = fmt.Fprintln(e.Out, "The data directory, env file and logs were left in place.")
 	return nil
 }
 
@@ -621,7 +621,7 @@ func cmdServiceStatus(args []string, e svcEnv) error {
 	}
 	p := planFor(f.system, f.label, e)
 	_, perr := os.Stat(p.PlistPath)
-	fmt.Fprintf(e.Out, "Label:   %s\nPlist:   %s (%s)\n", f.label, p.PlistPath, map[bool]string{true: "present", false: "missing"}[perr == nil])
+	_, _ = fmt.Fprintf(e.Out, "Label:   %s\nPlist:   %s (%s)\n", f.label, p.PlistPath, map[bool]string{true: "present", false: "missing"}[perr == nil])
 	if err := requireMac(e); err != nil {
 		return err
 	}
@@ -631,15 +631,15 @@ func cmdServiceStatus(args []string, e svcEnv) error {
 	}
 	switch {
 	case !st.Loaded && f.system:
-		fmt.Fprintf(e.Out, "State:   not visible without root; run: sudo launchctl print %s\n", shq(p.target(f.label)))
+		_, _ = fmt.Fprintf(e.Out, "State:   not visible without root; run: sudo launchctl print %s\n", shq(p.target(f.label)))
 		return errors.New("daemon state unknown")
 	case !st.Loaded:
-		fmt.Fprintln(e.Out, "State:   not loaded")
+		_, _ = fmt.Fprintln(e.Out, "State:   not loaded")
 		return errors.New("service is not running")
 	case st.PID == 0:
-		fmt.Fprintf(e.Out, "State:   loaded but not running (%s, last exit code %s)\n", st.State, st.LastExit)
+		_, _ = fmt.Fprintf(e.Out, "State:   loaded but not running (%s, last exit code %s)\n", st.State, st.LastExit)
 		return errors.New("service is not running")
 	}
-	fmt.Fprintf(e.Out, "State:   running, pid %d (last exit code %s)\n", st.PID, st.LastExit)
+	_, _ = fmt.Fprintf(e.Out, "State:   running, pid %d (last exit code %s)\n", st.PID, st.LastExit)
 	return nil
 }

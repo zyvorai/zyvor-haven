@@ -44,8 +44,8 @@ func TestLoadEnvFileDoesNotOverrideRealEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("HAVEN_T_SET", "real")
-	os.Unsetenv("HAVEN_T_NEW")
-	t.Cleanup(func() { os.Unsetenv("HAVEN_T_NEW") })
+	_ = os.Unsetenv("HAVEN_T_NEW")
+	t.Cleanup(func() { _ = os.Unsetenv("HAVEN_T_NEW") })
 	if err := loadEnvFile(p); err != nil {
 		t.Fatal(err)
 	}

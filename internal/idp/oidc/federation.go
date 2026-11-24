@@ -232,9 +232,10 @@ func (p *Provider) brokerLogin(w http.ResponseWriter, r *http.Request) {
 		p.errorPage(w, http.StatusBadGateway, msgUnavailable)
 		return
 	}
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: fedCookie, Value: browser, Path: p.fedCookiePath(rl.Name),
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteLaxMode, MaxAge: int(fedStateTTL.Seconds())})
-	http.Redirect(w, r, dest, http.StatusFound)
+	http.Redirect(w, r, dest, http.StatusFound) // #nosec G710 -- dest is the authorization endpoint of an admin-configured upstream, with a server-built query
 }
 
 // fedBrowserToken returns the browser-binding token: the existing cookie when
@@ -434,7 +435,7 @@ func (p *Provider) fedResolve(ctx context.Context, rl core.Realm, fp core.FedPro
 		// identity brokering: only when explicitly enabled, the provider is
 		// trusted for email, the upstream verified the address, exactly one
 		// account matches and that account has no link for this provider yet.
-		if !(spec.LinkByEmail && trusted && len(same) == 1) {
+		if !spec.LinkByEmail || !trusted || len(same) != 1 {
 			return core.User{}, link, "email_exists"
 		}
 		u := same[0]

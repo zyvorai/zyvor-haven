@@ -94,7 +94,7 @@ func (p *Provider) userinfo(w http.ResponseWriter, r *http.Request) {
 	}
 	h := r.Header.Get("Authorization")
 	scheme, tok, _ := strings.Cut(h, " ")
-	if !(strings.EqualFold(scheme, "Bearer") || strings.EqualFold(scheme, "DPoP")) || strings.TrimSpace(tok) == "" {
+	if (!strings.EqualFold(scheme, "Bearer") && !strings.EqualFold(scheme, "DPoP")) || strings.TrimSpace(tok) == "" {
 		p.bearerErr(w, http.StatusUnauthorized, "invalid_request")
 		return
 	}

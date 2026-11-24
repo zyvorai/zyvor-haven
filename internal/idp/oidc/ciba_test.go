@@ -540,7 +540,7 @@ func TestCIBARequestValidation(t *testing.T) {
 		{"unknown scope", url.Values{"scope": {"openid admin"}}, "alice", "invalid_scope"},
 		{"offline_access", url.Values{"scope": {"openid offline_access"}}, "alice", "invalid_scope"},
 		{"binding newline", url.Values{"binding_message": {"hi\nBcc: x"}}, "alice", "invalid_binding_message"},
-		{"binding bidi override", url.Values{"binding_message": {"pay ‮Bob"}}, "alice", "invalid_binding_message"},
+		{"binding bidi override", url.Values{"binding_message": {"pay \u202eBob"}}, "alice", "invalid_binding_message"},
 		{"binding too long", url.Values{"binding_message": {long}}, "alice", "invalid_binding_message"},
 		{"resource javascript", url.Values{"resource": {"javascript:alert(1)"}}, "alice", "invalid_target"},
 		{"resource relative", url.Values{"resource": {"/api"}}, "alice", "invalid_target"},

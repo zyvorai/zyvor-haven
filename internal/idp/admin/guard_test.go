@@ -80,7 +80,7 @@ func (e *env) gcall(method, path, token string, body any, hdr map[string]string)
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, b, resp.Header
 }

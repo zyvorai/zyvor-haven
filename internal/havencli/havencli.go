@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/zyvorai/haven/internal/keychain"
@@ -76,12 +75,12 @@ func openBrowser(u string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", u)
+		cmd = exec.Command("open", u) // #nosec G204 -- fixed binary; the URL is one argv element, no shell
 	case "linux", "freebsd", "openbsd", "netbsd":
 		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
 			return errors.New("no display")
 		}
-		cmd = exec.Command("xdg-open", u)
+		cmd = exec.Command("xdg-open", u) // #nosec G204 -- fixed binary; the URL is one argv element, no shell
 	default:
 		return errors.New("unsupported platform")
 	}
@@ -138,7 +137,7 @@ func Run(ctx context.Context, args []string, env *Env) int {
 		env.Stderr = io.Discard
 	}
 	if len(args) == 0 {
-		fmt.Fprint(env.Stderr, usageText)
+		_, _ = fmt.Fprint(env.Stderr, usageText)
 		return ExitUsage
 	}
 	cmd, rest := args[0], args[1:]
@@ -156,9 +155,9 @@ func Run(ctx context.Context, args []string, env *Env) int {
 	case "exec-credential":
 		err = a.cmdExecCredential(ctx, rest)
 	case "version", "--version", "-v":
-		fmt.Fprintln(env.Stdout, "haven", Version)
+		_, _ = fmt.Fprintln(env.Stdout, "haven", Version)
 	case "help", "--help", "-h":
-		fmt.Fprint(env.Stdout, usageText)
+		_, _ = fmt.Fprint(env.Stdout, usageText)
 	default:
 		err = usageErrorf("unknown command %q", cmd)
 	}
@@ -173,16 +172,16 @@ func exitCode(err error, stderr io.Writer) int {
 	var ne *notLoggedInError
 	switch {
 	case errors.As(err, &ue):
-		fmt.Fprintf(stderr, "haven: %s\n\nRun `haven help` for usage.\n", ue.msg)
+		_, _ = fmt.Fprintf(stderr, "haven: %s\n\nRun `haven help` for usage.\n", ue.msg)
 		return ExitUsage
 	case errors.As(err, &ne):
-		fmt.Fprintf(stderr, "haven: %s\n", ne.msg)
+		_, _ = fmt.Fprintf(stderr, "haven: %s\n", ne.msg)
 		return ExitNotLoggedIn
 	case errors.Is(err, context.Canceled):
-		fmt.Fprintln(stderr, "haven: cancelled")
+		_, _ = fmt.Fprintln(stderr, "haven: cancelled")
 		return ExitError
 	}
-	fmt.Fprintf(stderr, "haven: %s\n", err)
+	_, _ = fmt.Fprintf(stderr, "haven: %s\n", err)
 	return ExitError
 }
 
@@ -222,6 +221,3 @@ func (c *common) bind(fs *flag.FlagSet) {
 }
 
 func (a *app) store() (*store, error) { return newStore(a.env) }
-
-// sanitize makes server-provided text safe to print.
-func sanitize(s string) string { return clean(strings.TrimSpace(s), 300) }

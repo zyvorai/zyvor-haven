@@ -311,7 +311,7 @@ func (p *Provider) fapiAuthorize(w http.ResponseWriter, r *http.Request, q url.V
 		next := url.Values{"client_id": {cl.ClientID}, fapiCtxParam: {h}}
 		if r.Method == http.MethodGet {
 			noStore(w)
-			http.Redirect(w, r, r.URL.Path+"?"+next.Encode(), http.StatusFound)
+			http.Redirect(w, r, r.URL.Path+"?"+next.Encode(), http.StatusFound) // #nosec G710 -- same-server redirect: this request path plus a server-built query, no external host
 			return r, q, false
 		}
 		u := *r.URL

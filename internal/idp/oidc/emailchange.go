@@ -149,9 +149,10 @@ func (p *Provider) accountEmail(w http.ResponseWriter, r *http.Request) {
 	p.event(ctx, rl, "UPDATE_EMAIL_REQUEST", u.ID, "", p.clientIP(r), "")
 	if !taken {
 		p.bg.Add(1)
+		detached := context.WithoutCancel(ctx) // outlives the response, keeps request values
 		go func(rl core.Realm, u core.User) {
 			defer p.bg.Done()
-			bctx, cancel := context.WithTimeout(context.Background(), mailTimeout)
+			bctx, cancel := context.WithTimeout(detached, mailTimeout)
 			defer cancel()
 			if err := p.cfg.Actions.SendEmailChange(bctx, rl, u, newEmail); err != nil {
 				p.cfg.Logger.Error("oidc: email change link failed", "realm", rl.Name, "user", u.ID, "err", err)
@@ -238,15 +239,17 @@ func (p *Provider) confirmEmailChange(w http.ResponseWriter, r *http.Request) {
 	p.event(ctx, rl, "UPDATE_EMAIL", u.ID, "", p.clientIP(r), "")
 	if strings.TrimSpace(oldEmail) != "" {
 		p.bg.Add(1)
+		detached := context.WithoutCancel(ctx) // outlives the response, keeps request values
 		go func(rl core.Realm) {
 			defer p.bg.Done()
-			bctx, cancel := context.WithTimeout(context.Background(), mailTimeout)
+			bctx, cancel := context.WithTimeout(detached, mailTimeout)
 			defer cancel()
 			if err := p.cfg.Actions.NotifyEmailChange(bctx, rl, oldEmail, u.Username, newEmail, true); err != nil {
 				p.cfg.Logger.Error("oidc: email change notice failed", "realm", rl.Name, "user", u.ID, "err", err)
 			}
 		}(rl)
 	}
+	// #nosec G124 -- expiry cookie (MaxAge -1, empty value): deleted by name and path, its flags carry no data; Secure would follow p.secure
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: path, MaxAge: -1})
 	p.simplePage(w, http.StatusOK, "Email address changed", "Your email address was changed. Account email now goes to the new address.")
 }

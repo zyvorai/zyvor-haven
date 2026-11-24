@@ -80,16 +80,16 @@ func cmdInit(args []string, out io.Writer) error {
 		return err
 	}
 
-	fmt.Fprintf(out, "Wrote %s (mode 0600) with a generated admin password, admin client secret and CSRF key.\n\n", path)
-	fmt.Fprintf(out, "Next:\n")
+	_, _ = fmt.Fprintf(out, "Wrote %s (mode 0600) with a generated admin password, admin client secret and CSRF key.\n\n", path)
+	_, _ = fmt.Fprintf(out, "Next:\n")
 	if *memory {
-		fmt.Fprintf(out, "  haven-idp serve --env-file %s        # in-memory store: fine for trying it out\n", path)
+		_, _ = fmt.Fprintf(out, "  haven-idp serve --env-file %s        # in-memory store: fine for trying it out\n", path)
 	} else {
-		fmt.Fprintf(out, "  1. set HAVEN_IDP_DSN in %s to your PostgreSQL URL\n", path)
-		fmt.Fprintf(out, "  2. haven-idp serve --env-file %s\n", path)
+		_, _ = fmt.Fprintf(out, "  1. set HAVEN_IDP_DSN in %s to your PostgreSQL URL\n", path)
+		_, _ = fmt.Fprintf(out, "  2. haven-idp serve --env-file %s\n", path)
 	}
-	fmt.Fprintf(out, "\nYour issuer will be %s/realms/%s\n", *baseURL, *realm)
-	fmt.Fprintf(out, "Read the admin password with: grep BOOTSTRAP_PASSWORD %s\n", path)
+	_, _ = fmt.Fprintf(out, "\nYour issuer will be %s/realms/%s\n", *baseURL, *realm)
+	_, _ = fmt.Fprintf(out, "Read the admin password with: grep BOOTSTRAP_PASSWORD %s\n", path)
 	return nil
 }
 

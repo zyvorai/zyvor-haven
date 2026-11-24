@@ -48,13 +48,13 @@ func (p *Plan) Empty() bool { return len(p.Changes) == 0 }
 // ANSI escapes only when color is true.
 func (p *Plan) Render(w io.Writer, color bool) {
 	if p.Empty() && !p.RealmMissing {
-		fmt.Fprintln(w, "No changes. Live state matches the file.")
+		_, _ = fmt.Fprintln(w, "No changes. Live state matches the file.")
 		return
 	}
 	if p.RealmMissing {
-		fmt.Fprintf(w, "Realm %q does not exist and will be created.\n\n", p.Realm)
+		_, _ = fmt.Fprintf(w, "Realm %q does not exist and will be created.\n\n", p.Realm)
 	} else {
-		fmt.Fprintf(w, "Plan for realm %q:\n\n", p.Realm)
+		_, _ = fmt.Fprintf(w, "Plan for realm %q:\n\n", p.Realm)
 	}
 	for _, c := range p.Changes {
 		var sym, code string
@@ -66,20 +66,20 @@ func (p *Plan) Render(w io.Writer, color bool) {
 		default:
 			sym, code = "-", ansiRed
 		}
-		fmt.Fprintf(w, "  %s\n", paint(color, code, fmt.Sprintf("%s %s %s", sym, c.Kind, c.Name)))
+		_, _ = fmt.Fprintf(w, "  %s\n", paint(color, code, fmt.Sprintf("%s %s %s", sym, c.Kind, c.Name)))
 		for _, f := range c.Fields {
 			switch c.Action {
 			case ActionCreate:
-				fmt.Fprintf(w, "      %s: %s\n", f.Field, show(f.New))
+				_, _ = fmt.Fprintf(w, "      %s: %s\n", f.Field, show(f.New))
 			case ActionDelete:
-				fmt.Fprintf(w, "      %s: %s\n", f.Field, show(f.Old))
+				_, _ = fmt.Fprintf(w, "      %s: %s\n", f.Field, show(f.Old))
 			default:
-				fmt.Fprintf(w, "      %s: %s -> %s\n", f.Field, show(f.Old), show(f.New))
+				_, _ = fmt.Fprintf(w, "      %s: %s -> %s\n", f.Field, show(f.Old), show(f.New))
 			}
 		}
 	}
 	cr, up, de := p.Summary()
-	fmt.Fprintf(w, "\nPlan: %d to create, %d to update, %d to delete\n", cr, up, de)
+	_, _ = fmt.Fprintf(w, "\nPlan: %d to create, %d to update, %d to delete\n", cr, up, de)
 }
 
 func show(s string) string {
@@ -111,30 +111,30 @@ func renderFindings(w io.Writer, color bool, fs []posture.Finding) {
 		if c := sevColor(f.Severity); c != "" {
 			label = paint(color, c, label)
 		}
-		fmt.Fprintf(w, "  %s %s %s (%s)\n", label, f.RuleID, f.Title, where)
+		_, _ = fmt.Fprintf(w, "  %s %s %s (%s)\n", label, f.RuleID, f.Title, where)
 		if f.Evidence != "" {
-			fmt.Fprintf(w, "      evidence: %s\n", f.Evidence)
+			_, _ = fmt.Fprintf(w, "      evidence: %s\n", f.Evidence)
 		}
 	}
 }
 
 // Render writes Guard's verdict on the planned change.
 func (g GateResult) Render(w io.Writer, color bool) {
-	fmt.Fprintf(w, "%s\n", paint(color, ansiBold, "Haven Guard"))
-	fmt.Fprintf(w, "  score: %d (%s) -> %d (%s)\n", g.Before.Score, g.Before.Grade, g.After.Score, g.After.Grade)
+	_, _ = fmt.Fprintf(w, "%s\n", paint(color, ansiBold, "Haven Guard"))
+	_, _ = fmt.Fprintf(w, "  score: %d (%s) -> %d (%s)\n", g.Before.Score, g.Before.Grade, g.After.Score, g.After.Grade)
 	if len(g.New) > 0 {
-		fmt.Fprintf(w, "\nNew findings (%d):\n", len(g.New))
+		_, _ = fmt.Fprintf(w, "\nNew findings (%d):\n", len(g.New))
 		renderFindings(w, color, g.New)
 	}
 	if len(g.Fixed) > 0 {
-		fmt.Fprintf(w, "\nFixed findings (%d):\n", len(g.Fixed))
+		_, _ = fmt.Fprintf(w, "\nFixed findings (%d):\n", len(g.Fixed))
 		renderFindings(w, color, g.Fixed)
 	}
 	if len(g.New) == 0 && len(g.Fixed) == 0 {
-		fmt.Fprintln(w, "  no change in findings")
+		_, _ = fmt.Fprintln(w, "  no change in findings")
 	}
 	if len(g.Blocked) > 0 {
 		msg := fmt.Sprintf("BLOCKED: apply would introduce %d finding(s) at or above the --fail-on threshold. Fix the file, or override with --allow-findings.", len(g.Blocked))
-		fmt.Fprintf(w, "\n%s\n", paint(color, ansiRed, msg))
+		_, _ = fmt.Fprintf(w, "\n%s\n", paint(color, ansiRed, msg))
 	}
 }

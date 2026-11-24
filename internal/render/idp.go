@@ -127,7 +127,7 @@ func IdPConfigHash(spec *v1alpha1.IdentityPlaneSpec) string {
 	sort.Strings(keys)
 	h := sha256.New()
 	for _, k := range keys {
-		fmt.Fprintf(h, "%s=%s\n", k, env[k])
+		_, _ = fmt.Fprintf(h, "%s=%s\n", k, env[k])
 	}
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }

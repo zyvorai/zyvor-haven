@@ -82,7 +82,9 @@ func TestOutbox(t *testing.T) {
 	o := NewOutbox(3)
 	ctx := context.Background()
 	for i := 0; i < 5; i++ {
-		o.Send(ctx, Message{To: fmt.Sprintf("u%d@x.com", i%2), Subject: fmt.Sprint(i)})
+		if err := o.Send(ctx, Message{To: fmt.Sprintf("u%d@x.com", i%2), Subject: fmt.Sprint(i)}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	ms := o.Messages()
 	if len(ms) != 3 || ms[0].Subject != "4" || ms[2].Subject != "2" {
@@ -99,7 +101,9 @@ func TestOutbox(t *testing.T) {
 		t.Fatal("not cleared")
 	}
 	var zero Outbox
-	zero.Send(ctx, Message{})
+	if err := zero.Send(ctx, Message{}); err != nil {
+		t.Fatal(err)
+	}
 	if NewOutbox(0).max != 100 || len(zero.Messages()) != 1 {
 		t.Fatal("defaults")
 	}
@@ -113,7 +117,7 @@ func TestOutboxConcurrent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 50; j++ {
-				o.Send(context.Background(), Message{To: "a@b.com"})
+				_ = o.Send(context.Background(), Message{To: "a@b.com"})
 				o.Messages()
 				o.Last("a@b.com")
 			}

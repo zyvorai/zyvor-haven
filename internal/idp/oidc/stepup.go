@@ -300,6 +300,7 @@ func recordDevice(p *Provider, w http.ResponseWriter, r *http.Request, ar *authz
 		p.cfg.Logger.Error("oidc: step-up remember device", "err", err)
 		return
 	}
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: deviceCookie, Value: cookie, Path: "/realms/" + rl.Name,
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteLaxMode, MaxAge: int(deviceTTL.Seconds())})
 }

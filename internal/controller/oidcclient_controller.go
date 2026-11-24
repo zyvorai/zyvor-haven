@@ -35,7 +35,7 @@ const (
 
 	// AnnotationRotateSecret on an OIDCClient asks for a new client secret: any
 	// value that differs from the last one handled triggers one rotation.
-	AnnotationRotateSecret = "haven.zyvor.dev/rotate-secret"
+	AnnotationRotateSecret = "haven.zyvor.dev/rotate-secret" // #nosec G101 -- annotation key name, not a credential
 	// AnnotationAdoptClient on an OIDCClient allows it to take over an IdP client
 	// with the same clientId that this OIDCClient did not create.
 	AnnotationAdoptClient = "haven.zyvor.dev/adopt-client"
@@ -156,7 +156,7 @@ func resolveSpec(oc *havenv1.OIDCClient) resolved {
 	case s.Flows != nil && s.Flows.AuthorizationCode != nil:
 		res.authCode = *s.Flows.AuthorizationCode
 	default:
-		res.authCode = !(res.svcAccount && len(s.RedirectURIs) == 0)
+		res.authCode = !res.svcAccount || len(s.RedirectURIs) != 0
 	}
 	res.pkce = s.PKCE == nil || *s.PKCE
 	res.secretName = oc.Name + "-oidc"
@@ -775,7 +775,7 @@ func (r *OIDCClientReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Providers = &NativeProviders{Reader: mgr.GetClient()}
 	}
 	if r.Recorder == nil {
-		r.Recorder = mgr.GetEventRecorderFor("haven-oidcclient")
+		r.Recorder = mgr.GetEventRecorderFor("haven-oidcclient") //nolint:staticcheck // Recorder is a record.EventRecorder; GetEventRecorder returns the new events API type, so migrating means changing the reconciler field and every Event call
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&havenv1.OIDCClient{}).

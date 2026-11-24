@@ -92,6 +92,7 @@ func (p *Provider) actionCookiePath(rl string) string { return "/realms/" + rl +
 // actionPage renders a login-actions form with a fresh CSRF token.
 func (p *Provider) actionPage(w http.ResponseWriter, rl core.Realm, status int, form, title, msg, errMsg, token string) {
 	csrf := p.newCSRF(rl.Name)
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: csrf, Path: p.actionCookiePath(rl.Name),
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)
@@ -273,15 +274,17 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 	// Best-effort security notification; never carries a link or the password.
 	if p.actionsOn() && u.Email != "" {
 		p.bg.Add(1)
+		detached := context.WithoutCancel(ctx) // outlives the response, keeps request values
 		go func(rl core.Realm, u core.User) {
 			defer p.bg.Done()
-			nctx, cancel := context.WithTimeout(context.Background(), mailTimeout)
+			nctx, cancel := context.WithTimeout(detached, mailTimeout)
 			defer cancel()
 			if err := p.cfg.Actions.Notify(nctx, rl, u, mail.KindPasswordChanged, "reset link"); err != nil {
 				p.cfg.Logger.Error("oidc: password change notification failed", "realm", rl.Name, "user", u.ID, "err", err)
 			}
 		}(rl, u)
 	}
+	// #nosec G124 -- expiry cookie (MaxAge -1, empty value): deleted by name and path, its flags carry no data; Secure would follow p.secure
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: p.actionCookiePath(rl.Name), MaxAge: -1})
 	p.simplePage(w, http.StatusOK, "Password updated",
 		"Your password was changed and all other sessions were signed out. Return to the application and sign in.")
@@ -326,6 +329,7 @@ func (p *Provider) verifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.event(ctx, rl, "VERIFY_EMAIL", u.ID, "", p.clientIP(r), "")
+	// #nosec G124 -- expiry cookie (MaxAge -1, empty value): deleted by name and path, its flags carry no data; Secure would follow p.secure
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: p.actionCookiePath(rl.Name), MaxAge: -1})
 	p.simplePage(w, http.StatusOK, "Email confirmed", "Your email address is confirmed. Return to the application and sign in.")
 }

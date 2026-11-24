@@ -87,7 +87,7 @@ func (h *idHarness) exchange(form url.Values) (int, map[string]any) {
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	var out map[string]any
 	_ = json.Unmarshal(b, &out)

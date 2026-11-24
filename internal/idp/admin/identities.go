@@ -672,7 +672,7 @@ func (a *api) createAgentCred(w http.ResponseWriter, r *http.Request) {
 	}
 	a.identEvent(r, rl, "AGENT_CREDENTIAL_ISSUED", x.OwnerUserID, x.ClientID,
 		"agent "+x.Name+" credential "+c.ID+" scopes "+strings.Join(c.Scopes, " ")+" until "+c.ExpiresAt.Format(time.RFC3339))
-	writeJSON(w, http.StatusCreated, map[string]any{"credential": credToWire(c, now), "secret": secret,
+	writeJSON(w, http.StatusCreated, map[string]any{"credential": credToWire(c, now), "secret": secret, // #nosec G101 -- one-time credential secret returned to the authenticated admin who created it; token-type URN
 		"tokenType": "urn:haven:params:oauth:token-type:agent-credential", "clientId": x.ClientID})
 }
 

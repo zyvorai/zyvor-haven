@@ -354,14 +354,14 @@ func TestStreaming200k(t *testing.T) {
 	pr, pw := io.Pipe()
 	go func() {
 		bw := bufio.NewWriter(pw)
-		bw.WriteString(`{"realm":"big","clients":[],"users":[`)
+		_, _ = bw.WriteString(`{"realm":"big","clients":[],"users":[`)
 		for i := 0; i < n; i++ {
 			if i > 0 {
-				bw.WriteString(",")
+				_, _ = bw.WriteString(",")
 			}
-			fmt.Fprintf(bw, `{"username":"user%d","enabled":true,"emailVerified":true,"credentials":[{"type":"password","secretData":"{\"value\":\"YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=\",\"salt\":\"c2FsdHNhbHRzYWx0c2FsdA==\"}","credentialData":"{\"hashIterations\":27500,\"algorithm\":\"pbkdf2-sha256\"}"}]}`, i)
+			_, _ = fmt.Fprintf(bw, `{"username":"user%d","enabled":true,"emailVerified":true,"credentials":[{"type":"password","secretData":"{\"value\":\"YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU=\",\"salt\":\"c2FsdHNhbHRzYWx0c2FsdA==\"}","credentialData":"{\"hashIterations\":27500,\"algorithm\":\"pbkdf2-sha256\"}"}]}`, i)
 		}
-		bw.WriteString(`]}`)
+		_, _ = bw.WriteString(`]}`)
 		_ = bw.Flush()
 		_ = pw.Close()
 	}()

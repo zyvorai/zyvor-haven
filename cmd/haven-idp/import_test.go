@@ -29,7 +29,7 @@ func runImp(t *testing.T, stdin string, args ...string) (code int, stdout, stder
 func cmdImportNoSignal(name string, args []string, io_ cfgIO) int {
 	code, err := runImport(context.Background(), name, args, io_)
 	if err != nil {
-		fmt.Fprintln(io_.Stderr, "haven-idp:", err)
+		_, _ = fmt.Fprintln(io_.Stderr, "haven-idp:", err)
 		if code == exitOK {
 			code = exitError
 		}

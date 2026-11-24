@@ -39,7 +39,7 @@ func newWebhookSink(raw string, opts AuditOptions, m *auditMetrics) (AuditSink, 
 	if err != nil || u.Host == "" {
 		return nil, fmt.Errorf("audit webhook: invalid url")
 	}
-	if u.Scheme != "https" && !(u.Scheme == "http" && isLoopback(u.Hostname())) {
+	if u.Scheme != "https" && (u.Scheme != "http" || !isLoopback(u.Hostname())) {
 		return nil, fmt.Errorf("audit webhook: https required (http only for loopback)")
 	}
 	if opts.WebhookSecret == "" {

@@ -107,8 +107,8 @@ func (s *store) ensureDir() error {
 	}
 	if runtimeHasUnixModes() {
 		if fi, err := os.Stat(s.dir); err == nil && fi.Mode().Perm()&0o077 != 0 {
-			fmt.Fprintf(s.warn, "haven: warning: %s was accessible to other users (mode %04o); tightening to 0700\n", s.dir, fi.Mode().Perm())
-			if err := os.Chmod(s.dir, 0o700); err != nil {
+			_, _ = fmt.Fprintf(s.warn, "haven: warning: %s was accessible to other users (mode %04o); tightening to 0700\n", s.dir, fi.Mode().Perm())
+			if err := os.Chmod(s.dir, 0o700); err != nil { // #nosec G302 -- directory: needs the execute bit; 0700 is owner-only
 				return err
 			}
 		}
@@ -132,7 +132,7 @@ func (s *store) load() (*credsFile, error) {
 		return nil, fmt.Errorf("%s is not a regular file; refusing to read it", s.path())
 	}
 	if runtimeHasUnixModes() && fi.Mode().Perm()&0o077 != 0 {
-		fmt.Fprintf(s.warn, "haven: warning: %s was accessible to other users (mode %04o); tightening to 0600\n", s.path(), fi.Mode().Perm())
+		_, _ = fmt.Fprintf(s.warn, "haven: warning: %s was accessible to other users (mode %04o); tightening to 0600\n", s.path(), fi.Mode().Perm())
 		if err := os.Chmod(s.path(), 0o600); err != nil {
 			return nil, err
 		}
@@ -223,7 +223,7 @@ func (s *store) save(f *credsFile) error {
 		if err := s.vaultReady(name); err != nil {
 			return err
 		}
-		raw, err := json.Marshal(tokenSet{AccessToken: p.AccessToken, IDToken: p.IDToken, RefreshToken: p.RefreshToken})
+		raw, err := json.Marshal(tokenSet{AccessToken: p.AccessToken, IDToken: p.IDToken, RefreshToken: p.RefreshToken}) // #nosec G117 -- tokens go only to the credential vault, never to the plain config file or logs
 		if err != nil {
 			return err
 		}
@@ -277,7 +277,7 @@ func (s *store) save(f *credsFile) error {
 			continue
 		}
 		if err := s.vault.DeleteBlob(context.Background(), keychainService, name); err != nil {
-			fmt.Fprintf(s.warn, "haven: warning: could not delete the Keychain item for profile %q (%v); remove service %q account %q in Keychain Access\n", name, err, keychainService, name)
+			_, _ = fmt.Fprintf(s.warn, "haven: warning: could not delete the Keychain item for profile %q (%v); remove service %q account %q in Keychain Access\n", name, err, keychainService, name)
 		}
 	}
 	return nil

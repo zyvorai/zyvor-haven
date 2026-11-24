@@ -53,16 +53,16 @@ func (a *app) cmdLogin(ctx context.Context, args []string) error {
 	}
 
 	out := a.env.Stdout
-	fmt.Fprintf(out, "To sign in, open this page in any browser:\n\n    %s\n\nand enter the code:\n\n    %s\n\n", clean(da.VerificationURI, 300), clean(da.UserCode, 64))
-	fmt.Fprintf(out, "The code expires in %s.\n", (time.Duration(da.ExpiresIn) * time.Second).Round(time.Second))
+	_, _ = fmt.Fprintf(out, "To sign in, open this page in any browser:\n\n    %s\n\nand enter the code:\n\n    %s\n\n", clean(da.VerificationURI, 300), clean(da.UserCode, 64))
+	_, _ = fmt.Fprintf(out, "The code expires in %s.\n", (time.Duration(da.ExpiresIn) * time.Second).Round(time.Second))
 	if !*noBrowser && da.VerificationURIComplete != "" && a.env.OpenBrowser != nil {
 		if err := a.env.OpenBrowser(da.VerificationURIComplete); err != nil {
-			fmt.Fprintln(out, "(could not open a browser here; open the page above by hand)")
+			_, _ = fmt.Fprintln(out, "(could not open a browser here; open the page above by hand)")
 		} else {
-			fmt.Fprintln(out, "Opening your browser; the code is pre-filled.")
+			_, _ = fmt.Fprintln(out, "Opening your browser; the code is pre-filled.")
 		}
 	}
-	fmt.Fprintln(out, "Waiting for you to approve the sign-in (Ctrl-C to cancel)...")
+	_, _ = fmt.Fprintln(out, "Waiting for you to approve the sign-in (Ctrl-C to cancel)...")
 
 	tr, err := a.pollToken(ctx, cl, d.TokenEndpoint, *clientID, da)
 	if err != nil {
@@ -78,7 +78,7 @@ func (a *app) cmdLogin(ctx context.Context, args []string) error {
 		if a.env.Vault != nil && a.env.Vault.Available() {
 			p.Keychain = true
 		} else {
-			fmt.Fprintln(a.env.Stderr, "haven: warning: --keychain needs macOS; storing the tokens in the 0600 credentials file instead")
+			_, _ = fmt.Fprintln(a.env.Stderr, "haven: warning: --keychain needs macOS; storing the tokens in the 0600 credentials file instead")
 		}
 	}
 	if c.net.CAFile != "" {
@@ -93,16 +93,16 @@ func (a *app) cmdLogin(ctx context.Context, args []string) error {
 			return fmt.Errorf("rejecting the sign-in: %w", err)
 		}
 		if !res.Verified {
-			fmt.Fprintf(a.env.Stderr, "haven: warning: ID token signature not verified (%s)\n", res.Note)
+			_, _ = fmt.Fprintf(a.env.Stderr, "haven: warning: ID token signature not verified (%s)\n", res.Note)
 		}
 		claims = res.Claims
 		p.IDToken = tr.IDToken
 		p.IDExpiry = claimTime(claims, "exp")
 	} else {
-		fmt.Fprintln(a.env.Stderr, "haven: warning: the server returned no ID token (is the openid scope allowed?); `haven exec-credential` will not work")
+		_, _ = fmt.Fprintln(a.env.Stderr, "haven: warning: the server returned no ID token (is the openid scope allowed?); `haven exec-credential` will not work")
 	}
 	if tr.RefreshToken == "" {
-		fmt.Fprintln(a.env.Stderr, "haven: warning: no refresh token was issued; you will have to log in again when the access token expires")
+		_, _ = fmt.Fprintln(a.env.Stderr, "haven: warning: no refresh token was issued; you will have to log in again when the access token expires")
 	}
 	if err := st.update(ctx, func(f *credsFile) error { f.Profiles[c.profile] = p; return nil }); err != nil {
 		return fmt.Errorf("saving credentials: %w", err)
@@ -112,10 +112,10 @@ func (a *app) cmdLogin(ctx context.Context, args []string) error {
 	if who == "" {
 		who = "(no identity claims in the ID token)"
 	}
-	fmt.Fprintf(out, "\nLogged in as %s\n", who)
-	fmt.Fprintf(out, "Issuer:  %s\nProfile: %s\n", p.Issuer, c.profile)
+	_, _ = fmt.Fprintf(out, "\nLogged in as %s\n", who)
+	_, _ = fmt.Fprintf(out, "Issuer:  %s\nProfile: %s\n", p.Issuer, c.profile)
 	if !p.AccessExpiry.IsZero() {
-		fmt.Fprintf(out, "Access token valid until %s\n", p.AccessExpiry.Local().Format(time.RFC3339))
+		_, _ = fmt.Fprintf(out, "Access token valid until %s\n", p.AccessExpiry.Local().Format(time.RFC3339))
 	}
 	return nil
 }

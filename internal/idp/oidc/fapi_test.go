@@ -564,9 +564,17 @@ func TestJARNeedsRegisteredKeys(t *testing.T) {
 		t.Fatalf("object accepted for a client without keys: %d", code)
 	}
 	// A client with a JWKS that only holds a private key (unusable) is the same.
+	esPub, err := f.es.PublicKey.Bytes() // 0x04 || X || Y
+	if err != nil {
+		t.Fatal(err)
+	}
+	esD, err := f.es.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
 	f.setCfg(func(c *core.ClientFAPI) {
 		c.JWKS = mustJSON(map[string]any{"keys": []any{map[string]any{"kty": "EC", "crv": "P-256",
-			"x": b64u(padTo(f.es.X.Bytes(), 32)), "y": b64u(padTo(f.es.Y.Bytes(), 32)), "d": b64u(f.es.D.Bytes())}}})
+			"x": b64u(esPub[1:33]), "y": b64u(esPub[33:]), "d": b64u(esD)}}})
 	})
 	if code, _ := f.push(url.Values{"request": {obj}}); code != 400 {
 		t.Fatalf("private-key JWKS used: %d", code)

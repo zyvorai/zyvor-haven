@@ -5,6 +5,7 @@ package password
 
 import (
 	"bufio"
+	// #nosec G505 -- SHA-1 is the HIBP corpus identifier, not a security primitive
 	"crypto/sha1" //nolint:gosec // identifier of a corpus entry, not a security primitive
 	"encoding/binary"
 	"encoding/hex"
@@ -90,6 +91,7 @@ func (b *Bloom) HasDigest(d [20]byte) bool {
 }
 
 // Has reports whether the exact plaintext pw may be in the set.
+// #nosec G401 -- SHA-1 is the HIBP corpus identifier, not a security primitive
 func (b *Bloom) Has(pw string) bool { return b.HasDigest(sha1.Sum([]byte(pw))) } //nolint:gosec
 
 // Len is the number of entries added at build time; K the probe count; Bits
@@ -145,6 +147,7 @@ func parseCorpusLine(line string) (d [20]byte, ok bool) {
 			return d, true
 		}
 	}
+	// #nosec G401 -- SHA-1 is the HIBP corpus identifier, not a security primitive
 	return sha1.Sum([]byte(line)), true //nolint:gosec
 }
 
@@ -178,7 +181,7 @@ func BuildBreachFilter(r io.Reader, fpRate float64) ([]byte, error) {
 
 // LoadBreachFilter reads a filter produced by BuildBreachFilter.
 func LoadBreachFilter(path string) (*Bloom, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- operator-supplied breach filter path
 	if err != nil {
 		return nil, fmt.Errorf("load breach filter: %w", err)
 	}

@@ -4,6 +4,7 @@
 package storetest
 
 import (
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -228,11 +229,11 @@ func credLimitConcurrent(t *testing.T, s core.Store) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_, err := as.CreateAgentCredential(ctx, mkCred(a.ID, "h"+string(rune('a'+i)), time.Hour), 5, t0)
-			switch {
-			case err == nil:
+			_, err := as.CreateAgentCredential(ctx, mkCred(a.ID, "h"+strconv.Itoa(i), time.Hour), 5, t0)
+			switch err {
+			case nil:
 				okN.Add(1)
-			case err == core.ErrCredentialLimit:
+			case core.ErrCredentialLimit:
 				limN.Add(1)
 			default:
 				other.Add(1)

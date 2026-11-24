@@ -84,7 +84,11 @@ func pad32(n *big.Int) []byte { return n.FillBytes(make([]byte, 32)) }
 
 // thumbprint computes the RFC 7638 thumbprint of an EC P-256 public key.
 func thumbprint(pub *ecdsa.PublicKey) string {
-	s := fmt.Sprintf(`{"crv":"P-256","kty":"EC","x":"%s","y":"%s"}`, b64(pad32(pub.X)), b64(pad32(pub.Y)))
+	raw, err := pub.Bytes() // 0x04 || X || Y, each coordinate 32 bytes
+	if err != nil || len(raw) != 65 {
+		return ""
+	}
+	s := fmt.Sprintf(`{"crv":"P-256","kty":"EC","x":"%s","y":"%s"}`, b64(raw[1:33]), b64(raw[33:]))
 	h := sha256.Sum256([]byte(s))
 	return b64(h[:])
 }
@@ -133,8 +137,8 @@ func parseKey(k core.SigningKey) (parsed, error) {
 	if err1 != nil || err2 != nil || len(xb) != 32 || len(yb) != 32 {
 		return parsed{}, errors.New("bad jwk coordinates")
 	}
-	pub := &ecdsa.PublicKey{Curve: elliptic.P256(), X: new(big.Int).SetBytes(xb), Y: new(big.Int).SetBytes(yb)}
-	if !pub.Curve.IsOnCurve(pub.X, pub.Y) {
+	pub, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), append(append([]byte{4}, xb...), yb...))
+	if err != nil {
 		return parsed{}, errors.New("point not on curve")
 	}
 	p := parsed{key: k, pub: pub}

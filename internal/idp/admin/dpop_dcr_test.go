@@ -74,7 +74,7 @@ func TestDCRDeviceClientWorks(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	var dev map[string]any
 	_ = json.Unmarshal(b, &dev)
 	if resp.StatusCode != 200 || str(dev, "device_code") == "" {
@@ -189,7 +189,7 @@ func TestAdminRejectsDPoPBoundToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	var out struct {
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`

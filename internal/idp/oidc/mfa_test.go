@@ -208,8 +208,6 @@ func isRedirectWithCode(w *httptest.ResponseRecorder) bool {
 	return w.Code == http.StatusFound && strings.Contains(w.Header().Get("Location"), "code=")
 }
 
-func (e *mfaEnv) store() core.MFAStore { return e.st }
-
 // seedOf returns the plaintext seed of a user's credential (test-only access).
 func (e *mfaEnv) seedOf(userID string) []byte {
 	e.t.Helper()
@@ -1194,7 +1192,7 @@ func TestMFAAccountStartRequiresFreshAuthAndRefusesWhenOn(t *testing.T) {
 		t.Fatal("confirm failed")
 	}
 	before, _ := e.st.GetTOTP(context.Background(), "r", "id-alice")
-	got = b.get("/realms/r/account/totp")
+	b.get("/realms/r/account/totp")
 	cs = b.csrf
 	got = b.post("/realms/r/account/totp", url.Values{"action": {"start"}, "csrf": {cs}, "password": {"pw"}})
 	after, _ := e.st.GetTOTP(context.Background(), "r", "id-alice")

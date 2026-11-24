@@ -131,7 +131,9 @@ func TestVerifyRejections(t *testing.T) {
 	}
 	var kid string
 	var h map[string]any
-	json.Unmarshal(b64d(t, p[0]), &h)
+	if err := json.Unmarshal(b64d(t, p[0]), &h); err != nil {
+		t.Fatal(err)
+	}
 	kid = h["kid"].(string)
 
 	flip := []byte(p[2])
@@ -187,7 +189,9 @@ func TestRotationGrace(t *testing.T) {
 	newTok, _ := s.Sign(ctx, "r", core.Claims{"sub": "new"})
 	kidOf := func(tok string) string {
 		var h struct{ Kid string }
-		json.Unmarshal(b64d(t, strings.Split(tok, ".")[0]), &h)
+		if err := json.Unmarshal(b64d(t, strings.Split(tok, ".")[0]), &h); err != nil {
+			t.Fatal(err)
+		}
 		return h.Kid
 	}
 	if kidOf(old) == kidOf(newTok) {
@@ -200,7 +204,9 @@ func TestRotationGrace(t *testing.T) {
 	}
 	raw, _ := s.JWKS(ctx, "r")
 	var set struct{ Keys []map[string]string }
-	json.Unmarshal(raw, &set)
+	if err := json.Unmarshal(raw, &set); err != nil {
+		t.Fatal(err)
+	}
 	if len(set.Keys) != 2 {
 		t.Fatalf("jwks keys: %d", len(set.Keys))
 	}
@@ -213,7 +219,9 @@ func TestRotationGrace(t *testing.T) {
 	}
 	raw, _ = s.JWKS(ctx, "r")
 	set.Keys = nil
-	json.Unmarshal(raw, &set)
+	if err := json.Unmarshal(raw, &set); err != nil {
+		t.Fatal(err)
+	}
 	if len(set.Keys) != 1 {
 		t.Fatalf("jwks after grace: %d", len(set.Keys))
 	}
@@ -224,7 +232,9 @@ func TestRotationGrace(t *testing.T) {
 func TestJWKSIndependentVerify(t *testing.T) {
 	ctx := context.Background()
 	s, st, clk := setup(t)
-	s.Rotate(ctx, "r")
+	if err := s.Rotate(ctx, "r"); err != nil {
+		t.Fatal(err)
+	}
 	raw, err := s.JWKS(ctx, "r")
 	if err != nil {
 		t.Fatal(err)
@@ -243,12 +253,15 @@ func TestJWKSIndependentVerify(t *testing.T) {
 		if k.Kty != "EC" || k.Crv != "P-256" || k.Use != "sig" || k.Alg != "ES256" {
 			t.Fatalf("jwk %+v", k)
 		}
-		x, y := new(big.Int).SetBytes(b64d(t, k.X)), new(big.Int).SetBytes(b64d(t, k.Y))
 		sum := sha256.Sum256([]byte(`{"crv":"P-256","kty":"EC","x":"` + k.X + `","y":"` + k.Y + `"}`))
 		if k.Kid != base64.RawURLEncoding.EncodeToString(sum[:]) {
 			t.Fatal("kid is not RFC 7638 thumbprint")
 		}
-		pubs[k.Kid] = &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
+		pub, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), append(append([]byte{4}, b64d(t, k.X)...), b64d(t, k.Y)...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		pubs[k.Kid] = pub
 	}
 	if len(pubs) != 2 {
 		t.Fatalf("want 2 keys")
@@ -256,7 +269,9 @@ func TestJWKSIndependentVerify(t *testing.T) {
 	tok, _ := s.Sign(ctx, "r", claimsAt(clk, time.Minute))
 	p := strings.Split(tok, ".")
 	var h struct{ Alg, Typ, Kid string }
-	json.Unmarshal(b64d(t, p[0]), &h)
+	if err := json.Unmarshal(b64d(t, p[0]), &h); err != nil {
+		t.Fatal(err)
+	}
 	if h.Alg != "ES256" || h.Typ != "JWT" {
 		t.Fatalf("header %+v", h)
 	}

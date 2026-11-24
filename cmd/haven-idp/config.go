@@ -111,7 +111,7 @@ func cmdConfig(name string, args []string, io_ cfgIO) int {
 		if errors.Is(err, flag.ErrHelp) {
 			return exitOK
 		}
-		fmt.Fprintln(io_.Stderr, "haven-idp:", err)
+		_, _ = fmt.Fprintln(io_.Stderr, "haven-idp:", err)
 		if code == exitOK {
 			code = exitError
 		}
@@ -178,7 +178,7 @@ func parseThreshold(s string) (posture.Severity, error) {
 }
 
 func loadSpec(path string, io_ cfgIO) (*configcode.Spec, error) {
-	var r io.Reader = io_.Stdin
+	r := io_.Stdin
 	if path != "-" {
 		fh, err := os.Open(path) // #nosec G304 -- operator-provided path
 		if err != nil {
@@ -229,7 +229,7 @@ func runValidate(desired *configcode.Spec, th posture.Severity, f cfgFlags, io_ 
 	if f.format == "json" {
 		return code, writeJSON(io_.Stdout, map[string]any{"valid": true, "realm": desired.Realm, "gate": toGateJSON(g)})
 	}
-	fmt.Fprintf(io_.Stdout, "%s is valid (realm %q).\n\nA fresh realm from this file would get this Guard result:\n", f.file, desired.Realm)
+	_, _ = fmt.Fprintf(io_.Stdout, "%s is valid (realm %q).\n\nA fresh realm from this file would get this Guard result:\n", f.file, desired.Realm)
 	g.Render(io_.Stdout, io_.Color)
 	return code, nil
 }
@@ -255,7 +255,7 @@ func runPlan(desired *configcode.Spec, th posture.Severity, f cfgFlags, io_ cfgI
 	}
 	plan.Render(io_.Stdout, io_.Color)
 	if !plan.Empty() {
-		fmt.Fprintln(io_.Stdout)
+		_, _ = fmt.Fprintln(io_.Stdout)
 		g.Render(io_.Stdout, io_.Color)
 	}
 	return code, nil
@@ -300,7 +300,7 @@ func runApply(desired *configcode.Spec, th posture.Severity, f cfgFlags, io_ cfg
 		return exitOK, nil
 	}
 	if f.format == "text" {
-		fmt.Fprintln(io_.Stdout)
+		_, _ = fmt.Fprintln(io_.Stdout)
 		g.Render(io_.Stdout, io_.Color)
 	}
 	if len(g.Blocked) > 0 {
@@ -310,18 +310,18 @@ func runApply(desired *configcode.Spec, th posture.Severity, f cfgFlags, io_ cfg
 			}
 			return exitBlocked, errors.New("not applied: Haven Guard blocked this change (see above)")
 		}
-		fmt.Fprintf(io_.Stderr, "WARNING: --allow-findings: applying despite %d blocking Guard finding(s).\n", len(g.Blocked))
+		_, _ = fmt.Fprintf(io_.Stderr, "WARNING: --allow-findings: applying despite %d blocking Guard finding(s).\n", len(g.Blocked))
 	}
 	newConf := newConfidentialClients(plan, desired)
 	if len(newConf) > 0 && f.secretsFile == "" {
-		fmt.Fprintf(io_.Stderr, "note: %d new confidential client(s) will get generated secrets; without --secrets-file they are discarded and must be regenerated.\n", len(newConf))
+		_, _ = fmt.Fprintf(io_.Stderr, "note: %d new confidential client(s) will get generated secrets; without --secrets-file they are discarded and must be regenerated.\n", len(newConf))
 	}
 
 	if !f.autoApprove {
 		if !io_.Interactive || f.file == "-" {
 			return exitError, errors.New("refusing to apply without confirmation: pass --auto-approve (stdin is not a terminal or is used for the file)")
 		}
-		fmt.Fprint(io_.Stdout, "\nApply these changes? [y/N] ")
+		_, _ = fmt.Fprint(io_.Stdout, "\nApply these changes? [y/N] ")
 		line, _ := bufio.NewReader(io_.Stdin).ReadString('\n')
 		if a := strings.ToLower(strings.TrimSpace(line)); a != "y" && a != "yes" {
 			return exitError, errors.New("apply cancelled")
@@ -347,16 +347,16 @@ func runApply(desired *configcode.Spec, th posture.Severity, f cfgFlags, io_ cfg
 		_ = writeJSON(io_.Stdout, out)
 	} else if res != nil {
 		cr, up, de := countActions(res.Applied)
-		fmt.Fprintf(io_.Stdout, "\nApply %s: %d created, %d updated, %d deleted.\n", map[bool]string{true: "stopped", false: "complete"}[applyErr != nil], cr, up, de)
+		_, _ = fmt.Fprintf(io_.Stdout, "\nApply %s: %d created, %d updated, %d deleted.\n", map[bool]string{true: "stopped", false: "complete"}[applyErr != nil], cr, up, de)
 	}
 	if nSecrets > 0 {
 		switch {
 		case f.secretsFile == "":
-			fmt.Fprintf(io_.Stderr, "%d new confidential client(s) were created and their secrets were NOT saved (not printed on purpose). Regenerate them and pass --secrets-file PATH next time.\n", nSecrets)
+			_, _ = fmt.Fprintf(io_.Stderr, "%d new confidential client(s) were created and their secrets were NOT saved (not printed on purpose). Regenerate them and pass --secrets-file PATH next time.\n", nSecrets)
 		case secretErr != nil:
-			fmt.Fprintf(io_.Stderr, "ERROR: %d client secret(s) could not be written to %s: %v\nThe secrets are lost: regenerate them for the new clients.\n", nSecrets, f.secretsFile, secretErr)
+			_, _ = fmt.Fprintf(io_.Stderr, "ERROR: %d client secret(s) could not be written to %s: %v\nThe secrets are lost: regenerate them for the new clients.\n", nSecrets, f.secretsFile, secretErr)
 		default:
-			fmt.Fprintf(io_.Stderr, "Wrote %d client secret(s) to %s (mode 0600).\n", nSecrets, f.secretsFile)
+			_, _ = fmt.Fprintf(io_.Stderr, "Wrote %d client secret(s) to %s (mode 0600).\n", nSecrets, f.secretsFile)
 		}
 	}
 	if applyErr != nil {

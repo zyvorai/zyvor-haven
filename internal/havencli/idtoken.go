@@ -138,8 +138,15 @@ func verifySignature(raw string, keys []jwk) (string, error) {
 			if ex != nil || ey != nil || len(sig) != 64 {
 				continue
 			}
-			pub := &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
-			if !pub.Curve.IsOnCurve(x, y) {
+			if x.BitLen() > 256 || y.BitLen() > 256 {
+				continue
+			}
+			pt := make([]byte, 65) // SEC 1 uncompressed point; parsing checks it is on the curve
+			pt[0] = 4
+			x.FillBytes(pt[1:33])
+			y.FillBytes(pt[33:])
+			pub, perr := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), pt)
+			if perr != nil {
 				continue
 			}
 			tried = true

@@ -370,8 +370,12 @@ func TestCredentialFileModesAndTightening(t *testing.T) {
 		}
 	}
 	// A loosened file is repaired with a warning, not refused.
-	os.Chmod(filepath.Join(cfg, "credentials.json"), 0o644)
-	os.Chmod(cfg, 0o755)
+	if err := os.Chmod(filepath.Join(cfg, "credentials.json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if c := te.run("token"); c != 0 {
 		t.Fatalf("exit %d: %s", c, te.errb.String())
 	}

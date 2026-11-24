@@ -41,13 +41,13 @@ func scimTokenize(in string) ([]ftok, error) {
 	var out []ftok
 	for i := 0; i < len(in); {
 		c := in[i]
-		switch {
-		case c == ' ' || c == '\t':
+		switch c {
+		case ' ', '\t':
 			i++
-		case c == '(' || c == ')':
+		case '(', ')':
 			out = append(out, ftok{s: string(c)})
 			i++
-		case c == '"':
+		case '"':
 			j := i + 1
 			for ; j < len(in); j++ {
 				if in[j] == '\\' {

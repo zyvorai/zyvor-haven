@@ -512,7 +512,7 @@ func (e *env) tokenPost(form url.Values) map[string]any {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	var out map[string]any
 	if resp.StatusCode != 200 || json.Unmarshal(b, &out) != nil {

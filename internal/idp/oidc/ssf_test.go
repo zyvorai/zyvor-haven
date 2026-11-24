@@ -21,15 +21,14 @@ import (
 )
 
 type ssfEnv struct {
-	t      *testing.T
-	raw    *memstore.Store
-	st     core.Store
-	h      http.Handler
-	now    time.Time
-	token  string // receiver "rx" (allowEmail, not all subjects)
-	other  string // receiver "other"
-	rx     core.SSFReceiver
-	policy bool
+	t     *testing.T
+	raw   *memstore.Store
+	st    core.Store
+	h     http.Handler
+	now   time.Time
+	token string // receiver "rx" (allowEmail, not all subjects)
+	other string // receiver "other"
+	rx    core.SSFReceiver
 }
 
 func newSSFEnv(t *testing.T, decorated bool, box *secretbox.Box) *ssfEnv {

@@ -281,20 +281,20 @@ func cacheTTL(h http.Header) time.Duration {
 // is checked at dial time, the body is capped, and only a 200 JSON answer counts.
 func (p *Provider) fetchCIMD(ctx context.Context, clientID string) ([]byte, time.Duration, error) {
 	st := p.cimd()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, clientID, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, clientID, nil) // #nosec G704 -- clientID is the CIMD document URL by design; the client refuses non-public destinations at dial time and follows no redirects
 	if err != nil {
 		return nil, 0, cimdErr("bad request")
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "haven-idp-cimd")
-	resp, err := st.http.HTTP.Do(req)
+	resp, err := st.http.HTTP.Do(req) // #nosec G704 -- see NewRequestWithContext above: dial-time destination guard, no redirects, capped body
 	if err != nil {
 		if safehttp.IsBlocked(err) {
 			return nil, 0, cimdErr("destination not allowed")
 		}
 		return nil, 0, cimdErr("fetch failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, 0, cimdErr("status %d", resp.StatusCode) // includes refused redirects (3xx)
 	}

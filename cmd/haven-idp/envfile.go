@@ -41,7 +41,7 @@ func parseEnvFile(r io.Reader) (map[string]string, error) {
 // loadEnvFile sets variables from the file that are not already set, so real
 // environment (and orchestrator-provided secrets) always win.
 func loadEnvFile(path string) error {
-	f, err := os.Open(path) // #nosec G304 -- operator-provided path
+	f, err := os.Open(path) // #nosec G304 G703 -- operator-provided path
 	if err != nil {
 		return fmt.Errorf("env file: %w", err)
 	}

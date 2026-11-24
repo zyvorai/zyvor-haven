@@ -52,7 +52,7 @@ func checkExpr(t *testing.T, where, expr string, contract map[string]bool) {
 				base = strings.TrimSuffix(name, suf)
 			}
 		}
-		if !contract[name] && !(base != name && contract[base]) {
+		if !contract[name] && (base == name || !contract[base]) {
 			t.Errorf("%s: metric %q is not in the obs.go contract", where, name)
 		}
 	}

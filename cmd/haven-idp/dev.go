@@ -67,7 +67,7 @@ func loadDevCreds(path string, reset bool) (devCreds, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return c, err
 	}
-	b, _ := json.Marshal(c)
+	b, _ := json.Marshal(c) // #nosec G117 -- dev-mode credentials are written to a 0600 file under the user config dir by design
 	return c, os.WriteFile(path, b, 0o600)
 }
 
@@ -168,7 +168,7 @@ func cmdDev(args []string, out io.Writer) error {
 		OnReady: func(string) {
 			printDevBanner(out, base, issuer, *realm, *user, creds, redirects, playgroundHandler != nil)
 			if persistDir != "" {
-				fmt.Fprintf(out, "Persisting to %s (state.json, secret.key: keep this directory private; delete it to start over)\n\n", persistDir)
+				_, _ = fmt.Fprintf(out, "Persisting to %s (state.json, secret.key: keep this directory private; delete it to start over)\n\n", persistDir)
 			}
 			if *open && playgroundHandler != nil {
 				openBrowser(base + "/dev/")
@@ -184,7 +184,7 @@ func cmdDev(args []string, out io.Writer) error {
 }
 
 func printDevBanner(w io.Writer, base, issuer, realm, user string, c devCreds, redirects []string, playground bool) {
-	p := func(format string, a ...any) { fmt.Fprintf(w, format, a...) }
+	p := func(format string, a ...any) { _, _ = fmt.Fprintf(w, format, a...) }
 	p("\nhaven-idp dev: in-memory and loopback only (data resets on restart)\n\n")
 	p("  Issuer       %s\n", issuer)
 	p("  Discovery    %s/.well-known/openid-configuration\n", issuer)

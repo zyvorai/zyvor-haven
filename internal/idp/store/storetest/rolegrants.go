@@ -122,10 +122,10 @@ func grantLimitConcurrent(t *testing.T, s core.Store) {
 		go func() {
 			defer wg.Done()
 			_, err := gs.CreateRoleGrant(ctx, mkGrant("u1", "ops", time.Hour), 20, t0)
-			switch {
-			case err == nil:
+			switch err {
+			case nil:
 				okN.Add(1)
-			case err == core.ErrGrantLimit:
+			case core.ErrGrantLimit:
 				lim.Add(1)
 			default:
 				t.Errorf("create: %v", err)

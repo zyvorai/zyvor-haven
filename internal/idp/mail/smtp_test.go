@@ -76,7 +76,7 @@ func newFakeSrv(t *testing.T, mode string, opts ...string) *fakeSrv {
 		s.hang = s.hang || o == "hang"
 		s.noStart = s.noStart || o == "nostarttls"
 	}
-	t.Cleanup(func() { ln.Close() })
+	t.Cleanup(func() { _ = ln.Close() })
 	go s.loop()
 	return s
 }
@@ -103,18 +103,18 @@ func (s *fakeSrv) snapshot() (cmds []string, auth, from string, rcpts []string, 
 }
 
 func (s *fakeSrv) serve(raw net.Conn) {
-	defer raw.Close()
+	defer func() { _ = raw.Close() }()
 	if s.hang {
-		io.Copy(io.Discard, raw)
+		_, _ = io.Copy(io.Discard, raw)
 		return
 	}
 	cfg := &tls.Config{Certificates: []tls.Certificate{s.cert}}
-	var conn net.Conn = raw
+	conn := raw
 	if s.mode == "implicit" {
 		conn = tls.Server(raw, cfg)
 	}
 	r := bufio.NewReader(conn)
-	reply := func(f string) { io.WriteString(conn, f+"\r\n") }
+	reply := func(f string) { _, _ = io.WriteString(conn, f+"\r\n") }
 	secure := s.mode == "implicit"
 	reply("220 fake ESMTP")
 	for {
@@ -134,11 +134,11 @@ func (s *fakeSrv) serve(raw net.Conn) {
 		s.mu.Unlock()
 		switch {
 		case strings.HasPrefix(verb, "EHLO"):
-			io.WriteString(conn, "250-fake\r\n")
+			_, _ = io.WriteString(conn, "250-fake\r\n")
 			if s.mode == "starttls" && !secure && !s.noStart {
-				io.WriteString(conn, "250-STARTTLS\r\n")
+				_, _ = io.WriteString(conn, "250-STARTTLS\r\n")
 			}
-			io.WriteString(conn, "250 AUTH PLAIN\r\n")
+			_, _ = io.WriteString(conn, "250 AUTH PLAIN\r\n")
 		case verb == "STARTTLS":
 			reply("220 go ahead")
 			tc := tls.Server(raw, cfg)

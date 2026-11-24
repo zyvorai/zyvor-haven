@@ -138,8 +138,8 @@ func dpopKey(alg string, raw json.RawMessage) (verify func(signed, sig []byte) b
 		if str("crv") != "P-256" || e1 != nil || e2 != nil || len(x) != 32 || len(y) != 32 {
 			return nil, "", badProof("unsupported EC key")
 		}
-		pub := &ecdsa.PublicKey{Curve: elliptic.P256(), X: new(big.Int).SetBytes(x), Y: new(big.Int).SetBytes(y)}
-		if !pub.Curve.IsOnCurve(pub.X, pub.Y) {
+		pub, perr := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), append(append([]byte{4}, x...), y...))
+		if perr != nil {
 			return nil, "", badProof("EC key is not on the curve")
 		}
 		jkt = jwkThumbprint("EC", map[string]string{"crv": "P-256", "kty": "EC", "x": str("x"), "y": str("y")})

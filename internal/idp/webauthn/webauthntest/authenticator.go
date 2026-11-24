@@ -72,10 +72,10 @@ func head(major byte, n uint64) []byte {
 	case n < 256:
 		return []byte{major<<5 | 24, byte(n)}
 	case n < 65536:
-		return []byte{major<<5 | 25, byte(n >> 8), byte(n)}
+		return []byte{major<<5 | 25, byte(n >> 8), byte(n)} // #nosec G115 -- test encoder: n is range-checked by the switch and test credential IDs are far below 64 KiB
 	default:
 		b := []byte{major<<5 | 26, 0, 0, 0, 0}
-		binary.BigEndian.PutUint32(b[1:], uint32(n))
+		binary.BigEndian.PutUint32(b[1:], uint32(n)) // #nosec G115 -- test encoder: n is range-checked by the switch and test credential IDs are far below 64 KiB
 		return b
 	}
 }
@@ -164,7 +164,7 @@ func (a *Authenticator) authData(at bool) []byte {
 	out = append(out, sc[:]...)
 	if at {
 		out = append(out, a.AAGUID[:]...)
-		out = append(out, byte(len(a.CredID)>>8), byte(len(a.CredID)))
+		out = append(out, byte(len(a.CredID)>>8), byte(len(a.CredID))) // #nosec G115 -- test encoder: n is range-checked by the switch and test credential IDs are far below 64 KiB
 		out = append(out, a.CredID...)
 		out = append(out, a.COSEKey()...)
 	}

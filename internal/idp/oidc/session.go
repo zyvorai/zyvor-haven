@@ -48,6 +48,7 @@ func (p *Provider) startSession(w http.ResponseWriter, r *http.Request, rl core.
 	if err := p.cfg.Store.PutSession(r.Context(), s); err != nil {
 		return core.Session{}, err
 	}
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: ssoCookie, Value: raw, Path: p.ssoCookiePath(rl.Name),
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteLaxMode, Expires: s.ExpiresAt})
 	return s, nil
@@ -93,6 +94,7 @@ func (p *Provider) touchSession(r *http.Request, rl core.Realm, s core.Session) 
 }
 
 func (p *Provider) clearSSOCookie(w http.ResponseWriter, realm string) {
+	// #nosec G124 -- expiry cookie (MaxAge -1, empty value): deleted by name and path, its flags carry no data; Secure would follow p.secure
 	http.SetCookie(w, &http.Cookie{Name: ssoCookie, Value: "", Path: p.ssoCookiePath(realm), MaxAge: -1,
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteLaxMode})
 }

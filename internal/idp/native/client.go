@@ -111,7 +111,7 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := readLimited(resp.Body)
 	if err != nil {
 		return "", err
@@ -175,7 +175,7 @@ func (c *Client) do(ctx context.Context, method, path string, in any) (int, []by
 			return 0, nil, err
 		}
 		body, rerr := readLimited(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if rerr != nil {
 			return 0, nil, rerr
 		}

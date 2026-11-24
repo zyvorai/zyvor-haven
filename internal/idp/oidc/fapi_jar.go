@@ -82,8 +82,8 @@ func parseJARKeys(raw string) ([]jarKey, error) {
 			if str("crv") != "P-256" || e1 != nil || e2 != nil || len(x) != 32 || len(y) != 32 {
 				continue
 			}
-			pub := &ecdsa.PublicKey{Curve: elliptic.P256(), X: new(big.Int).SetBytes(x), Y: new(big.Int).SetBytes(y)}
-			if !pub.Curve.IsOnCurve(pub.X, pub.Y) {
+			pub, perr := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), append(append([]byte{4}, x...), y...))
+			if perr != nil {
 				continue
 			}
 			jk.pub = pub

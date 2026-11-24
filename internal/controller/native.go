@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -227,7 +228,7 @@ func (r *IdentityPlaneReconciler) ensureIdPWorkload(ctx context.Context, plane *
 
 	// Replicas: suspend wins; an explicit spec.idp.replicas wins next; when
 	// unset, a running Deployment keeps whatever another writer (an HPA) chose.
-	replicas := int32(spec.IdP.Replicas)
+	replicas := int32(min(max(spec.IdP.Replicas, 0), math.MaxInt32))
 	var current appsv1.Deployment
 	getErr := r.Get(ctx, types.NamespacedName{Name: render.IdPName(plane.Name), Namespace: plane.Namespace}, &current)
 	if getErr != nil && !errors.IsNotFound(getErr) {

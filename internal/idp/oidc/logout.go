@@ -196,6 +196,7 @@ func (p *Provider) endAndLog(r *http.Request, rl core.Realm, sid, userID, client
 
 func (p *Provider) logoutConfirm(w http.ResponseWriter, rl core.Realm, ru, clientID, state string) {
 	csrf := p.newCSRF(rl.Name)
+	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: csrf, Path: p.logoutPath(rl.Name),
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	var hidden []hiddenField
@@ -218,5 +219,6 @@ func (p *Provider) logoutConfirm(w http.ResponseWriter, rl core.Realm, ru, clien
 }
 
 func (p *Provider) clearLogoutCSRF(w http.ResponseWriter, realm string) {
+	// #nosec G124 -- expiry cookie (MaxAge -1, empty value): deleted by name and path, its flags carry no data; Secure would follow p.secure
 	http.SetCookie(w, &http.Cookie{Name: csrfCookie, Value: "", Path: p.logoutPath(realm), MaxAge: -1})
 }

@@ -273,7 +273,7 @@ func (s *scimAPI) checkToken(r *http.Request, realm string) (core.Realm, core.SC
 		want = strings.Repeat("0", 64) // dummy: same work for every failure
 	}
 	match := subtle.ConstantTimeCompare([]byte(sha256Hex(presented)), []byte(want)) == 1
-	if !(realmOK && tokOK && match && rl.Enabled && tok.RealmID == rl.ID) {
+	if !realmOK || !tokOK || !match || !rl.Enabled || tok.RealmID != rl.ID {
 		return core.Realm{}, core.SCIMToken{}, false, nil
 	}
 	return rl, tok, true, nil

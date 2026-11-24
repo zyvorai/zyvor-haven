@@ -122,11 +122,11 @@ func (f *fakeIdP) discovery(w http.ResponseWriter, r *http.Request) {
 	if !f.noJWKS {
 		d["jwks_uri"] = f.srv.URL + "/jwks"
 	}
-	json.NewEncoder(w).Encode(d)
+	_ = json.NewEncoder(w).Encode(d)
 }
 
 func (f *fakeIdP) device(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	_ = r.ParseForm()
 	f.mu.Lock()
 	f.deviceCalls++
 	f.mu.Unlock()
@@ -134,7 +134,7 @@ func (f *fakeIdP) device(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, 400, "invalid_client", "")
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"device_code": "DEVCODE-secret", "user_code": "ABCD-EFGH",
 		"verification_uri":          f.srv.URL + "/activate",
 		"verification_uri_complete": f.srv.URL + "/activate?user_code=ABCD-EFGH",
@@ -145,7 +145,7 @@ func (f *fakeIdP) device(w http.ResponseWriter, r *http.Request) {
 func jsonErr(w http.ResponseWriter, code int, e, desc string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": e, "error_description": desc})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": e, "error_description": desc})
 }
 
 func (f *fakeIdP) token(w http.ResponseWriter, r *http.Request) {
@@ -154,10 +154,10 @@ func (f *fakeIdP) token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if f.hugeToken {
-		w.Write(bytes.Repeat([]byte("a"), 2<<20))
+		_, _ = w.Write(bytes.Repeat([]byte("a"), 2<<20))
 		return
 	}
-	r.ParseForm()
+	_ = r.ParseForm()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	switch r.Form.Get("grant_type") {
@@ -213,7 +213,7 @@ func (f *fakeIdP) issueLocked(w http.ResponseWriter, user string) {
 		resp["id_token"] = id
 		f.issued = append(f.issued, id)
 	}
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
@@ -246,7 +246,7 @@ func (f *fakeIdP) mintID(user string) string {
 func (f *fakeIdP) jwks(w http.ResponseWriter, r *http.Request) {
 	x, y := f.key.X, f.key.Y
 	pad := func(n *big.Int) string { b := make([]byte, 32); n.FillBytes(b); return b64(b) }
-	json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{
 		{"kty": "EC", "crv": "P-256", "kid": "k1", "use": "sig", "alg": "ES256", "x": pad(x), "y": pad(y)}}})
 }
 
@@ -259,11 +259,11 @@ func (f *fakeIdP) userinfo(w http.ResponseWriter, r *http.Request) {
 	if f.userinfoSub != "" {
 		sub = f.userinfoSub
 	}
-	json.NewEncoder(w).Encode(map[string]string{"sub": sub, "preferred_username": "alice", "email": "alice@example.com"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"sub": sub, "preferred_username": "alice", "email": "alice@example.com"})
 }
 
 func (f *fakeIdP) revoke(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	_ = r.ParseForm()
 	f.mu.Lock()
 	f.revoked = append(f.revoked, r.Form)
 	f.mu.Unlock()

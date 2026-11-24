@@ -40,7 +40,7 @@ func cmdImport(name string, args []string, io_ cfgIO) int {
 		if errors.Is(err, flag.ErrHelp) {
 			return exitOK
 		}
-		fmt.Fprintln(io_.Stderr, "haven-idp:", err)
+		_, _ = fmt.Fprintln(io_.Stderr, "haven-idp:", err)
 		if code == exitOK {
 			code = exitError
 		}
@@ -120,12 +120,12 @@ func runImportKeycloak(f cfgFlags, realm, outDir string, trustEmails bool, io_ c
 	}
 	printImportReport(io_.Stdout, res.Report)
 	if outDir == "" {
-		fmt.Fprintln(io_.Stdout, "\nDry run: nothing written. Re-run with --out-dir DIR to write realm.yaml and users.json.")
+		_, _ = fmt.Fprintln(io_.Stdout, "\nDry run: nothing written. Re-run with --out-dir DIR to write realm.yaml and users.json.")
 		return exitOK, nil
 	}
-	fmt.Fprintf(io_.Stdout, "\nWrote %s (mode 0644) and %s (mode 0600, contains password hashes; guard it).\n",
+	_, _ = fmt.Fprintf(io_.Stdout, "\nWrote %s (mode 0644) and %s (mode 0600, contains password hashes; guard it).\n",
 		filepath.Join(outDir, "realm.yaml"), filepath.Join(outDir, "users.json"))
-	fmt.Fprintf(io_.Stdout, "Next: review realm.yaml, then `haven-idp apply -f %s`, then `haven-idp import-users -f %s --realm %s`.\n",
+	_, _ = fmt.Fprintf(io_.Stdout, "Next: review realm.yaml, then `haven-idp apply -f %s`, then `haven-idp import-users -f %s --realm %s`.\n",
 		filepath.Join(outDir, "realm.yaml"), filepath.Join(outDir, "users.json"), res.Spec.Realm)
 	return exitOK, nil
 }
@@ -214,27 +214,27 @@ func printImportReport(w io.Writer, r kcimport.Report) {
 	if r.SourceRealm != "" && r.SourceRealm != target {
 		target += " (from " + r.SourceRealm + ")"
 	}
-	fmt.Fprintf(w, "Keycloak import report for realm %s\n\n", target)
+	_, _ = fmt.Fprintf(w, "Keycloak import report for realm %s\n\n", target)
 	m := r.Mapped
-	fmt.Fprintf(w, "Mapped:    %d roles, %d groups, %d clients\n", m.Roles, m.Groups, m.Clients)
-	fmt.Fprintf(w, "Users:     %d (%d with an importable password, %d without: they must reset)\n", m.Users, m.UsersWithPassword, m.UsersWithoutPassword)
+	_, _ = fmt.Fprintf(w, "Mapped:    %d roles, %d groups, %d clients\n", m.Roles, m.Groups, m.Clients)
+	_, _ = fmt.Fprintf(w, "Users:     %d (%d with an importable password, %d without: they must reset)\n", m.Users, m.UsersWithPassword, m.UsersWithoutPassword)
 	if len(r.NewSecretClients) > 0 {
-		fmt.Fprintf(w, "\nNEW client secrets are generated on apply for: %s\n", strings.Join(r.NewSecretClients, ", "))
-		fmt.Fprintln(w, "(secrets in the export are never copied; update each application)")
+		_, _ = fmt.Fprintf(w, "\nNEW client secrets are generated on apply for: %s\n", strings.Join(r.NewSecretClients, ", "))
+		_, _ = fmt.Fprintln(w, "(secrets in the export are never copied; update each application)")
 	}
 	if len(r.NotMigrated) > 0 {
-		fmt.Fprintln(w, "\nNot migrated (no haven-idp equivalent):")
+		_, _ = fmt.Fprintln(w, "\nNot migrated (no haven-idp equivalent):")
 		keys := make([]string, 0, len(r.NotMigrated))
 		for k := range r.NotMigrated {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			fmt.Fprintf(w, "  %-24s %d\n", strings.ReplaceAll(k, "_", " "), r.NotMigrated[k])
+			_, _ = fmt.Fprintf(w, "  %-24s %d\n", strings.ReplaceAll(k, "_", " "), r.NotMigrated[k])
 		}
 	}
 	if len(r.WarningCounts) > 0 {
-		fmt.Fprintln(w, "\nWarnings by code:")
+		_, _ = fmt.Fprintln(w, "\nWarnings by code:")
 		codes := make([]string, 0, len(r.WarningCounts))
 		for c := range r.WarningCounts {
 			if strings.HasPrefix(c, "notmigrated.") {
@@ -244,9 +244,9 @@ func printImportReport(w io.Writer, r kcimport.Report) {
 		}
 		sort.Strings(codes)
 		for _, c := range codes {
-			fmt.Fprintf(w, "  %-36s %d\n", c, r.WarningCounts[c])
+			_, _ = fmt.Fprintf(w, "  %-36s %d\n", c, r.WarningCounts[c])
 		}
-		fmt.Fprintln(w, "\nDetails:")
+		_, _ = fmt.Fprintln(w, "\nDetails:")
 		for _, x := range r.Warnings {
 			if strings.HasPrefix(x.Code, "notmigrated.") {
 				continue
@@ -255,10 +255,10 @@ func printImportReport(w io.Writer, r kcimport.Report) {
 			if x.Where != "" {
 				where = " [" + x.Where + "]"
 			}
-			fmt.Fprintf(w, "  %s%s: %s\n", x.Code, where, x.Message)
+			_, _ = fmt.Fprintf(w, "  %s%s: %s\n", x.Code, where, x.Message)
 		}
 		if r.WarningsTruncated {
-			fmt.Fprintln(w, "  (further warnings of the same code are counted above but not listed; use --format json for counts)")
+			_, _ = fmt.Fprintln(w, "  (further warnings of the same code are counted above but not listed; use --format json for counts)")
 		}
 	}
 }
@@ -339,13 +339,13 @@ func redactReason(s string) string {
 }
 
 func printImportUsers(w io.Writer, o importUsersJSON) {
-	fmt.Fprintf(w, "Imported users into realm %s\n", o.Realm)
-	fmt.Fprintf(w, "  created: %d\n  skipped (already existed): %d\n  failed:  %d\n", o.Created, o.Skipped, o.Failed)
+	_, _ = fmt.Fprintf(w, "Imported users into realm %s\n", o.Realm)
+	_, _ = fmt.Fprintf(w, "  created: %d\n  skipped (already existed): %d\n  failed:  %d\n", o.Created, o.Skipped, o.Failed)
 	for _, e := range o.Errors {
-		fmt.Fprintf(w, "    - %s: %s\n", e.Username, e.Reason)
+		_, _ = fmt.Fprintf(w, "    - %s: %s\n", e.Username, e.Reason)
 	}
 	if o.More > 0 {
-		fmt.Fprintf(w, "    ... and %d more\n", o.More)
+		_, _ = fmt.Fprintf(w, "    ... and %d more\n", o.More)
 	}
 }
 

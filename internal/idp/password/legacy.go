@@ -5,6 +5,7 @@ package password
 
 import (
 	"crypto/pbkdf2"
+	// #nosec G505 -- PBKDF2-HMAC-SHA1 verify-only for imported Keycloak hashes
 	"crypto/sha1" //nolint:gosec // PBKDF2-HMAC-SHA1 is a legacy Keycloak scheme, verify-only
 	"crypto/sha256"
 	"crypto/sha512"
@@ -13,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"math"
 	"strconv"
 	"strings"
 
@@ -145,11 +147,13 @@ func ValidateEncoded(encoded string) error {
 // derive recomputes the key for pw; ok=false only if the KDF itself failed.
 func (ph parsedHash) derive(pw string) ([]byte, bool) {
 	n := len(ph.want)
+	keyLen := uint32(min(n, math.MaxUint32))
+	threads := uint8(min(ph.p, math.MaxUint8))
 	switch ph.scheme {
 	case schemeArgon2id:
-		return argon2.IDKey([]byte(pw), ph.salt, ph.t, ph.m, uint8(ph.p), uint32(n)), true
+		return argon2.IDKey([]byte(pw), ph.salt, ph.t, ph.m, threads, keyLen), true
 	case schemeArgon2i:
-		return argon2.Key([]byte(pw), ph.salt, ph.t, ph.m, uint8(ph.p), uint32(n)), true
+		return argon2.Key([]byte(pw), ph.salt, ph.t, ph.m, threads, keyLen), true
 	}
 	var h func() hash.Hash
 	switch ph.scheme {
@@ -182,8 +186,8 @@ func (h *Hasher) Verify(pw, encoded string) (bool, bool) {
 	if ph.scheme != schemeArgon2id {
 		return true, true
 	}
-	weaker := ph.m < h.p.Memory || ph.t < h.p.Time || ph.p < uint32(h.p.Threads) ||
-		len(ph.salt) < h.p.SaltLen || uint32(len(ph.want)) < h.p.KeyLen
+	weaker := ph.m < h.p.Memory || ph.t < h.p.Time || int64(ph.p) < int64(h.p.Threads) ||
+		len(ph.salt) < h.p.SaltLen || int64(len(ph.want)) < int64(h.p.KeyLen)
 	return true, weaker
 }
 

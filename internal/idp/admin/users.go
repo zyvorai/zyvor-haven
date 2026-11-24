@@ -266,8 +266,9 @@ func (a *api) resetPassword(w http.ResponseWriter, r *http.Request) {
 	a.audit(r, rl, "ACTION", "user-password", cur.Username)
 	if a.cfg.Actions.Enabled() && cur.Email != "" {
 		// Best-effort notification to the address on file; no link, no password.
+		detached := context.WithoutCancel(r.Context()) // outlives the response, keeps request values
 		go func(rl core.Realm, u core.User) {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(detached, 30*time.Second)
 			defer cancel()
 			if err := a.cfg.Actions.Notify(ctx, rl, u, mail.KindPasswordChanged, "an administrator"); err != nil {
 				a.cfg.Logger.Error("admin: password change notification failed", "realm", rl.Name, "user", u.ID, "err", err)

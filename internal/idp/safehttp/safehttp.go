@@ -98,11 +98,11 @@ func New(o Options) *Client {
 // larger body fails with ErrTooLarge instead of being truncated silently.
 // Redirects are never followed (the 3xx status is returned).
 func (c *Client) Fetch(req *http.Request) (status int, body []byte, err error) {
-	resp, err := c.HTTP.Do(req)
+	resp, err := c.HTTP.Do(req) // #nosec G704 -- this client is the SSRF guard: dial-time destination check, no redirects, capped body
 	if err != nil {
 		return 0, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err = io.ReadAll(io.LimitReader(resp.Body, c.MaxBody+1))
 	if err != nil {
 		return resp.StatusCode, nil, err

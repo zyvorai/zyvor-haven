@@ -6,6 +6,7 @@ package pgstore
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -16,6 +17,7 @@ import (
 
 var _ core.PasskeyStore = (*Store)(nil)
 
+// #nosec G101 -- SQL column list, no credential value
 const passkeyCols = `realm, user_id, credential_id, public_key, sign_count, transports, aaguid, name,
 	backup_eligible, backup_state, created_at, last_used_at`
 
@@ -26,6 +28,9 @@ func scanPasskey(row pgx.Row) (core.Passkey, error) {
 	if err := row.Scan(&p.Realm, &p.UserID, &p.CredentialID, &p.PublicKey, &sc, &p.Transports, &p.AAGUID, &p.Name,
 		&p.BackupEligible, &p.BackupState, &p.CreatedAt, &used); err != nil {
 		return core.Passkey{}, mapErr(err)
+	}
+	if sc < 0 || sc > math.MaxUint32 {
+		return core.Passkey{}, errors.New("pgstore: passkey sign_count out of range")
 	}
 	p.SignCount = uint32(sc)
 	if used != nil {

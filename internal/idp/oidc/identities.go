@@ -32,11 +32,11 @@ import (
 // check fails closed.
 
 const (
-	grantTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange"
-	grantJWTBearer     = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+	grantTokenExchange = "urn:ietf:params:oauth:grant-type:token-exchange" // #nosec G101 -- RFC 8693/7523 and token-type URN identifiers, not credentials
+	grantJWTBearer     = "urn:ietf:params:oauth:grant-type:jwt-bearer"     // #nosec G101 -- RFC 8693/7523 and token-type URN identifiers, not credentials
 	ttJWT              = "urn:ietf:params:oauth:token-type:jwt"
 	ttAccess           = "urn:ietf:params:oauth:token-type:access_token"
-	ttAgentCredential  = "urn:haven:params:oauth:token-type:agent-credential"
+	ttAgentCredential  = "urn:haven:params:oauth:token-type:agent-credential" // #nosec G101 -- RFC 8693/7523 and token-type URN identifiers, not credentials
 
 	// AgentCredentialPrefix starts every agent credential secret.
 	AgentCredentialPrefix = "hvag_"

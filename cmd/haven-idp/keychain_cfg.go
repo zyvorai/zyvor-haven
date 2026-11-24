@@ -33,9 +33,9 @@ import (
 const (
 	keychainAccount       = "haven-idp"
 	defaultSecretKeyItem  = "haven-idp.secret-key"
-	defaultDBPasswordItem = "haven-idp.db-password"
+	defaultDBPasswordItem = "haven-idp.db-password" // #nosec G101 -- keychain item and env var names, not credentials
 	envSecretKeyKeychain  = "HAVEN_IDP_SECRET_KEY_KEYCHAIN"
-	envDBPasswordKeychain = "HAVEN_IDP_DB_PASSWORD_KEYCHAIN"
+	envDBPasswordKeychain = "HAVEN_IDP_DB_PASSWORD_KEYCHAIN" // #nosec G101 -- keychain item and env var names, not credentials
 )
 
 // keychainReader is the part of *keychain.Client this file needs.
@@ -61,21 +61,21 @@ func applyKeychain(ctx context.Context, cfg *Config, getenv func(string) string,
 			return "", false
 		}
 		if !kc.Available() {
-			fmt.Fprintf(warn, "haven-idp: warning: %s is set but the macOS Keychain is not available; using the env/file value for the %s\n", envName, what)
+			_, _ = fmt.Fprintf(warn, "haven-idp: warning: %s is set but the macOS Keychain is not available; using the env/file value for the %s\n", envName, what)
 			return "", false
 		}
 		v, err := kc.Get(ctx, item, keychainAccount)
 		switch {
 		case errors.Is(err, keychain.ErrNotFound):
-			fmt.Fprintf(warn, "haven-idp: warning: Keychain item %q (account %q) not found; using the env/file value for the %s\n", item, keychainAccount, what)
+			_, _ = fmt.Fprintf(warn, "haven-idp: warning: Keychain item %q (account %q) not found; using the env/file value for the %s\n", item, keychainAccount, what)
 			return "", false
 		case err != nil:
-			fmt.Fprintf(warn, "haven-idp: warning: cannot read Keychain item %q (%v); using the env/file value for the %s\n", item, err, what)
+			_, _ = fmt.Fprintf(warn, "haven-idp: warning: cannot read Keychain item %q (%v); using the env/file value for the %s\n", item, err, what)
 			return "", false
 		}
 		v = strings.TrimSpace(v)
 		if v == "" {
-			fmt.Fprintf(warn, "haven-idp: warning: Keychain item %q is empty; using the env/file value for the %s\n", item, what)
+			_, _ = fmt.Fprintf(warn, "haven-idp: warning: Keychain item %q is empty; using the env/file value for the %s\n", item, what)
 			return "", false
 		}
 		return v, true

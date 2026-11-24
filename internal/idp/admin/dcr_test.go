@@ -93,7 +93,7 @@ func (e *env) dcrDo(method, path, tok string, body any) dcrResp {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
 	r := dcrResp{Status: resp.StatusCode, Hdr: resp.Header, Raw: raw}
 	_ = json.Unmarshal(raw, &r.M)
@@ -151,7 +151,7 @@ func (e *env) codeFlow(clientID, secret, redirect string) (map[string]any, strin
 		e.t.Fatal(err)
 	}
 	page, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	m := csrfRe.FindSubmatch(page)
 	if resp.StatusCode != 200 || m == nil {
 		e.t.Fatalf("login page: %d %s", resp.StatusCode, page)
@@ -166,13 +166,13 @@ func (e *env) codeFlow(clientID, secret, redirect string) (map[string]any, strin
 		if cm == nil || dm == nil {
 			e.t.Fatalf("consent page without csrf/digest: %s", cp)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		resp, err = c.PostForm(authURL, url.Values{"consent_decision": {"allow"}, "consent_proof": {string(dm[1])}, "csrf": {string(cm[1])}})
 		if err != nil {
 			e.t.Fatal(err)
 		}
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	loc, _ := url.Parse(resp.Header.Get("Location"))
 	if resp.StatusCode != 302 || loc == nil || loc.Query().Get("code") == "" {
 		e.t.Fatalf("no code: %d %s", resp.StatusCode, resp.Header.Get("Location"))
@@ -200,7 +200,7 @@ func (e *env) tokenReq(clientID, secret string, form url.Values) dcrResp {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(resp.Body)
 	r := dcrResp{Status: resp.StatusCode, Raw: raw}
 	_ = json.Unmarshal(raw, &r.M)
@@ -215,7 +215,7 @@ func (e *env) authPage(clientID, redirect string) (int, string) {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, string(b)
 }
@@ -897,7 +897,7 @@ func TestDCRRateLimitFailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != 503 || len(e.dcrClients()) != 0 {
 		t.Errorf("status %d, clients %d", resp.StatusCode, len(e.dcrClients()))
 	}
@@ -914,7 +914,7 @@ func TestDCRFeatureOffAndDiscovery(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		var m map[string]any
 		_ = json.NewDecoder(resp.Body).Decode(&m)
 		return m
@@ -940,7 +940,7 @@ func TestDCRFeatureOffAndDiscovery(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode != 501 {
 			t.Errorf("%s without a store: %d", m, resp.StatusCode)
 		}

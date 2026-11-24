@@ -218,7 +218,7 @@ func TestObsAdminAuthFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	rec.expect(t, "adminauth:missing")
 
 	// forbidden: a service account that is not an admin client

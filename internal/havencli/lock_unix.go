@@ -18,7 +18,7 @@ import (
 // returns the unlock func. It polls with LOCK_NB so a stuck holder cannot
 // block us past timeout and ctx cancellation (Ctrl-C) is honoured.
 func lockFile(ctx context.Context, path string, timeout time.Duration) (func(), error) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 -- path is the CLI own lock file under its config dir
 	if err != nil {
 		return nil, err
 	}
