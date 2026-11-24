@@ -548,12 +548,64 @@ func (s *Store) ListEvents(ctx context.Context, realm string, limit int) ([]core
 	return out, mapErr(rows.Err())
 }
 
-// PurgeExpired deletes auth codes and refresh tokens that expired at or
-// before now.
+// RevokeUserRefreshTokens revokes every not-yet-revoked refresh token of the
+// user and returns how many were newly revoked.
+func (s *Store) RevokeUserRefreshTokens(ctx context.Context, realm, userID string) (int, error) {
+	tag, err := s.pool.Exec(ctx, `UPDATE refresh_tokens SET revoked=true
+		WHERE realm=$1 AND user_id=$2 AND NOT revoked`, realm, userID)
+	if err != nil {
+		return 0, mapErr(err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+// Action tokens
+
+func (s *Store) PutActionToken(ctx context.Context, t core.ActionToken) error {
+	if t.CreatedAt.IsZero() {
+		t.CreatedAt = time.Now().UTC()
+	}
+	_, err := s.pool.Exec(ctx, `INSERT INTO action_tokens
+		(token_hash, realm, user_id, purpose, email, created_at, expires_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		t.TokenHash, t.Realm, t.UserID, t.Purpose, t.Email, t.CreatedAt, t.ExpiresAt)
+	return mapErr(err)
+}
+
+// ConsumeActionToken is a single DELETE ... RETURNING, so exactly one caller wins.
+func (s *Store) ConsumeActionToken(ctx context.Context, tokenHash string) (core.ActionToken, error) {
+	var t core.ActionToken
+	err := s.pool.QueryRow(ctx, `DELETE FROM action_tokens WHERE token_hash=$1
+		RETURNING token_hash, realm, user_id, purpose, email, created_at, expires_at`, tokenHash).
+		Scan(&t.TokenHash, &t.Realm, &t.UserID, &t.Purpose, &t.Email, &t.CreatedAt, &t.ExpiresAt)
+	t.CreatedAt, t.ExpiresAt = utc(t.CreatedAt), utc(t.ExpiresAt)
+	return t, mapErr(err)
+}
+
+func (s *Store) DeleteActionTokens(ctx context.Context, realm, userID, purpose string) (int, error) {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM action_tokens WHERE realm=$1 AND user_id=$2 AND purpose=$3`,
+		realm, userID, purpose)
+	if err != nil {
+		return 0, mapErr(err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+func (s *Store) CountActionTokens(ctx context.Context, realm, userID, purpose string, since time.Time) (int, error) {
+	var n int
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM action_tokens
+		WHERE realm=$1 AND user_id=$2 AND purpose=$3 AND created_at >= $4`,
+		realm, userID, purpose, since).Scan(&n)
+	return n, mapErr(err)
+}
+
+// PurgeExpired deletes auth codes, refresh tokens and action tokens that
+// expired at or before now.
 func (s *Store) PurgeExpired(ctx context.Context, now time.Time) (int, error) {
 	var n int
 	err := s.pool.QueryRow(ctx, `WITH c AS (DELETE FROM auth_codes WHERE expires_at <= $1 RETURNING 1),
-		t AS (DELETE FROM refresh_tokens WHERE expires_at <= $1 RETURNING 1)
-		SELECT (SELECT count(*) FROM c) + (SELECT count(*) FROM t)`, now).Scan(&n)
+		t AS (DELETE FROM refresh_tokens WHERE expires_at <= $1 RETURNING 1),
+		a AS (DELETE FROM action_tokens WHERE expires_at <= $1 RETURNING 1)
+		SELECT (SELECT count(*) FROM c) + (SELECT count(*) FROM t) + (SELECT count(*) FROM a)`, now).Scan(&n)
 	return n, mapErr(err)
 }

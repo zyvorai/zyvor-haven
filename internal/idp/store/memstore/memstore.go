@@ -190,6 +190,11 @@ func (s *Store) DeleteRealm(_ context.Context, name string) error {
 			delete(s.refresh, k)
 		}
 	}
+	for k, v := range s.actions {
+		if v.Realm == n {
+			delete(s.actions, k)
+		}
+	}
 	s.events = slices.DeleteFunc(s.events, func(e core.Event) bool { return e.Realm == n })
 	return nil
 }
