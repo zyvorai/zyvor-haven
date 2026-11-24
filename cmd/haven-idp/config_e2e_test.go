@@ -58,7 +58,10 @@ func TestConfigAsCodeEndToEnd(t *testing.T) {
 	t.Cleanup(func() {
 		cancel()
 		select {
-		case <-done:
+		case err := <-done:
+			if err != nil {
+				t.Logf("serve returned: %v", err)
+			}
 		case <-time.After(15 * time.Second):
 			t.Error("server did not shut down")
 		}

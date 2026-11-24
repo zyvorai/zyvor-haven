@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Access Review: privileged/stale account report, break-glass coverage check and recertification campaigns (`/api/v1/access-review`, `haven-audit access-review`, console page); decisions are recorded, Keycloak is never changed
 - `haven-audit --waivers`: accepted-risk waivers with mandatory reason, approver and expiry; expired waivers reopen their finding and unused waivers are reported
 - `haven-audit --known` / `--write-known`: gate CI on findings that are new since a saved baseline
+- Haven Guard rules HAVEN024-030: login events kept forever, refresh-token reuse, loose brute-force lockout, offline sessions without a maximum lifespan, Full Scope Allowed, `offline_access` as a default scope, per-client access token lifespan above one hour (settings a source omits produce no finding; fingerprints unchanged)
+- `haven-audit --format markdown` (PR comment / job summary) and `--format junit` (CI test reports, waived findings as skipped cases)
+- `haven-audit rules` and `haven-audit explain RULE`: built-in rule catalog and per-rule remediation, with a test that keeps the docs table in sync
+- `haven-audit diff --ignore GLOB` and `--format markdown`
 - `haven-audit diff`: secret-redacting, field-level comparison of two realm exports for GitOps review
 - docs/RESEARCH.md: identity-platform research and ranked ideas
 - Optional persistent console volume (`console.persistence`) for durable Time Machine history, restricted to `console.replicas=1`

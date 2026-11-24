@@ -120,6 +120,27 @@ that was not re-read from a fetched page; verify before relying on it.
 | 7 | Realm import reconciliation controller (apply realm JSON, then keep it in sync) | Closes the `KeycloakRealmImport` one-shot gap | Large controller change, cannot be tested without Kubernetes and Keycloak | Rejected for now |
 | 8 | OIDC/SAML conformance runner | Certification evidence | Needs a running IdP and the conformance suite | Rejected for now |
 
+## Round 3 (2026-11-24)
+
+Pages fetched: kcwarden client and realm auditor lists
+(<https://iteratec.github.io/kcwarden/auditors/clients>,
+<https://iteratec.github.io/kcwarden/auditors/realm>) and Checkov's JUnit
+output page (<https://www.checkov.io/8.Outputs/JUnit%20XML.html>). Search
+results (not fetched in full) on Keycloak brute-force modes and offline
+session settings informed HAVEN026/027; the Keycloak admin guide fetch was
+truncated, so the default values behind those rules are **[U]**.
+
+- kcwarden checks Full Scope Allowed, `offline_access` as default/optional
+  scope, per-client access token lifespan, refresh-token reuse count, offline
+  session max lifespan and event retention. Haven lacked all of them: now
+  HAVEN024-030.
+- Checkov (and gitleaks, Trivy) emit JUnit so CI shows findings as test
+  results; waived or suppressed checks become `skipped` cases. Haven now does
+  the same (`--format junit`), plus Markdown for PR comments.
+- Not built: kcwarden's SAML checks (Haven Guard skips non-OIDC clients),
+  Keycloak version freshness (needs a version feed), password hash iteration
+  checks (the realm export does not carry the algorithm settings Haven reads).
+
 ## Honest limits of this work
 
 - Nothing here was run against a real Keycloak, PostgreSQL, Kubernetes or a

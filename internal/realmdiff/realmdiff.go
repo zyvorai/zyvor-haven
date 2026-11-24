@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 const (
@@ -45,6 +46,84 @@ type Result struct {
 	Added   []Change `json:"added"`
 	Removed []Change `json:"removed"`
 	Changed []Change `json:"changed"`
+}
+
+// Filter drops changes whose path matches any glob; * matches any run of
+// characters, including dots and brackets. Patterns match the whole path, or
+// a parent of it (the path continues with "." or "[" after the pattern).
+func (r Result) Filter(globs []string) Result {
+	if len(globs) == 0 {
+		return r
+	}
+	keep := func(in []Change) []Change {
+		out := []Change{}
+		for _, c := range in {
+			if !ignored(c.Path, globs) {
+				out = append(out, c)
+			}
+		}
+		return out
+	}
+	return Result{Added: keep(r.Added), Removed: keep(r.Removed), Changed: keep(r.Changed)}
+}
+
+func ignored(path string, globs []string) bool {
+	for _, g := range globs {
+		g = strings.TrimSpace(g)
+		if g == "" {
+			continue
+		}
+		if globMatch(g, path) || globMatch(g+".*", path) || globMatch(g+"[*", path) {
+			return true
+		}
+	}
+	return false
+}
+
+// globMatch reports whether s matches pattern, where * matches any run of
+// characters. It runs in linear time per star and cannot backtrack badly.
+func globMatch(pattern, s string) bool {
+	parts := strings.Split(pattern, "*")
+	if len(parts) == 1 {
+		return pattern == s
+	}
+	if !strings.HasPrefix(s, parts[0]) {
+		return false
+	}
+	s = s[len(parts[0]):]
+	last := parts[len(parts)-1]
+	for _, p := range parts[1 : len(parts)-1] {
+		i := strings.Index(s, p)
+		if i < 0 {
+			return false
+		}
+		s = s[i+len(p):]
+	}
+	return strings.HasSuffix(s, last) && len(s) >= len(last)
+}
+
+// Markdown renders the result as a fenced diff block for a pull-request
+// comment. Values are already redacted and truncated by Compare.
+func (r Result) Markdown() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "### Haven realm diff: %d added, %d removed, %d changed\n", len(r.Added), len(r.Removed), len(r.Changed))
+	if r.Empty() {
+		b.WriteString("\nNo differences.\n")
+		return b.String()
+	}
+	b.WriteString("\n~~~diff\n")
+	line := func(s string) string { return strings.NewReplacer("\n", " ", "\r", " ").Replace(s) }
+	for _, c := range r.Added {
+		fmt.Fprintf(&b, "+ %s = %s\n", line(c.Path), line(c.After))
+	}
+	for _, c := range r.Removed {
+		fmt.Fprintf(&b, "- %s = %s\n", line(c.Path), line(c.Before))
+	}
+	for _, c := range r.Changed {
+		fmt.Fprintf(&b, "- %s = %s\n+ %s = %s\n", line(c.Path), line(c.Before), line(c.Path), line(c.After))
+	}
+	b.WriteString("~~~\n")
+	return b.String()
 }
 
 func (r Result) Empty() bool { return len(r.Added)+len(r.Removed)+len(r.Changed) == 0 }

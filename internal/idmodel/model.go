@@ -31,6 +31,11 @@ type Hardening struct {
 	AuthEventsLogged      *bool
 	AdminEventsLogged     *bool
 	RefreshTokenRotation  *bool
+
+	EventsExpirationSeconds          *int  // event retention; 0 = kept forever (Guard HAVEN024)
+	RefreshTokenMaxReuse             *int  // Guard HAVEN025
+	LoginFailureLimit                *int  // brute-force max login failures (Guard HAVEN026)
+	OfflineSessionMaxLifespanEnabled *bool // Guard HAVEN027
 }
 
 // Client is an application registered in a realm.
@@ -58,6 +63,11 @@ type Client struct {
 	// Attrs keeps the provider attributes verbatim. Guard fingerprints hash the
 	// PKCE-related keys so existing baselines stay valid.
 	Attrs map[string]string
+
+	// FullScopeAllowed and DefaultScopes are nil when the source did not
+	// report them (Guard HAVEN028/029).
+	FullScopeAllowed *bool
+	DefaultScopes    []string
 }
 
 // User is an account in a realm.

@@ -27,34 +27,65 @@ type realmExport struct {
 }
 
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
+	code, err := run(os.Args[1:], os.Stdin, os.Stdout)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "haven-audit:", err)
+		if code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
+
+// run executes one haven-audit invocation. It returns the process exit code
+// (0 clean, 2 gate tripped) and an error for usage or input problems (exit 1).
+func run(args []string, stdin io.Reader, stdout io.Writer) (int, error) {
+	if len(args) > 0 {
+		switch args[0] {
 		case "diff":
-			runDiff(os.Args[2:])
-			return
+			return runDiff(args[1:], stdout)
 		case "access-review":
-			runAccessReview(os.Args[2:])
-			return
+			return runAccessReview(args[1:], stdin, stdout)
+		case "rules":
+			return runRules(args[1:], stdout)
+		case "explain":
+			return runExplain(args[1:], stdout)
 		}
 	}
 	var input, format, baseline, failOn, policyPath, waiversPath, knownPath, writeKnownPath string
-	flag.StringVar(&input, "input", "-", "Keycloak realm export JSON file, or - for stdin")
-	flag.StringVar(&format, "format", "text", "text, json, or sarif")
-	flag.StringVar(&baseline, "baseline", "", "expected Haven Guard sha256 fingerprint")
-	flag.StringVar(&policyPath, "policy", "", "policy-as-code JSON file evaluated in addition to the built-in rules")
-	flag.StringVar(&waiversPath, "waivers", "", "accepted-risk waivers JSON (reason, approver, expiry per waiver); expired waivers reopen their findings")
-	flag.StringVar(&knownPath, "known", "", "known-findings baseline JSON; --fail-on then gates on findings not in it")
-	flag.StringVar(&writeKnownPath, "write-known", "", "write the current findings to this file as a known-findings baseline")
-	flag.StringVar(&failOn, "fail-on", "high", "critical, high, medium, low, or none")
-	flag.Parse()
+	fs := flag.NewFlagSet("haven-audit", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.StringVar(&input, "input", "-", "Keycloak realm export JSON file, or - for stdin")
+	fs.StringVar(&format, "format", "text", "text, json, sarif, markdown, or junit")
+	fs.StringVar(&baseline, "baseline", "", "expected Haven Guard sha256 fingerprint")
+	fs.StringVar(&policyPath, "policy", "", "policy-as-code JSON file evaluated in addition to the built-in rules")
+	fs.StringVar(&waiversPath, "waivers", "", "accepted-risk waivers JSON (reason, approver, expiry per waiver); expired waivers reopen their findings")
+	fs.StringVar(&knownPath, "known", "", "known-findings baseline JSON; --fail-on then gates on findings not in it")
+	fs.StringVar(&writeKnownPath, "write-known", "", "write the current findings to this file as a known-findings baseline")
+	fs.StringVar(&failOn, "fail-on", "high", "critical, high, medium, low, or none")
+	if err := fs.Parse(args); err != nil {
+		return 1, err
+	}
+	if !validFailOn(failOn) {
+		return 1, fmt.Errorf("unsupported --fail-on %q", failOn)
+	}
+	if !validFormat(format) {
+		return 1, fmt.Errorf("unsupported --format %q", format)
+	}
 
-	data, err := readInput(input)
+	var data []byte
+	var err error
+	if input == "-" {
+		data, err = limited(stdin)
+	} else {
+		data, err = readCapped(input)
+	}
 	if err != nil {
-		fatal(err)
+		return 1, err
 	}
 	exports, err := decodeExports(data)
 	if err != nil {
-		fatal(err)
+		return 1, err
 	}
 	realms := make([]keycloak.Realm, 0, len(exports))
 	clients := make(map[string][]idmodel.Client, len(exports))
@@ -66,7 +97,7 @@ func main() {
 	if policyPath != "" {
 		extra, err := evaluatePolicy(policyPath, data)
 		if err != nil {
-			fatal(err)
+			return 1, err
 		}
 		report.AddFindings(extra)
 	}
@@ -74,11 +105,11 @@ func main() {
 	if waiversPath != "" {
 		raw, err := readCapped(waiversPath)
 		if err != nil {
-			fatal(err)
+			return 1, err
 		}
 		ws, err := posture.ParseWaivers(raw, time.Now())
 		if err != nil {
-			fatal(err)
+			return 1, err
 		}
 		report.ApplyWaivers(ws, time.Now())
 	}
@@ -86,46 +117,72 @@ func main() {
 	if knownPath != "" {
 		raw, err := readCapped(knownPath)
 		if err != nil {
-			fatal(err)
+			return 1, err
 		}
 		known, err := posture.ParseKnownFindings(raw)
 		if err != nil {
-			fatal(err)
+			return 1, err
 		}
 		gate = report.MarkNew(known)
 	}
 	if writeKnownPath != "" {
 		out, err := posture.KnownFindings(report)
 		if err != nil {
-			fatal(err)
+			return 1, err
 		}
 		// #nosec G306 -- baseline holds rule ids and realm/client names, no secrets
 		if err := os.WriteFile(writeKnownPath, append(out, 10), 0o644); err != nil {
-			fatal(err)
+			return 1, err
 		}
 	}
 
-	switch strings.ToLower(format) {
-	case "text":
-		printText(report)
-	case "json":
-		writeJSON(report)
-	case "sarif":
-		writeJSON(posture.ToSARIF(report, input))
-	default:
-		fatal(fmt.Errorf("unsupported --format %q", format))
+	if err := renderReport(stdout, format, report, input); err != nil {
+		return 1, err
 	}
-
 	if shouldFail(gate, failOn) {
-		os.Exit(2)
+		return 2, nil
 	}
+	return 0, nil
 }
 
-func readInput(path string) ([]byte, error) {
-	if path == "-" {
-		return limited(os.Stdin)
+func validFormat(f string) bool {
+	switch strings.ToLower(f) {
+	case "text", "json", "sarif", "markdown", "md", "junit":
+		return true
 	}
-	return readCapped(path)
+	return false
+}
+
+func validFailOn(t string) bool {
+	switch strings.ToLower(t) {
+	case "none", "off", "critical", "high", "medium", "low":
+		return true
+	}
+	return false
+}
+
+func renderReport(w io.Writer, format string, report posture.Report, input string) error {
+	switch strings.ToLower(format) {
+	case "text":
+		printText(w, report)
+	case "json":
+		return writeJSON(w, report)
+	case "sarif":
+		return writeJSON(w, posture.ToSARIF(report, input))
+	case "markdown", "md":
+		_, err := io.WriteString(w, posture.ToMarkdown(report))
+		return err
+	case "junit":
+		b, err := posture.ToJUnit(report)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(b)
+		return err
+	default:
+		return fmt.Errorf("unsupported --format %q", format)
+	}
+	return nil
 }
 
 // readCapped reads a file the operator names on the command line, refusing
@@ -191,47 +248,45 @@ func decodeExports(data []byte) ([]realmExport, error) {
 	return []realmExport{one}, nil
 }
 
-func printText(r posture.Report) {
-	fmt.Printf("Haven Guard  score=%d grade=%s realms=%d clients=%d\n", r.Score, r.Grade, r.RealmCount, r.ClientCount)
-	fmt.Printf("fingerprint %s\n", r.Fingerprint)
+func printText(out io.Writer, r posture.Report) {
+	_, _ = fmt.Fprintf(out, "Haven Guard  score=%d grade=%s realms=%d clients=%d\n", r.Score, r.Grade, r.RealmCount, r.ClientCount)
+	_, _ = fmt.Fprintf(out, "fingerprint %s\n", r.Fingerprint)
 	if r.Baseline != "" {
-		fmt.Printf("drift       %t\n", r.Drifted)
+		_, _ = fmt.Fprintf(out, "drift       %t\n", r.Drifted)
 	}
-	fmt.Printf("findings    critical=%d high=%d medium=%d low=%d\n", r.Counts.Critical, r.Counts.High, r.Counts.Medium, r.Counts.Low)
+	_, _ = fmt.Fprintf(out, "findings    critical=%d high=%d medium=%d low=%d\n", r.Counts.Critical, r.Counts.High, r.Counts.Medium, r.Counts.Low)
 	if r.KnownApplied {
-		fmt.Printf("new         %d finding(s) not in the known-findings baseline\n", len(r.NewFindings))
+		_, _ = fmt.Fprintf(out, "new         %d finding(s) not in the known-findings baseline\n", len(r.NewFindings))
 	}
 	if n := len(r.Waived); n > 0 {
-		fmt.Printf("waived      %d finding(s) under active waivers\n", n)
+		_, _ = fmt.Fprintf(out, "waived      %d finding(s) under active waivers\n", n)
 	}
 	for _, w := range r.ExpiredWaivers {
-		fmt.Printf("expired     waiver %s %s %s (expired %s, approver %s): finding reopened\n", w.RuleID, w.Realm, w.ClientID, w.Expires, w.Approver)
+		_, _ = fmt.Fprintf(out, "expired     waiver %s %s %s (expired %s, approver %s): finding reopened\n", w.RuleID, w.Realm, w.ClientID, w.Expires, w.Approver)
 	}
 	for _, w := range r.UnusedWaivers {
-		fmt.Printf("unused      waiver %s %s %s matches no finding: remove it\n", w.RuleID, w.Realm, w.ClientID)
+		_, _ = fmt.Fprintf(out, "unused      waiver %s %s %s matches no finding: remove it\n", w.RuleID, w.Realm, w.ClientID)
 	}
-	fmt.Println()
+	_, _ = fmt.Fprintln(out)
 	for _, f := range r.Findings {
 		scope := f.Realm
 		if f.ClientID != "" {
 			scope += "/" + f.ClientID
 		}
-		fmt.Printf("%-8s %-8s %-24s %s\n", f.RuleID, strings.ToUpper(string(f.Severity)), scope, f.Title)
+		_, _ = fmt.Fprintf(out, "%-8s %-8s %-24s %s\n", f.RuleID, strings.ToUpper(string(f.Severity)), scope, f.Title)
 		if f.Evidence != "" {
-			fmt.Printf("  evidence: %s\n", f.Evidence)
+			_, _ = fmt.Fprintf(out, "  evidence: %s\n", f.Evidence)
 		}
 		if f.Remediation != "" {
-			fmt.Printf("  fix:      %s\n", f.Remediation)
+			_, _ = fmt.Fprintf(out, "  fix:      %s\n", f.Remediation)
 		}
 	}
 }
 
-func writeJSON(v any) {
-	enc := json.NewEncoder(os.Stdout)
+func writeJSON(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(v); err != nil {
-		fatal(err)
-	}
+	return enc.Encode(v)
 }
 
 func shouldFail(r posture.Counts, threshold string) bool {
