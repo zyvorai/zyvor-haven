@@ -511,6 +511,14 @@ func (s *Store) PutSigningKey(_ context.Context, k core.SigningKey) error {
 	if k.CreatedAt.IsZero() {
 		k.CreatedAt = time.Now().UTC()
 	}
+	// One active key per realm, like the partial unique index in Postgres.
+	if k.Active {
+		for _, o := range s.keys {
+			if o.Realm == k.Realm && o.Active && o.KID != k.KID {
+				return dup("active signing key for realm " + k.Realm)
+			}
+		}
+	}
 	s.keys[k.Realm+"\x00"+k.KID] = ck(k)
 	return nil
 }

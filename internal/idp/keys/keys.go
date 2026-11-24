@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/core"
 )
 
@@ -227,7 +228,17 @@ func (s *signer) create(ctx context.Context, realm string, old []parsed) error {
 	if err != nil {
 		return err
 	}
-	return s.store.PutSigningKey(ctx, nk)
+	if err := s.store.PutSigningKey(ctx, nk); err != nil {
+		// The store allows one active key per realm. A conflict means another
+		// replica created (or rotated to) its own active key a moment ago: the
+		// realm now has the key we wanted, so there is nothing left to do.
+		// Checking "is there a key?" in memory cannot stop that race; the store can.
+		if errors.Is(err, idp.ErrConflict) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *signer) Rotate(ctx context.Context, realm string) error {

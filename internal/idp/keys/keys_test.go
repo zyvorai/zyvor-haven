@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/zyvorai/haven/internal/idp/store/memstore"
 	"math/big"
 	"strings"
 	"sync"
@@ -299,5 +300,118 @@ func TestConcurrent(t *testing.T) {
 	raw, _ := s.JWKS(ctx, "r")
 	if n := strings.Count(string(raw), `"kid"`); n != 1 {
 		t.Fatalf("keys after concurrent ensure: %d", n)
+	}
+}
+
+// Two haven-idp replicas that start at the same moment both see "no key" and
+// both try to create one. This happened on a real cluster and left two ACTIVE
+// keys; the store now allows only one, and the loser must treat that as success.
+func TestEnsureKeyRacingReplicasLeaveOneActiveKey(t *testing.T) {
+	ctx := context.Background()
+	st := memstore.New()
+	if err := st.CreateRealm(ctx, core.Realm{Name: "r", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	replicaA := New(st, Options{})
+	replicaB := New(st, Options{})
+
+	const n = 40
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	start := make(chan struct{})
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			rep := replicaA
+			if i%2 == 1 {
+				rep = replicaB
+			}
+			errs[i] = rep.EnsureKey(ctx, "r")
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("EnsureKey #%d failed (losing the race must be success): %v", i, err)
+		}
+	}
+	ks, err := st.ListSigningKeys(ctx, "r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	active := 0
+	for _, k := range ks {
+		if k.Active {
+			active++
+		}
+	}
+	if active != 1 || len(ks) != 1 {
+		t.Fatalf("want exactly one key (active), got %d keys, %d active", len(ks), active)
+	}
+	// Both replicas sign with it and each verifies the other's tokens.
+	ta, err := replicaA.Sign(ctx, "r", core.Claims{"sub": "a", "exp": float64(time.Now().Add(time.Hour).Unix())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tb, err := replicaB.Sign(ctx, "r", core.Claims{"sub": "b", "exp": float64(time.Now().Add(time.Hour).Unix())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := replicaB.Verify(ctx, "r", ta); err != nil {
+		t.Errorf("replica B cannot verify replica A's token: %v", err)
+	}
+	if _, err := replicaA.Verify(ctx, "r", tb); err != nil {
+		t.Errorf("replica A cannot verify replica B's token: %v", err)
+	}
+}
+
+// Concurrent rotations from two replicas must also end with one active key and
+// keep the previous key published so tokens signed before still verify.
+func TestRotateRacingReplicasKeepOneActiveKeyAndOldTokens(t *testing.T) {
+	ctx := context.Background()
+	st := memstore.New()
+	if err := st.CreateRealm(ctx, core.Realm{Name: "r", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	a := New(st, Options{KeyGrace: time.Hour})
+	b := New(st, Options{KeyGrace: time.Hour})
+	if err := a.EnsureKey(ctx, "r"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := a.Sign(ctx, "r", core.Claims{"sub": "x", "exp": float64(time.Now().Add(time.Hour).Unix())})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for _, rep := range []core.Signer{a, b, a, b, b, a} {
+		wg.Add(1)
+		go func(rep core.Signer) {
+			defer wg.Done()
+			<-start
+			if err := rep.Rotate(ctx, "r"); err != nil {
+				t.Errorf("Rotate: %v", err)
+			}
+		}(rep)
+	}
+	close(start)
+	wg.Wait()
+
+	ks, _ := st.ListSigningKeys(ctx, "r")
+	active := 0
+	for _, k := range ks {
+		if k.Active {
+			active++
+		}
+	}
+	if active != 1 {
+		t.Fatalf("%d active keys after concurrent rotations (want 1)", active)
+	}
+	if _, err := b.Verify(ctx, "r", before); err != nil {
+		t.Errorf("a token signed before the rotations no longer verifies (old key must stay published): %v", err)
 	}
 }
