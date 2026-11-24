@@ -53,6 +53,8 @@ type Config struct {
 	// Sessions ends SSO sessions for the session routes, user disable and
 	// password reset. Built from Store with no notifier when nil.
 	Sessions *sessions.Service
+	// Guard gates realm and client writes with Haven Guard (guard.go).
+	Guard GuardConfig
 }
 
 type api struct {

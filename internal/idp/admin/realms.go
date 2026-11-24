@@ -65,6 +65,9 @@ func (a *api) createRealm(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	if !a.guardRealm(w, r, nil, rl) {
+		return
+	}
 	if err := a.cfg.Store.CreateRealm(r.Context(), rl); err != nil {
 		a.fail(w, r, err)
 		return
@@ -99,6 +102,9 @@ func (a *api) updateRealm(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.EqualFold(cur.Name, a.cfg.AdminRealm) && !next.Enabled {
 		writeErr(w, http.StatusConflict, "the admin realm cannot be disabled")
+		return
+	}
+	if !a.guardRealm(w, r, &cur, next) {
 		return
 	}
 	if err := a.cfg.Store.UpdateRealm(r.Context(), next); err != nil {

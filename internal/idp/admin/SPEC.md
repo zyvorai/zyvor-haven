@@ -140,3 +140,16 @@ because the server stores only a hash and `GET .../secret` is 501. The console's
 create-client handler uses it for confidential clients and returns
 `201 {"id","secret"}` with `Cache-Control: no-store`; the UI must show the secret
 once. Providers that can read secrets back (Keycloak) keep the old 201-with-no-body response.
+
+## Guard admission gate (`guard.go`, docs/guard-gate.md)
+Realm create/update and client create/update are scored by Haven Guard before
+they are applied (`HAVEN_IDP_GUARD=off|warn|enforce`, default warn;
+`_THRESHOLD`, `_WAIVERS`, `_NO_OVERRIDE`). Only findings that are new (present
+after, not before) at or above the threshold, after waivers, count.
+  * warn: applied; response header `X-Haven-Guard: findings=N max=SEV`; event `GUARD_WARN`.
+  * enforce: `422 {"error":"guard_blocked","findings":[{ruleId,severity,title,resource,detail,fix}]}`,
+    event `GUARD_BLOCK`; `X-Haven-Guard-Override: <10..300 chars>` applies the write and records
+    `GUARD_OVERRIDE` (caller, rule ids, reason); `400 guard_override_invalid`, `403 guard_override_denied`
+    (service accounts when NO_OVERRIDE=1). Evaluation failure: `500 guard_unavailable` (override allowed).
+  * `POST /realms/{r}/guard/evaluate` `{"kind":"realm"|"client","body":<write body>}` -> `idp.GuardVerdict`, applies nothing.
+  * `GET /realms/{r}/guard` -> `{realm,mode,threshold,score,grade,findings,waived,expiredWaivers}`.

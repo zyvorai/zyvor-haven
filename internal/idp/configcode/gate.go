@@ -35,6 +35,41 @@ type findingKey struct{ rule, realm, client string }
 
 func keyOf(f posture.Finding) findingKey { return findingKey{f.RuleID, f.Realm, f.ClientID} }
 
+// FindingDiff is the difference between two finding sets.
+type FindingDiff struct {
+	New     []posture.Finding // present after, absent before
+	Fixed   []posture.Finding // present before, absent after
+	Blocked []posture.Finding // subset of New at or above the threshold
+}
+
+// DiffFindings compares two finding sets by rule, realm and client (evidence
+// is not part of the key, so a changed value on an already-flagged resource is
+// not new). It is the one definition of "new finding" shared by the
+// config-as-code gate and the Admin API Guard gate.
+func DiffFindings(before, after []posture.Finding, threshold posture.Severity) FindingDiff {
+	var d FindingDiff
+	b := map[findingKey]bool{}
+	for _, f := range before {
+		b[keyOf(f)] = true
+	}
+	a := map[findingKey]bool{}
+	for _, f := range after {
+		a[keyOf(f)] = true
+		if !b[keyOf(f)] {
+			d.New = append(d.New, f)
+			if SeverityAtLeast(f.Severity, threshold) {
+				d.Blocked = append(d.Blocked, f)
+			}
+		}
+	}
+	for _, f := range before {
+		if !a[keyOf(f)] {
+			d.Fixed = append(d.Fixed, f)
+		}
+	}
+	return d
+}
+
 // Gate evaluates Guard on the live state (nil = nothing) and on the state
 // after applying desired, and reports the findings that would appear (New),
 // disappear (Fixed), and those New ones at or above threshold (Blocked).
@@ -42,26 +77,8 @@ func Gate(desired, live *Spec, threshold posture.Severity) GateResult {
 	var res GateResult
 	res.Before = evaluate(live)
 	res.After = evaluate(overlay(desired, live))
-
-	before := map[findingKey]bool{}
-	for _, f := range res.Before.Findings {
-		before[keyOf(f)] = true
-	}
-	after := map[findingKey]bool{}
-	for _, f := range res.After.Findings {
-		after[keyOf(f)] = true
-		if !before[keyOf(f)] {
-			res.New = append(res.New, f)
-			if SeverityAtLeast(f.Severity, threshold) {
-				res.Blocked = append(res.Blocked, f)
-			}
-		}
-	}
-	for _, f := range res.Before.Findings {
-		if !after[keyOf(f)] {
-			res.Fixed = append(res.Fixed, f)
-		}
-	}
+	d := DiffFindings(res.Before.Findings, res.After.Findings, threshold)
+	res.New, res.Fixed, res.Blocked = d.New, d.Fixed, d.Blocked
 	return res
 }
 
