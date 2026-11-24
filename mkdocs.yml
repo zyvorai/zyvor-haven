@@ -86,6 +86,7 @@ nav:
       - Migrate from Keycloak: migrate-from-keycloak.md
       - Import a Keycloak realm: import-from-keycloak.md
       - Email and password reset: email-and-password-reset.md
+      - Password policy: password-policy.md
       - Backups: backups.md
   - Design:
       - Architecture: architecture.md

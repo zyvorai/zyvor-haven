@@ -8,6 +8,7 @@ package password
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -72,7 +73,15 @@ func (h *Hasher) Hash(pw string) (string, error) {
 // "length(12) and digits(1) and upperCase(1)". Supported terms: length,
 // digits, upperCase, lowerCase, specialChars. Unknown terms are ignored, as
 // are malformed ones; an empty policy accepts everything.
-func CheckPolicy(policy, pw string) error {
+//
+// It also supports the no-argument terms notCommon(), notBreached() and (via
+// CheckPolicyFor) notPersonal(); see docs/password-policy.md. Their names are
+// case-insensitive and the parentheses are optional.
+func CheckPolicy(policy, pw string) error { return CheckPolicyFor(policy, pw, Personal{}) }
+
+// CheckPolicyFor is CheckPolicy plus the notPersonal() term, which needs to
+// know who the password is for. With an empty Personal, notPersonal() accepts.
+func CheckPolicyFor(policy, pw string, ctx Personal) error {
 	var digits, upper, lower, special, n int
 	for _, r := range pw {
 		n++
@@ -89,6 +98,23 @@ func CheckPolicy(policy, pw string) error {
 	}
 	for _, part := range strings.Split(policy, " and ") {
 		part = strings.TrimSpace(part)
+		switch strings.ToLower(strings.ReplaceAll(part, " ", "")) {
+		case "notcommon()", "notcommon":
+			if IsCommon(pw) {
+				return errors.New("password policy: this password is too common; choose something less guessable")
+			}
+			continue
+		case "notbreached()", "notbreached":
+			if IsBreached(pw) {
+				return errors.New("password policy: this password appears in a known breach; choose a different one")
+			}
+			continue
+		case "notpersonal()", "notpersonal":
+			if containsPersonal(pw, ctx) {
+				return errors.New("password policy: password contains your name or email; choose something unrelated")
+			}
+			continue
+		}
 		i := strings.IndexByte(part, '(')
 		if i < 0 || !strings.HasSuffix(part, ")") {
 			continue

@@ -74,6 +74,14 @@ webhook, dashboards and alert rules), and #7's email transport: self-service ema
 password reset (SMTP, single-use links; see
 [email-and-password-reset.md](email-and-password-reset.md)).
 
+Item 9 (offline weak/leaked-password checks) is partially done;
+see [password-policy.md](password-policy.md). Shipped in the policy engine:
+`notCommon()` against an embedded 71k-entry pattern-derived list (not a breach
+corpus), `notPersonal()` (via `CheckPolicyFor`), and the `notBreached()` bloom
+filter mechanism with builder and loader. Not done: a real breach corpus (none
+is shipped), wiring `CheckPolicyFor` into the handlers, and the
+`HAVEN_IDP_BREACH_FILTER` setting.
+
 Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across
 replicas); federation is not implemented on the native backend; rotated-secret
