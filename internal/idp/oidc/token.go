@@ -171,8 +171,13 @@ func (p *Provider) grantCode(r *http.Request, rl core.Realm, cl core.Client) (ma
 	if err != nil || !u.Enabled {
 		return nil, bad
 	}
+	// A code issued in an SSO session is worthless once that session is over
+	// (logout between redirect and exchange).
+	if ac.SessionID != "" && !p.sessionAlive(r, rl.Name, ac.SessionID) {
+		return nil, bad
+	}
 	family := randToken(16)
-	resp, terr := p.issue(r, rl, cl, u, ac.Scope, ac.Nonce, ac.AuthTime, family, "", true, "authorization_code")
+	resp, terr := p.issue(r, rl, cl, u, ac.Scope, ac.Nonce, ac.AuthTime, family, "", true, "authorization_code", ac.SessionID, ac.SessionID != "")
 	if terr != nil {
 		return nil, terr
 	}
@@ -242,6 +247,16 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 		p.refreshReuse(r, rl.Name, rt.FamilyID)
 		return nil, bad
 	}
+	// Online refresh tokens live and die with their SSO session; offline ones
+	// outlive it (but their access tokens then carry no sid).
+	sidLive := false
+	if rt.SessionID != "" {
+		sidLive = p.sessionAlive(r, rl.Name, rt.SessionID)
+		if !sidLive && !slices.Contains(strings.Fields(rt.Scope), "offline_access") {
+			p.revokeFamily(r, rt.FamilyID)
+			return nil, bad
+		}
+	}
 	scope := rt.Scope
 	if s := r.PostForm.Get("scope"); s != "" {
 		for _, f := range strings.Fields(s) {
@@ -268,9 +283,12 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 	} else {
 		newRefresh = raw
 	}
-	resp, terr := p.issue(r, rl, cl, u, scope, "", time.Time{}, rt.FamilyID, newRefresh, newRefresh == "", "refresh_token")
+	resp, terr := p.issue(r, rl, cl, u, scope, "", time.Time{}, rt.FamilyID, newRefresh, newRefresh == "", "refresh_token", rt.SessionID, sidLive)
 	if terr != nil {
 		return nil, terr
+	}
+	if sidLive {
+		p.touchSession(r, rl, core.Session{ID: rt.SessionID})
 	}
 	if newRefresh != "" {
 		resp["refresh_token"] = newRefresh
@@ -324,7 +342,7 @@ func (p *Provider) grantClientCreds(r *http.Request, rl core.Realm, cl core.Clie
 // issue builds the token response for a user. When newFamily is true a
 // refresh token may be issued (and stored) in family.
 func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.User, scope, nonce string,
-	authTime time.Time, family, _ string, issueRefresh bool, grant string) (map[string]any, *tokenErr) {
+	authTime time.Time, family, _ string, issueRefresh bool, grant, sid string, sidLive bool) (map[string]any, *tokenErr) {
 	ctx := r.Context()
 	if err := p.ensureKey(ctx, rl.Name); err != nil {
 		p.cfg.Logger.Error("oidc: ensure key", "err", err)
@@ -347,6 +365,9 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		"typ": "Bearer", "scope": scope, "preferred_username": u.Username,
 		"realm_access": map[string]any{"roles": roles},
 	}
+	if sid != "" && sidLive {
+		atClaims["sid"] = sid
+	}
 	at, err := p.cfg.Signer.Sign(ctx, rl.Name, atClaims)
 	if err != nil {
 		p.cfg.Logger.Error("oidc: sign access token", "err", err)
@@ -361,6 +382,9 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 			"exp": now.Add(ttl).Unix(), "iat": now.Unix(), "typ": "ID",
 			"at_hash":            base64.RawURLEncoding.EncodeToString(sum[:16]),
 			"preferred_username": u.Username,
+		}
+		if sid != "" && sidLive {
+			idc["sid"] = sid
 		}
 		if !authTime.IsZero() {
 			idc["auth_time"] = authTime.Unix()
@@ -392,7 +416,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		raw := randToken(32)
 		err := p.cfg.Store.PutRefreshToken(ctx, core.RefreshToken{
 			TokenHash: HashSecret(raw), FamilyID: family, Realm: rl.Name, ClientID: cl.ClientID,
-			UserID: u.ID, Scope: scope, ExpiresAt: now.Add(rtl), CreatedAt: now,
+			UserID: u.ID, SessionID: sid, Scope: scope, ExpiresAt: now.Add(rtl), CreatedAt: now,
 		})
 		if err != nil {
 			p.cfg.Logger.Error("oidc: store refresh token", "err", err)

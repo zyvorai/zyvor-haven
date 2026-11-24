@@ -74,6 +74,11 @@ func (p *Provider) verifyAccess(r *http.Request, realm, tok string) (core.Claims
 	if err != nil || !cl.Enabled {
 		return nil, false
 	}
+	// A token bound to an SSO session dies with it. Tokens without sid
+	// (client_credentials, pre-SSO tokens) are unaffected.
+	if sid := claimStr(c, "sid"); sid != "" && !p.sessionAlive(r, realm, sid) {
+		return nil, false
+	}
 	return c, true
 }
 

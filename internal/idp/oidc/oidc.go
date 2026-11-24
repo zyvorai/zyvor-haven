@@ -286,7 +286,9 @@ func (p *Provider) discovery(w http.ResponseWriter, r *http.Request) {
 		"code_challenge_methods_supported":              []string{"S256"},
 		"prompt_values_supported":                       []string{"none", "login"},
 		"claims_supported": []string{"sub", "iss", "aud", "exp", "iat", "auth_time", "nonce", "at_hash",
-			"preferred_username", "email", "email_verified", "name", "given_name", "family_name", "realm_access"},
+			"preferred_username", "email", "email_verified", "name", "given_name", "family_name", "realm_access", "sid"},
+		"backchannel_logout_supported":                   true,
+		"backchannel_logout_session_supported":           true,
 		"authorization_response_iss_parameter_supported": true,
 	}
 	w.Header().Set("Cache-Control", "public, max-age=300")

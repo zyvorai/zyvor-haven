@@ -34,6 +34,7 @@ type fakeStore struct {
 	codes   map[string]core.AuthCode
 	refresh map[string]core.RefreshToken
 	events  []core.Event
+	sess    map[string]core.Session // SSO sessions by id (methods in sso_test.go)
 }
 
 func (s *fakeStore) GetRealm(_ context.Context, n string) (core.Realm, error) {

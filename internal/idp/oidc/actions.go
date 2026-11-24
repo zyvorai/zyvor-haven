@@ -254,6 +254,9 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 	if _, err := p.cfg.Store.RevokeUserRefreshTokens(ctx, rl.Name, u.ID); err != nil {
 		p.cfg.Logger.Error("oidc: revoke after reset", "err", err)
 	}
+	if _, err := p.sessions().EndUser(ctx, rl.Name, u.ID); err != nil {
+		p.cfg.Logger.Error("oidc: end sessions after reset", "err", err)
+	}
 	_, _ = p.cfg.Store.DeleteActionTokens(ctx, rl.Name, u.ID, core.ActionResetPassword)
 	p.event(ctx, rl, "RESET_PASSWORD", u.ID, "", p.clientIP(r), "")
 	// Best-effort security notification; never carries a link or the password.
