@@ -209,7 +209,7 @@ func (p *Provider) issueCode(w http.ResponseWriter, r *http.Request, ar *authzRe
 		return
 	}
 	code := randToken(32) + encodeResources(ar.resources) // the code carries the granted resources
-	if !p.fapiBindCode(w, r, ar, HashSecret(code)) { // fapi.go: authorization_details, dpop_jkt, single-use login context
+	if !p.fapiBindCode(w, r, ar, HashSecret(code)) {      // fapi.go: authorization_details, dpop_jkt, single-use login context
 		return
 	}
 	err := p.cfg.Store.PutAuthCode(ctx, core.AuthCode{
