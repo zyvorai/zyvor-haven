@@ -23,6 +23,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/obs"
+	"github.com/zyvorai/haven/internal/idp/sessions"
 )
 
 const (
@@ -46,6 +47,9 @@ type Config struct {
 	// Actions sends verification and reset emails. Nil (or no mailer) makes
 	// the send-* routes answer 409 "email is not configured".
 	Actions *actions.Service
+	// Sessions ends SSO sessions for the session routes, user disable and
+	// password reset. Built from Store with no notifier when nil.
+	Sessions *sessions.Service
 }
 
 type api struct {
@@ -75,6 +79,9 @@ func New(cfg Config) http.Handler {
 	}
 	if cfg.Version == "" {
 		cfg.Version = "haven-idp"
+	}
+	if cfg.Sessions == nil {
+		cfg.Sessions = &sessions.Service{Store: cfg.Store}
 	}
 	a := &api{cfg: cfg, base: strings.TrimRight(cfg.BaseURL, "/"), mux: http.NewServeMux()}
 	a.issuer = a.base + "/realms/" + cfg.AdminRealm
