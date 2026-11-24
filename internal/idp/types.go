@@ -162,10 +162,10 @@ type ServerInfo struct {
 }
 
 type Status struct {
-	Connected   bool   `json:"connected"`
-	Version     string `json:"version,omitempty"`
-	RealmCount  int    `json:"realmCount"`
-	KeycloakURL string `json:"keycloakUrl"`
+	Connected         bool   `json:"connected"`
+	Version           string `json:"version,omitempty"`
+	RealmCount        int    `json:"realmCount"`
+	IdentityServerURL string `json:"identityServerUrl"`
 }
 
 type PasswordReset struct {
@@ -175,9 +175,9 @@ type PasswordReset struct {
 }
 
 type APIError struct {
-	Error    string          `json:"error"`
-	Keycloak json.RawMessage `json:"keycloak,omitempty"`
-	Status   int             `json:"status,omitempty"`
+	Error          string          `json:"error"`
+	IdentityServer json.RawMessage `json:"identityServer,omitempty"`
+	Status         int             `json:"status,omitempty"`
 }
 
 // ImportUser is a user carried over from another identity system. PasswordHash

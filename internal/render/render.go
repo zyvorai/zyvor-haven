@@ -28,7 +28,6 @@ func planeLabels(name string) map[string]string {
 }
 
 func DBClusterName(plane string) string       { return plane + "-db" }
-func KeycloakName(plane string) string        { return plane }
 func CertName(plane string) string            { return plane + "-tls" }
 func ScheduledBackupName(plane string) string { return plane + "-db-scheduled" }
 
@@ -55,8 +54,8 @@ func CNPGCluster(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 		"enableSuperuserAccess": false,
 		"bootstrap": map[string]interface{}{
 			"initdb": map[string]interface{}{
-				"database": DBName(plane),
-				"owner":    DBName(plane),
+				"database": IdPDBName,
+				"owner":    IdPDBName,
 				"secret": map[string]interface{}{
 					"name": name + "-app",
 				},
@@ -79,59 +78,6 @@ func CNPGCluster(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 	}
 
 	obj.Object["spec"] = clusterSpec
-	return obj
-}
-
-func KeycloakCR(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
-	spec := profiles.Merge(&plane.Spec)
-	name := KeycloakName(plane.Name)
-	ns := plane.Namespace
-	dbSecret := name + "-keycloak-db"
-
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(schema.GroupVersionKind{
-		Group: "k8s.keycloak.org", Version: "v2beta1", Kind: "Keycloak",
-	})
-	obj.SetName(name)
-	obj.SetNamespace(ns)
-	obj.SetLabels(planeLabels(plane.Name))
-
-	kcSpec := map[string]interface{}{
-		"instances": int64(spec.Keycloak.Instances),
-		"db": map[string]interface{}{
-			"vendor":   "postgres",
-			"host":     DBHost(plane.Name, ns),
-			"database": "keycloak",
-			"usernameSecret": map[string]interface{}{
-				"name": dbSecret, "key": "username",
-			},
-			"passwordSecret": map[string]interface{}{
-				"name": dbSecret, "key": "password",
-			},
-			"poolInitialSize": int64(profiles.For(spec.Profile).PoolSize),
-			"poolMinSize":     int64(profiles.For(spec.Profile).PoolSize),
-			"poolMaxSize":     int64(profiles.For(spec.Profile).PoolSize),
-		},
-		"http": map[string]interface{}{"httpEnabled": true},
-		"hostname": map[string]interface{}{
-			"hostname": spec.Hostname,
-			"strict":   false,
-		},
-		"ingress": map[string]interface{}{"enabled": false},
-		"proxy":   map[string]interface{}{"headers": "xforwarded"},
-		"additionalOptions": []interface{}{
-			map[string]interface{}{"name": "metrics-enabled", "value": "true"},
-			map[string]interface{}{"name": "health-enabled", "value": "true"},
-		},
-	}
-	if len(spec.Keycloak.Features) > 0 {
-		kcSpec["features"] = map[string]interface{}{"enabled": toIface(spec.Keycloak.Features)}
-	}
-	if spec.Keycloak.Version != "" {
-		kcSpec["image"] = "quay.io/keycloak/keycloak:" + spec.Keycloak.Version
-	}
-
-	obj.Object["spec"] = kcSpec
 	return obj
 }
 
@@ -174,8 +120,8 @@ func Certificate(plane *v1alpha1.IdentityPlane) *unstructured.Unstructured {
 	return obj
 }
 
-// DBAppSecret is the CNPG bootstrap owner secret; password must match
-// KeycloakDBSecret so Keycloak can log in to the database it creates.
+// DBAppSecret is the CNPG bootstrap owner secret; its password must match the
+// one in the <plane>-idp-db Secret so haven-idp can log in to the database.
 func DBAppSecret(plane *v1alpha1.IdentityPlane, password string) *unstructured.Unstructured {
 	name := DBClusterName(plane.Name) + "-app"
 	obj := &unstructured.Unstructured{}
@@ -185,23 +131,7 @@ func DBAppSecret(plane *v1alpha1.IdentityPlane, password string) *unstructured.U
 	obj.SetLabels(planeLabels(plane.Name))
 	obj.Object["type"] = "kubernetes.io/basic-auth"
 	obj.Object["stringData"] = map[string]interface{}{
-		"username": DBName(plane),
-		"password": password,
-	}
-	return obj
-}
-
-// KeycloakDBSecret holds the JDBC credentials the Keycloak CR references.
-func KeycloakDBSecret(plane *v1alpha1.IdentityPlane, password string) *unstructured.Unstructured {
-	name := KeycloakName(plane.Name) + "-keycloak-db"
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "Secret"})
-	obj.SetName(name)
-	obj.SetNamespace(plane.Namespace)
-	obj.SetLabels(planeLabels(plane.Name))
-	obj.Object["type"] = "Opaque"
-	obj.Object["stringData"] = map[string]interface{}{
-		"username": "keycloak",
+		"username": IdPDBName,
 		"password": password,
 	}
 	return obj
@@ -219,27 +149,11 @@ func Endpoints(plane *v1alpha1.IdentityPlane) v1alpha1.EndpointsStatus {
 		console = "haven." + host
 	}
 	realm := spec.Bootstrap.FirstRealm
-	if IsNative(plane) {
-		return v1alpha1.EndpointsStatus{
-			IdP:     "https://" + host,
-			Issuer:  fmt.Sprintf("https://%s/realms/%s", host, realm),
-			Console: "https://" + console,
-		}
-	}
 	return v1alpha1.EndpointsStatus{
-		Keycloak: "https://" + host,
-		Console:  "https://" + console,
-		Account:  fmt.Sprintf("https://%s/realms/%s/account", host, realm),
-		Admin:    "https://" + host + "/admin",
+		IdP:     "https://" + host,
+		Issuer:  fmt.Sprintf("https://%s/realms/%s", host, realm),
+		Console: "https://" + console,
 	}
-}
-
-func toIface(ss []string) []interface{} {
-	out := make([]interface{}, len(ss))
-	for i, s := range ss {
-		out[i] = s
-	}
-	return out
 }
 
 func Condition(typ, status, reason, msg string) metav1.Condition {

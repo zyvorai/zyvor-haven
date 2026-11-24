@@ -129,12 +129,7 @@ func LocalCreds() (user, pass string, ok bool) {
 	user = os.Getenv("HAVEN_CONSOLE_USER")
 	pass = os.Getenv("HAVEN_CONSOLE_PASSWORD")
 	if user == "" || pass == "" {
-		// Fall back to Keycloak admin env if set (lab deploy).
-		user = os.Getenv("KEYCLOAK_ADMIN_USER")
-		pass = os.Getenv("KEYCLOAK_ADMIN_PASSWORD")
-		if user == "" || pass == "" {
-			return "", "", false
-		}
+		return "", "", false
 	}
 	return user, pass, true
 }

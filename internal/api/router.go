@@ -12,8 +12,8 @@ import (
 	"github.com/zyvorai/haven/internal/plane"
 )
 
-func NewRouter(kc idp.Backend, pr *plane.Reader, sessions *auth.Store) http.Handler {
-	s := &Server{KC: kc, Plane: pr, Auth: sessions}
+func NewRouter(be idp.Backend, pr *plane.Reader, sessions *auth.Store) http.Handler {
+	s := &Server{Backend: be, Plane: pr, Auth: sessions}
 	mux := http.NewServeMux()
 
 	// Public
@@ -30,10 +30,10 @@ func NewRouter(kc idp.Backend, pr *plane.Reader, sessions *auth.Store) http.Hand
 	mux.HandleFunc("GET /api/v1/plane/status", requireAuth(s, s.PlaneStatus))
 	mux.HandleFunc("GET /api/v1/plane/capabilities", requireAuth(s, s.PlaneCapabilities))
 	mux.HandleFunc("POST /api/v1/planes", requireAuth(s, s.CreatePlane))
-	mux.HandleFunc("GET /api/v1/keycloak/status", requireAuth(s, s.KeycloakStatus))
-	mux.HandleFunc("GET /api/v1/keycloak/config", requireAuth(s, s.KeycloakConfig))
-	mux.HandleFunc("POST /api/v1/keycloak/connect", requireAuth(s, s.ConnectKeycloak))
-	mux.HandleFunc("POST /api/v1/keycloak/admin-password", requireAuth(s, s.ChangeKeycloakAdminPassword))
+	mux.HandleFunc("GET /api/v1/identity-server/status", requireAuth(s, s.IdentityServerStatus))
+	mux.HandleFunc("GET /api/v1/identity-server/config", requireAuth(s, s.IdentityServerConfig))
+	mux.HandleFunc("POST /api/v1/identity-server/connect", requireAuth(s, s.ConnectIdentityServer))
+	mux.HandleFunc("POST /api/v1/identity-server/admin-password", requireAuth(s, s.ChangeIdentityServerAdminPassword))
 	mux.HandleFunc("GET /api/v1/realms", requireAuth(s, s.ListRealms))
 	mux.HandleFunc("POST /api/v1/realms", requireAuth(s, s.CreateRealm))
 	mux.HandleFunc("GET /api/v1/clients", requireAuth(s, s.ListAllClients))

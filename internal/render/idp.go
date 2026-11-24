@@ -55,25 +55,12 @@ var IdPSecretKeys = []string{SecretKeyCSRF, SecretKeySecret, SecretKeyAdminPass,
 func IdPName(plane string) string         { return plane + "-idp" }
 func IdPDBSecretName(plane string) string { return plane + "-idp-db" }
 
-// IsNative reports whether the (already resolved) plane runs the native engine.
-func IsNative(plane *v1alpha1.IdentityPlane) bool {
-	return plane.Spec.Engine == v1alpha1.EngineNative
-}
-
-// DBName is the database and owner role the CNPG cluster bootstraps.
-func DBName(plane *v1alpha1.IdentityPlane) string {
-	if IsNative(plane) {
-		return IdPDBName
-	}
-	return "keycloak"
-}
-
 // IdPSelectorLabels are the immutable Deployment/Service selector labels.
 func IdPSelectorLabels(plane string) map[string]string {
 	return map[string]string{labelName: idpAppName, labelInstance: plane}
 }
 
-// IdPLabels are the labels carried by every native-engine object.
+// IdPLabels are the labels carried by every haven-idp object.
 func IdPLabels(plane string) map[string]string {
 	l := planeLabels(plane)
 	l[labelName] = idpAppName

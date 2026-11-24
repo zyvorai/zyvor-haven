@@ -34,21 +34,12 @@ type PlanePhase string
 const (
 	PhasePending              PlanePhase = "Pending"
 	PhaseProvisioningDatabase PlanePhase = "ProvisioningDatabase"
-	PhaseProvisioningKeycloak PlanePhase = "ProvisioningKeycloak"
 	PhaseProvisioningIdP      PlanePhase = "ProvisioningIdP"
 	PhaseBootstrapping        PlanePhase = "Bootstrapping"
 	PhaseReady                PlanePhase = "Ready"
 	PhaseDegraded             PlanePhase = "Degraded"
 	PhaseFailed               PlanePhase = "Failed"
 	PhaseSuspending           PlanePhase = "Suspending"
-)
-
-// PlaneEngine selects the identity provider a plane runs.
-type PlaneEngine string
-
-const (
-	EngineNative   PlaneEngine = "native"
-	EngineKeycloak PlaneEngine = "keycloak"
 )
 
 // IdPSpec configures the native haven-idp Deployment.
@@ -75,15 +66,6 @@ type BackupSpec struct {
 	Retention         string `json:"retention,omitempty"`
 	EndpointURL       string `json:"endpointURL,omitempty"`
 	CredentialsSecret string `json:"credentialsSecret,omitempty"`
-}
-
-type KeycloakSpec struct {
-	Instances int                    `json:"instances,omitempty"`
-	Version   string                 `json:"version,omitempty"`
-	Image     string                 `json:"image,omitempty"`
-	Features  []string               `json:"features,omitempty"`
-	Resources map[string]interface{} `json:"resources,omitempty"`
-	Raw       map[string]interface{} `json:"raw,omitempty"`
 }
 
 type TLSSpec struct {
@@ -124,17 +106,12 @@ type ObservabilitySpec struct {
 }
 
 type IdentityPlaneSpec struct {
-	// Engine is resolved by the controller when empty: keycloak when a
-	// Keycloak CR already belongs to the plane, otherwise native.
-	// +kubebuilder:validation:Enum=native;keycloak
-	Engine          PlaneEngine       `json:"engine,omitempty"`
 	Profile         PlaneProfile      `json:"profile,omitempty"`
 	Hostname        string            `json:"hostname"`
 	ConsoleHostname string            `json:"consoleHostname,omitempty"`
 	ReclaimPolicy   string            `json:"reclaimPolicy,omitempty"`
 	Suspend         bool              `json:"suspend,omitempty"`
 	Database        DatabaseSpec      `json:"database,omitempty"`
-	Keycloak        KeycloakSpec      `json:"keycloak,omitempty"`
 	IdP             IdPSpec           `json:"idp,omitempty"`
 	Expose          ExposeSpec        `json:"expose,omitempty"`
 	Bootstrap       BootstrapSpec     `json:"bootstrap,omitempty"`
@@ -142,12 +119,9 @@ type IdentityPlaneSpec struct {
 }
 
 type EndpointsStatus struct {
-	Keycloak string `json:"keycloak,omitempty"`
-	IdP      string `json:"idp,omitempty"`
-	Issuer   string `json:"issuer,omitempty"`
-	Console  string `json:"console,omitempty"`
-	Account  string `json:"account,omitempty"`
-	Admin    string `json:"admin,omitempty"`
+	IdP     string `json:"idp,omitempty"`
+	Issuer  string `json:"issuer,omitempty"`
+	Console string `json:"console,omitempty"`
 }
 
 type DatabaseStatus struct {
@@ -157,12 +131,6 @@ type DatabaseStatus struct {
 	Phase      string `json:"phase,omitempty"`
 	Ready      int    `json:"ready,omitempty"`
 	Instances  int    `json:"instances,omitempty"`
-}
-
-type KeycloakStatus struct {
-	Instances int    `json:"instances,omitempty"`
-	Ready     int    `json:"ready,omitempty"`
-	Version   string `json:"version,omitempty"`
 }
 
 type IdPStatus struct {
@@ -182,7 +150,6 @@ type IdentityPlaneStatus struct {
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Endpoints          EndpointsStatus    `json:"endpoints,omitempty"`
 	Database           DatabaseStatus     `json:"database,omitempty"`
-	Keycloak           KeycloakStatus     `json:"keycloak,omitempty"`
 	IdP                IdPStatus          `json:"idp,omitempty"`
 	TLS                TLSStatus          `json:"tls,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`

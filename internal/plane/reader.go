@@ -51,8 +51,8 @@ type StatusResponse struct {
 	Message    string          `json:"message,omitempty"`
 }
 
-// KeycloakHint optionally upgrades cards when Admin API is connected.
-type KeycloakHint struct {
+// IdentityServerHint optionally upgrades cards when the identity server's Admin API is connected.
+type IdentityServerHint struct {
 	Connected  bool
 	Version    string
 	RealmCount int
@@ -92,7 +92,7 @@ func NewReaderFromEnv() (*Reader, error) {
 	return &Reader{client: c, name: name, ns: ns}, nil
 }
 
-func (r *Reader) Status(ctx context.Context, hint *KeycloakHint) StatusResponse {
+func (r *Reader) Status(ctx context.Context, hint *IdentityServerHint) StatusResponse {
 	out := StatusResponse{
 		Plane:     r.name,
 		Namespace: r.ns,
@@ -100,7 +100,7 @@ func (r *Reader) Status(ctx context.Context, hint *KeycloakHint) StatusResponse 
 	}
 	if r.client == nil {
 		if hint != nil && hint.Connected {
-			return externalFromKeycloak(out, *hint)
+			return externalFromIdentityServer(out, *hint)
 		}
 		out.Message = "not running in cluster"
 		out.PhaseCard = offlineCard("Phase", "—", out.Message)
@@ -114,7 +114,7 @@ func (r *Reader) Status(ctx context.Context, hint *KeycloakHint) StatusResponse 
 	err := r.client.Get(ctx, client.ObjectKey{Name: r.name, Namespace: r.ns}, &plane)
 	if err != nil {
 		if hint != nil && hint.Connected {
-			return externalFromKeycloak(out, *hint)
+			return externalFromIdentityServer(out, *hint)
 		}
 		out.Message = "IdentityPlane not found — deploy haven-controller and apply identityplane sample"
 		return r.fallbackCNPG(ctx, out)
@@ -158,70 +158,70 @@ func (r *Reader) Status(ctx context.Context, hint *KeycloakHint) StatusResponse 
 		})
 	}
 
-	// Enrich with live Keycloak Admin connectivity.
+	// Enrich with live identity-server Admin connectivity.
 	if hint != nil && hint.Connected {
 		opsMissing := false
 		for _, c := range out.Conditions {
-			if (c.Type == "DatabaseReady" || c.Type == "KeycloakReady") &&
-				(c.Reason == "DatabaseMissing" || c.Reason == "KeycloakMissing" || strings.Contains(c.Message, "no matches for kind")) {
+			if c.Type == "DatabaseReady" &&
+				(c.Reason == "DatabaseMissing" || strings.Contains(c.Message, "no matches for kind")) {
 				opsMissing = true
 				break
 			}
 		}
-		if out.Phase == "ProvisioningDatabase" || out.Phase == "ProvisioningKeycloak" || out.Phase == "" || opsMissing {
+		if out.Phase == "ProvisioningDatabase" || out.Phase == "" || opsMissing {
 			out.Phase = "Ready"
 			out.PhaseCard = Card{
 				Label: "Phase",
 				Value: "Ready",
-				Meta:  fmt.Sprintf("Keycloak v%s · %d realms · external plane", hint.Version, hint.RealmCount),
+				Meta:  fmt.Sprintf("Identity server v%s · %d realms · external plane", hint.Version, hint.RealmCount),
 				OK:    true,
 				Live:  true,
 			}
 			out.Postgres = Card{
 				Label: "Postgres primary",
 				Value: "external",
-				Meta:  "Managed with Keycloak host · operators not installed",
+				Meta:  "Managed with the identity server host · operators not installed",
 				OK:    true,
 				Live:  true,
 			}
 			out.Conditions = []ConditionView{
-				{Type: "KeycloakReady", Status: "True", Reason: "AdminAPI", Message: hint.URL},
-				{Type: "DatabaseReady", Status: "True", Reason: "ExternalDatabase", Message: "DB owned by Keycloak host"},
+				{Type: "IdentityProviderReady", Status: "True", Reason: "AdminAPI", Message: hint.URL},
+				{Type: "DatabaseReady", Status: "True", Reason: "ExternalDatabase", Message: "DB owned by the identity server host"},
 				{Type: "CertificateReady", Status: "True", Reason: "HTTPMode", Message: "TLS not configured (dev)"},
 				{Type: "BackupConfigured", Status: "False", Reason: "NotConfigured", Message: "no backups yet"},
-				{Type: "OperatorsInstalled", Status: "False", Reason: "OperatorsMissing", Message: "CNPG / Keycloak Operator CRDs not present"},
+				{Type: "OperatorsInstalled", Status: "False", Reason: "OperatorsMissing", Message: "CNPG CRDs not present"},
 			}
 		} else if out.Phase == "Ready" && out.PhaseCard.Meta == "" {
-			out.PhaseCard.Meta = fmt.Sprintf("Keycloak v%s · %d realms", hint.Version, hint.RealmCount)
+			out.PhaseCard.Meta = fmt.Sprintf("Identity server v%s · %d realms", hint.Version, hint.RealmCount)
 		}
 	}
 
 	return out
 }
 
-func externalFromKeycloak(out StatusResponse, hint KeycloakHint) StatusResponse {
+func externalFromIdentityServer(out StatusResponse, hint IdentityServerHint) StatusResponse {
 	out.Available = true
 	out.Phase = "Ready"
 	out.PhaseCard = Card{
 		Label: "Phase",
 		Value: "Ready",
-		Meta:  fmt.Sprintf("Keycloak v%s · %d realms · external", hint.Version, hint.RealmCount),
+		Meta:  fmt.Sprintf("Identity server v%s · %d realms · external", hint.Version, hint.RealmCount),
 		OK:    true,
 		Live:  true,
 	}
 	out.Postgres = Card{
 		Label: "Postgres primary",
 		Value: "external",
-		Meta:  "Managed with Keycloak host",
+		Meta:  "Managed with the identity server host",
 		OK:    true,
 		Live:  true,
 	}
 	out.Backup = Card{Label: "Last Backup", Value: "none", Meta: "Backups not configured", OK: false, Live: true}
 	out.Cert = Card{Label: "Certificate", Value: "HTTP", Meta: "TLS not configured (dev)", OK: true, Live: true, Config: false}
 	out.Conditions = []ConditionView{
-		{Type: "KeycloakReady", Status: "True", Reason: "AdminAPI", Message: hint.URL},
-		{Type: "DatabaseReady", Status: "True", Reason: "ExternalDatabase", Message: "DB owned by Keycloak host"},
-		{Type: "OperatorsInstalled", Status: "False", Reason: "OperatorsMissing", Message: "CNPG / Keycloak Operator CRDs not present"},
+		{Type: "IdentityProviderReady", Status: "True", Reason: "AdminAPI", Message: hint.URL},
+		{Type: "DatabaseReady", Status: "True", Reason: "ExternalDatabase", Message: "DB owned by the identity server host"},
+		{Type: "OperatorsInstalled", Status: "False", Reason: "OperatorsMissing", Message: "CNPG CRDs not present"},
 	}
 	return out
 }
@@ -275,10 +275,7 @@ func offlineCard(label, value, meta string) Card {
 
 func phaseMeta(st havenv1.IdentityPlaneStatus) string {
 	if strings.EqualFold(st.Database.Phase, "external") {
-		return "External Keycloak plane · operators not installed"
-	}
-	if st.Keycloak.Instances > 0 {
-		return fmt.Sprintf("Keycloak %d/%d · DB %s", st.Keycloak.Ready, st.Keycloak.Instances, st.Database.Phase)
+		return "External plane · operators not installed"
 	}
 	return st.Database.Phase
 }

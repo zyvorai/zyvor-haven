@@ -21,9 +21,6 @@ func TestIdPDefaultsPerProfile(t *testing.T) {
 		if got.IdP.Resources.Requests.Cpu().IsZero() || got.IdP.Resources.Limits.Memory().IsZero() {
 			t.Errorf("%q has no resource defaults", profile)
 		}
-		if got.Keycloak.Instances != want {
-			t.Errorf("%q keycloak default changed: %d", profile, got.Keycloak.Instances)
-		}
 	}
 	spec := v1alpha1.IdentityPlaneSpec{Profile: v1alpha1.ProfileProduction}
 	spec.IdP.Replicas = 5

@@ -9,14 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zyvorai/haven/internal/idp"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 const schemaVersion = 1
@@ -31,20 +30,20 @@ type UserAccess struct {
 }
 
 type RealmSnapshot struct {
-	SchemaVersion     int                         `json:"schemaVersion"`
-	ID                string                      `json:"id"`
-	Realm             string                      `json:"realm"`
-	CreatedAt         time.Time                   `json:"createdAt"`
-	Reason            string                      `json:"reason,omitempty"`
-	Fingerprint       string                      `json:"fingerprint"`
-	RealmConfig       keycloak.Realm              `json:"realmConfig"`
-	Clients           []keycloak.Client           `json:"clients"`
-	Users             []keycloak.User             `json:"users"`
-	Roles             []keycloak.Role             `json:"roles"`
-	Groups            []keycloak.Group            `json:"groups"`
-	IdentityProviders []keycloak.IdentityProvider `json:"identityProviders"`
-	UserAccess        []UserAccess                `json:"userAccess,omitempty"`
-	PartialExport     json.RawMessage             `json:"partialExport,omitempty"`
+	SchemaVersion     int                    `json:"schemaVersion"`
+	ID                string                 `json:"id"`
+	Realm             string                 `json:"realm"`
+	CreatedAt         time.Time              `json:"createdAt"`
+	Reason            string                 `json:"reason,omitempty"`
+	Fingerprint       string                 `json:"fingerprint"`
+	RealmConfig       idp.Realm              `json:"realmConfig"`
+	Clients           []idp.Client           `json:"clients"`
+	Users             []idp.User             `json:"users"`
+	Roles             []idp.Role             `json:"roles"`
+	Groups            []idp.Group            `json:"groups"`
+	IdentityProviders []idp.IdentityProvider `json:"identityProviders"`
+	UserAccess        []UserAccess           `json:"userAccess,omitempty"`
+	PartialExport     json.RawMessage        `json:"partialExport,omitempty"`
 }
 
 type SnapshotSummary struct {

@@ -182,7 +182,7 @@ type ocEnv struct {
 func readyPlane(ns string, mods ...func(*havenv1.IdentityPlane)) *havenv1.IdentityPlane {
 	p := &havenv1.IdentityPlane{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: ns},
-		Spec:       havenv1.IdentityPlaneSpec{Engine: havenv1.EngineNative, Hostname: "auth.example.com", Bootstrap: havenv1.BootstrapSpec{FirstRealm: "platform"}},
+		Spec:       havenv1.IdentityPlaneSpec{Hostname: "auth.example.com", Bootstrap: havenv1.BootstrapSpec{FirstRealm: "platform"}},
 		Status: havenv1.IdentityPlaneStatus{
 			Phase:      havenv1.PhaseReady,
 			Conditions: []metav1.Condition{{Type: "IdentityProviderReady", Status: metav1.ConditionTrue, Reason: "DeploymentAvailable"}},

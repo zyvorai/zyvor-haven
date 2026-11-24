@@ -20,7 +20,6 @@ import (
 	"github.com/zyvorai/haven/internal/api"
 	"github.com/zyvorai/haven/internal/auth"
 	"github.com/zyvorai/haven/internal/idp"
-	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/plane"
 )
 
@@ -33,7 +32,7 @@ func main() {
 		addr = ":8080"
 	}
 
-	kc, err := newBackend()
+	be, err := newBackend()
 	if err != nil {
 		log.Fatalf("identity backend: %v", err)
 	}
@@ -46,7 +45,7 @@ func main() {
 	if realm := os.Getenv("HAVEN_BOOTSTRAP_REALM"); realm != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		var err error
-		if c := kc.Client(); c == nil {
+		if c := be.Client(); c == nil {
 			err = errors.New("identity backend not connected")
 		} else {
 			err = c.BootstrapRealm(ctx, realm)
@@ -61,7 +60,7 @@ func main() {
 		cancel()
 	}
 
-	apiHandler := api.NewRouter(kc, pr, auth.NewStoreFromEnv())
+	apiHandler := api.NewRouter(be, pr, auth.NewStoreFromEnv())
 	mux := http.NewServeMux()
 	mux.Handle("/api/", apiHandler)
 
@@ -95,16 +94,14 @@ func main() {
 	_ = srv.Shutdown(ctx)
 }
 
-// newBackend selects the identity backend via HAVEN_IDP_BACKEND
-// ("keycloak" default, or "native").
+// newBackend builds the identity backend, the in-house haven-idp. The legacy
+// HAVEN_IDP_BACKEND switch is only checked so a stale value fails loudly.
 func newBackend() (idp.Backend, error) {
 	switch b := strings.ToLower(strings.TrimSpace(os.Getenv("HAVEN_IDP_BACKEND"))); b {
-	case "", "keycloak":
-		return keycloak.NewManagerFromEnv()
-	case "native":
+	case "", "native":
 		return newNativeBackend()
 	default:
-		return nil, fmt.Errorf("unknown HAVEN_IDP_BACKEND %q (want keycloak or native)", b)
+		return nil, fmt.Errorf("unsupported HAVEN_IDP_BACKEND %q (haven-idp is the only backend; unset it or use \"native\")", b)
 	}
 }
 

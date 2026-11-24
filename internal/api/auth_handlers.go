@@ -28,7 +28,6 @@ func (s *Server) AuthProviders(w http.ResponseWriter, r *http.Request) {
 			"enabled": true,
 			"default_username": firstNonEmpty(
 				os.Getenv("HAVEN_CONSOLE_USER"),
-				os.Getenv("KEYCLOAK_ADMIN_USER"),
 				"admin",
 			),
 		},
@@ -67,16 +66,16 @@ func (s *Server) AuthLogin(w http.ResponseWriter, r *http.Request) {
 		method = "local"
 		role = "admin"
 	default:
-		url, _ := s.KC.Config()
+		url, _ := s.Backend.Config()
 		if url == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 			return
 		}
-		if err := s.KC.Reconfigure(r.Context(), url, user, pass); err != nil {
+		if err := s.Backend.Reconfigure(r.Context(), url, user, pass); err != nil {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 			return
 		}
-		method = "keycloak"
+		method = "idp"
 		role = "admin"
 	}
 
@@ -143,14 +142,14 @@ func (s *Server) ChangeConsolePassword(w http.ResponseWriter, r *http.Request) {
 	user := sess.User
 	if auth.MatchLabDemo(user, body.CurrentPassword) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{
-			"error": "lab demo account cannot change password — use Keycloak admin or set HAVEN_CONSOLE_PASSWORD",
+			"error": "lab demo account cannot change password — use the identity server admin or set HAVEN_CONSOLE_PASSWORD",
 		})
 		return
 	}
 	okCreds := s.Auth.MatchLocal(user, body.CurrentPassword) || auth.MatchLocal(user, body.CurrentPassword)
 	if !okCreds {
-		if url, _ := s.KC.Config(); url != "" {
-			if err := s.KC.Reconfigure(r.Context(), url, user, body.CurrentPassword); err == nil {
+		if url, _ := s.Backend.Config(); url != "" {
+			if err := s.Backend.Reconfigure(r.Context(), url, user, body.CurrentPassword); err == nil {
 				okCreds = true
 			}
 		}

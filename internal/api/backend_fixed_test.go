@@ -16,11 +16,11 @@ import (
 // A backend fixed by the environment (native IdP) has no admin password to
 // change: the handler must say so instead of blaming the caller's password.
 func TestChangeAdminPasswordOnFixedBackend(t *testing.T) {
-	s := &Server{KC: idp.NewStaticBackend(nil, "http://idp.test", "haven-admin")}
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/keycloak/admin-password",
+	s := &Server{Backend: idp.NewStaticBackend(nil, "http://idp.test", "haven-admin")}
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/identity-server/admin-password",
 		strings.NewReader(`{"currentPassword":"x","newPassword":"long-enough-1"}`))
 	rec := httptest.NewRecorder()
-	s.ChangeKeycloakAdminPassword(rec, req)
+	s.ChangeIdentityServerAdminPassword(rec, req)
 	if rec.Code != http.StatusNotImplemented {
 		t.Fatalf("status %d, want 501; body %s", rec.Code, rec.Body)
 	}
@@ -42,7 +42,7 @@ func (p *secretProvider) CreateClientWithSecret(_ context.Context, _ string, c i
 
 func TestCreateClientRevealsSecretOnceForConfidentialClients(t *testing.T) {
 	p := &secretProvider{}
-	s := &Server{KC: idp.NewStaticBackend(p, "http://idp.test", "haven-admin")}
+	s := &Server{Backend: idp.NewStaticBackend(p, "http://idp.test", "haven-admin")}
 
 	post := func(body string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()

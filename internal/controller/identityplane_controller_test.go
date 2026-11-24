@@ -32,20 +32,20 @@ func TestDBPasswordRandomForNewPlaneAndStableAfter(t *testing.T) {
 		t.Fatalf("expected distinct random passwords for a new plane, got %q and %q", a, b)
 	}
 
-	kcOnly := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "id-keycloak-db", Namespace: "haven"},
-		Data:       map[string][]byte{"password": []byte("from-keycloak")},
+	idpOnly := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "id-idp-db", Namespace: "haven"},
+		Data:       map[string][]byte{"password": []byte("from-idp")},
 	}
-	r = &IdentityPlaneReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(kcOnly).Build()}
-	if got, _ := r.dbPassword(ctx, plane); got != "from-keycloak" {
-		t.Fatalf("expected password reused from the Keycloak secret, got %q", got)
+	r = &IdentityPlaneReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(idpOnly).Build()}
+	if got, _ := r.dbPassword(ctx, plane); got != "from-idp" {
+		t.Fatalf("expected password reused from the idp db secret, got %q", got)
 	}
 
 	app := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "id-db-app", Namespace: "haven"},
 		Data:       map[string][]byte{"password": []byte("from-app")},
 	}
-	r = &IdentityPlaneReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(app, kcOnly).Build()}
+	r = &IdentityPlaneReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(app, idpOnly).Build()}
 	if got, _ := r.dbPassword(ctx, plane); got != "from-app" {
 		t.Fatalf("expected the CNPG app secret to win, got %q", got)
 	}

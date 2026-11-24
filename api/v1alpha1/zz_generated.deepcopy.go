@@ -23,15 +23,10 @@ func (in *IdentityPlane) DeepCopyInto(out *IdentityPlane) {
 	in.Status.DeepCopyInto(&out.Status)
 }
 
-// DeepCopyInto copies the spec; maps inside KeycloakSpec stay shared (they are
-// never mutated in place by the controller).
+// DeepCopyInto copies the spec.
 func (in *IdentityPlaneSpec) DeepCopyInto(out *IdentityPlaneSpec) {
 	*out = *in
 	in.IdP.Resources.DeepCopyInto(&out.IdP.Resources)
-	in.Keycloak.DeepCopyInto(&out.Keycloak)
-	if in.Keycloak.Features != nil {
-		out.Keycloak.Features = append([]string(nil), in.Keycloak.Features...)
-	}
 	if in.Expose.NetworkPolicy != nil {
 		v := *in.Expose.NetworkPolicy
 		out.Expose.NetworkPolicy = &v
@@ -50,8 +45,6 @@ func (in *IdentityPlaneSpec) DeepCopyInto(out *IdentityPlaneSpec) {
 		}
 	}
 }
-
-func (in *KeycloakSpec) DeepCopyInto(out *KeycloakSpec) { *out = *in }
 
 func (in *IdentityPlaneStatus) DeepCopyInto(out *IdentityPlaneStatus) {
 	*out = *in

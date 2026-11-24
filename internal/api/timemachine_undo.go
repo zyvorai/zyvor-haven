@@ -46,11 +46,11 @@ func (s *Server) UndoTimeMachineSnapshot(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	dry := body.DryRun == nil || *body.DryRun
-	if s.KC == nil || s.backendClient() == nil {
+	if s.Backend == nil || s.backendClient() == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "no identity backend is connected"})
 		return
 	}
-	prov := s.kc()
+	prov := s.provider()
 	if !idp.IsNative(prov) {
 		writeJSON(w, http.StatusNotImplemented, map[string]any{"error": "undo is only available on the native haven-idp backend"})
 		return
@@ -90,7 +90,7 @@ func (s *Server) UndoTimeMachineSnapshot(w http.ResponseWriter, r *http.Request)
 	if body.All {
 		sel = identityops.AllChanges(diff)
 	}
-	_, adminClient := s.KC.Config()
+	_, adminClient := s.Backend.Config()
 	plan, err := identityops.PlanUndo(snap, diff, sel, []string{adminClient, "haven-admin"})
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})

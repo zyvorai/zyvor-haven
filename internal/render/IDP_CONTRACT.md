@@ -4,12 +4,6 @@ Every deployment path (the controller, the kustomize overlays, the Helm chart)
 renders the same names so tooling, NetworkPolicies and the console agree.
 `<plane>` is the IdentityPlane / overlay name (the overlays use `platform`).
 
-## Engine selection (controller)
-`spec.engine`: `native` or `keycloak` (omitted = resolve at reconcile time:
-`keycloak` if a Keycloak CR already exists for the plane, otherwise `native`).
-An existing plane is therefore never switched silently. The Keycloak path stays
-for migration and is deprecated; it is removed in a later release.
-
 ## Names and labels
 | Object | Name |
 |---|---|

@@ -4,24 +4,24 @@
 package posture
 
 import (
+	"github.com/zyvorai/haven/internal/idp"
 	"testing"
 
 	"github.com/zyvorai/haven/internal/idmodel"
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 // TestGoldenFingerprints pins fingerprints so refactors cannot silently
 // invalidate stored baselines.
 func TestGoldenFingerprints(t *testing.T) {
-	realms := []keycloak.Realm{
+	realms := []idp.Realm{
 		{Realm: "prod", Enabled: true, RegistrationAllowed: true, VerifyEmail: false, BruteForceProtected: true,
-			RealmHardening: &keycloak.RealmHardening{SSLRequired: sp("none"), PasswordPolicy: sp("length(8)"),
+			RealmHardening: &idp.RealmHardening{SSLRequired: sp("none"), PasswordPolicy: sp("length(8)"),
 				AccessTokenLifespan: ip(7200), SSOSessionIdleTimeout: ip(90000), EventsEnabled: bp(false),
 				AdminEventsEnabled: bp(false), RevokeRefreshToken: bp(false)}},
 		{Realm: "dev", Enabled: true},
 		{Realm: "master", Enabled: true, BruteForceProtected: false},
 	}
-	clients := map[string][]keycloak.Client{
+	clients := map[string][]idp.Client{
 		"prod": {
 			{ClientID: "account", Enabled: true, PublicClient: true},
 			{ClientID: "spa", Enabled: true, PublicClient: true, StandardFlowEnabled: true,
@@ -60,7 +60,7 @@ func TestGoldenFingerprints(t *testing.T) {
 }
 
 // evalKC maps wire types into idmodel and evaluates them.
-func evalKC(realms []keycloak.Realm, clients map[string][]keycloak.Client, opts Options) Report {
+func evalKC(realms []idp.Realm, clients map[string][]idp.Client, opts Options) Report {
 	mc := map[string][]idmodel.Client{}
 	for k, v := range clients {
 		mc[k] = idmodel.FromClients(v)

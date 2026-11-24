@@ -19,7 +19,7 @@ const dbPolicy = "platform-db-ingress"
 
 func TestDBNetworkPolicyFollowsTheProfileAndTheSetting(t *testing.T) {
 	// staging switches it on by default.
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	var np networkingv1.NetworkPolicy
 	e.mustGet(&np, dbPolicy)
@@ -34,21 +34,21 @@ func TestDBNetworkPolicyFollowsTheProfileAndTheSetting(t *testing.T) {
 	}
 
 	// dev leaves it off by default.
-	dev := newEnv(t, false, plane(func(p *havenv1.IdentityPlane) { p.Spec.Profile = havenv1.ProfileDev }))
+	dev := newEnv(t, plane(func(p *havenv1.IdentityPlane) { p.Spec.Profile = havenv1.ProfileDev }))
 	dev.reconcile()
 	if err := dev.get(&networkingv1.NetworkPolicy{}, dbPolicy); err == nil {
 		t.Error("dev profile created a NetworkPolicy by default")
 	}
 
 	// An explicit false beats the profile default.
-	off := newEnv(t, false, plane(func(p *havenv1.IdentityPlane) { p.Spec.Expose.NetworkPolicy = boolPtr(false) }))
+	off := newEnv(t, plane(func(p *havenv1.IdentityPlane) { p.Spec.Expose.NetworkPolicy = boolPtr(false) }))
 	off.reconcile()
 	if err := off.get(&networkingv1.NetworkPolicy{}, dbPolicy); err == nil {
 		t.Error("expose.networkPolicy=false was ignored")
 	}
 
 	// And an explicit true switches it on in dev.
-	on := newEnv(t, false, plane(func(p *havenv1.IdentityPlane) {
+	on := newEnv(t, plane(func(p *havenv1.IdentityPlane) {
 		p.Spec.Profile = havenv1.ProfileDev
 		p.Spec.Expose.NetworkPolicy = boolPtr(true)
 	}))
@@ -57,7 +57,7 @@ func TestDBNetworkPolicyFollowsTheProfileAndTheSetting(t *testing.T) {
 }
 
 func TestDBNetworkPolicyIsRemovedWhenSwitchedOff(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	e.mustGet(&networkingv1.NetworkPolicy{}, dbPolicy)
 
@@ -79,7 +79,7 @@ func TestDBNetworkPolicyNeverDeletesAForeignOne(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: dbPolicy, Namespace: testNS},
 		Spec:       networkingv1.NetworkPolicySpec{PodSelector: metav1.LabelSelector{}, PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress}},
 	}
-	e := newEnv(t, false, plane(func(p *havenv1.IdentityPlane) { p.Spec.Expose.NetworkPolicy = boolPtr(false) }), foreign)
+	e := newEnv(t, plane(func(p *havenv1.IdentityPlane) { p.Spec.Expose.NetworkPolicy = boolPtr(false) }), foreign)
 	e.reconcile()
 	var got networkingv1.NetworkPolicy
 	e.mustGet(&got, dbPolicy)
@@ -90,7 +90,7 @@ func TestDBNetworkPolicyNeverDeletesAForeignOne(t *testing.T) {
 
 // Drift: somebody edits the policy (for example opens it up); the controller puts it back.
 func TestDBNetworkPolicyDriftIsCorrected(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	var np networkingv1.NetworkPolicy
 	e.mustGet(&np, dbPolicy)

@@ -433,7 +433,7 @@ func TestStatusAndPing(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, err := c.Status(ctx())
-	if err != nil || !st.Connected || st.Version != "1.0" || st.KeycloakURL != c.BaseURL() {
+	if err != nil || !st.Connected || st.Version != "1.0" || st.IdentityServerURL != c.BaseURL() {
 		t.Fatalf("%+v %v", st, err)
 	}
 	if r := f.lastReq(); r.Method != "GET" || r.Path != "/admin/v1/status" {

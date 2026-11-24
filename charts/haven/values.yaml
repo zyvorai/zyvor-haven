@@ -1,7 +1,6 @@
 # Haven chart — controller + console (+ optionally haven-idp).
 # Database and the identity server are NOT subcharts. They are created from IdentityPlane CRs
-# (spec.engine: native -> haven-idp, the default; keycloak -> deprecated) so the controller
-# and the CNPG operator stay in charge of reconciliation.
+# (haven-idp) so the controller and the CNPG operator stay in charge of reconciliation.
 
 image:
   repository: ghcr.io/zyvorai/haven-controller
@@ -29,14 +28,12 @@ console:
       - ReadWriteOnce
   clientSecretRotationDays: 90
 
-# Which identity backend the console talks to. See internal/render/IDP_CONTRACT.md.
+# The identity server (haven-idp) the console talks to. See internal/render/IDP_CONTRACT.md.
 identity:
-  backend: native            # native | keycloak (keycloak is deprecated, kept for migration)
   # Base URL the console uses to reach the identity server inside the cluster.
-  # Empty = http://<plane.name>-idp.<plane.namespace>.svc:8081 (native) or
-  #         http://<plane.name>-service.<plane.namespace>.svc:8080 (keycloak).
+  # Empty = http://<plane.name>-idp.<plane.namespace>.svc:8081.
   url: ""
-  adminRealm: platform       # realm whose tokens may call the admin API (native)
+  adminRealm: platform       # realm whose tokens may call the admin API
   # Secret holding the admin client secret; created by the controller (never by this chart).
   # Empty name = <plane.name>-idp.
   adminClientSecretRef:

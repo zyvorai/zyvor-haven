@@ -26,7 +26,7 @@ func (a *api) status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, idp.Status{
-		Connected: true, Version: a.cfg.Version, RealmCount: len(rs), KeycloakURL: a.base,
+		Connected: true, Version: a.cfg.Version, RealmCount: len(rs), IdentityServerURL: a.base,
 	})
 }
 

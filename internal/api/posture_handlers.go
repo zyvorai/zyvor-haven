@@ -4,11 +4,11 @@
 package api
 
 import (
+	"github.com/zyvorai/haven/internal/idp"
 	"net/http"
 	"strings"
 
 	"github.com/zyvorai/haven/internal/idmodel"
-	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/posture"
 )
 
@@ -30,21 +30,21 @@ func (s *Server) SecurityPostureSARIF(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) buildSecurityPosture(w http.ResponseWriter, r *http.Request) (posture.Report, bool) {
-	kc := s.kc()
+	kc := s.provider()
 	if kc == nil {
-		writeKCError(w, http.StatusServiceUnavailable, "Keycloak is not connected", nil)
+		writeError(w, http.StatusServiceUnavailable, "Keycloak is not connected", nil)
 		return posture.Report{}, false
 	}
 
 	realms, err := kc.ListRealms(r.Context())
 	if err != nil {
-		writeKCError(w, http.StatusBadGateway, "failed to list realms: "+err.Error(), nil)
+		writeError(w, http.StatusBadGateway, "failed to list realms: "+err.Error(), nil)
 		return posture.Report{}, false
 	}
 
 	wanted := strings.TrimSpace(r.URL.Query().Get("realm"))
 	includeMaster := r.URL.Query().Get("includeMaster") == "1" || strings.EqualFold(r.URL.Query().Get("includeMaster"), "true")
-	selected := make([]keycloak.Realm, 0, len(realms))
+	selected := make([]idp.Realm, 0, len(realms))
 	clients := map[string][]idmodel.Client{}
 
 	for _, realm := range realms {
@@ -56,7 +56,7 @@ func (s *Server) buildSecurityPosture(w http.ResponseWriter, r *http.Request) (p
 		}
 		items, err := kc.ListClients(r.Context(), realm.Realm)
 		if err != nil {
-			writeKCError(w, http.StatusBadGateway, "failed to list clients for realm "+realm.Realm+": "+err.Error(), nil)
+			writeError(w, http.StatusBadGateway, "failed to list clients for realm "+realm.Realm+": "+err.Error(), nil)
 			return posture.Report{}, false
 		}
 		selected = append(selected, realm)
@@ -64,7 +64,7 @@ func (s *Server) buildSecurityPosture(w http.ResponseWriter, r *http.Request) (p
 	}
 
 	if wanted != "" && len(selected) == 0 {
-		writeKCError(w, http.StatusNotFound, "realm not found: "+wanted, nil)
+		writeError(w, http.StatusNotFound, "realm not found: "+wanted, nil)
 		return posture.Report{}, false
 	}
 

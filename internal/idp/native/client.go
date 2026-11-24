@@ -218,9 +218,9 @@ func list[T any](ctx context.Context, c *Client, path string) ([]T, error) {
 func (c *Client) Status(ctx context.Context) (*idp.Status, error) {
 	var st idp.Status
 	if err := c.call(ctx, http.MethodGet, "/status", nil, &st); err != nil {
-		return &idp.Status{Connected: false, KeycloakURL: c.baseURL}, nil
+		return &idp.Status{Connected: false, IdentityServerURL: c.baseURL}, nil
 	}
-	st.KeycloakURL = c.baseURL
+	st.IdentityServerURL = c.baseURL
 	return &st, nil
 }
 

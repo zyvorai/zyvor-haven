@@ -4,13 +4,13 @@
 package accessreview
 
 import (
+	"github.com/zyvorai/haven/internal/idp"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/zyvorai/haven/internal/identityops"
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 func TestIsPrivileged(t *testing.T) {
@@ -31,7 +31,7 @@ func TestIsPrivileged(t *testing.T) {
 func snapshot() identityops.RealmSnapshot {
 	return identityops.RealmSnapshot{
 		ID: "snap1", Realm: "acme",
-		Users: []keycloak.User{
+		Users: []idp.User{
 			{Username: "alice", Enabled: true, EmailVerified: true},
 			{Username: "bob", Enabled: true, EmailVerified: false},
 			{Username: "carol", Enabled: false, EmailVerified: true},
@@ -102,7 +102,7 @@ func TestAnalyze(t *testing.T) {
 }
 
 func TestAnalyzeBreakGlassWarnings(t *testing.T) {
-	s := identityops.RealmSnapshot{Realm: "r", Users: []keycloak.User{{Username: "emergency-a", Enabled: false}}}
+	s := identityops.RealmSnapshot{Realm: "r", Users: []idp.User{{Username: "emergency-a", Enabled: false}}}
 	rep, err := Analyze(s, Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestAnalyzeHostileOptions(t *testing.T) {
 			t.Errorf("%s accepted", name)
 		}
 	}
-	big := identityops.RealmSnapshot{Realm: "r", Users: make([]keycloak.User, MaxUsers+1)}
+	big := identityops.RealmSnapshot{Realm: "r", Users: make([]idp.User, MaxUsers+1)}
 	if _, err := Analyze(big, Options{}); err == nil {
 		t.Error("oversize realm accepted")
 	}

@@ -4,21 +4,21 @@
 package posture
 
 import (
+	"github.com/zyvorai/haven/internal/idp"
 	"testing"
 
 	"github.com/zyvorai/haven/internal/idmodel"
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 func TestEvaluateDetectsOIDCRisks(t *testing.T) {
-	realms := []keycloak.Realm{{
+	realms := []idp.Realm{{
 		Realm:               "prod",
 		Enabled:             true,
 		RegistrationAllowed: true,
 		VerifyEmail:         false,
 		BruteForceProtected: false,
 	}}
-	clients := map[string][]keycloak.Client{
+	clients := map[string][]idp.Client{
 		"prod": {{
 			ClientID:                  "web",
 			Enabled:                   true,
@@ -56,8 +56,8 @@ func TestEvaluateDetectsOIDCRisks(t *testing.T) {
 }
 
 func TestSafePublicClientScoresClean(t *testing.T) {
-	realms := []keycloak.Realm{{Realm: "prod", Enabled: true, VerifyEmail: true, BruteForceProtected: true}}
-	clients := map[string][]keycloak.Client{
+	realms := []idp.Realm{{Realm: "prod", Enabled: true, VerifyEmail: true, BruteForceProtected: true}}
+	clients := map[string][]idp.Client{
 		"prod": {{
 			ClientID:            "web",
 			Enabled:             true,
@@ -76,7 +76,7 @@ func TestSafePublicClientScoresClean(t *testing.T) {
 }
 
 func TestLoopbackHTTPRedirectAllowed(t *testing.T) {
-	c := keycloak.Client{
+	c := idp.Client{
 		ClientID:            "native",
 		Enabled:             true,
 		PublicClient:        true,
@@ -94,21 +94,21 @@ func TestLoopbackHTTPRedirectAllowed(t *testing.T) {
 }
 
 func TestFingerprintStableAcrossOrdering(t *testing.T) {
-	r := keycloak.Realm{Realm: "prod", Enabled: true, BruteForceProtected: true}
-	one := keycloak.Client{ClientID: "a", Enabled: true, RedirectURIs: []string{"https://x/b", "https://x/a"}}
-	two := keycloak.Client{ClientID: "b", Enabled: true}
-	a := evalKC([]keycloak.Realm{r}, map[string][]keycloak.Client{"prod": {one, two}}, Options{})
+	r := idp.Realm{Realm: "prod", Enabled: true, BruteForceProtected: true}
+	one := idp.Client{ClientID: "a", Enabled: true, RedirectURIs: []string{"https://x/b", "https://x/a"}}
+	two := idp.Client{ClientID: "b", Enabled: true}
+	a := evalKC([]idp.Realm{r}, map[string][]idp.Client{"prod": {one, two}}, Options{})
 	one.RedirectURIs = []string{"https://x/a", "https://x/b"}
-	b := evalKC([]keycloak.Realm{r}, map[string][]keycloak.Client{"prod": {two, one}}, Options{})
+	b := evalKC([]idp.Realm{r}, map[string][]idp.Client{"prod": {two, one}}, Options{})
 	if a.Fingerprint != b.Fingerprint {
 		t.Fatalf("fingerprint must be order-independent: %s != %s", a.Fingerprint, b.Fingerprint)
 	}
 }
 
 func TestBaselineDrift(t *testing.T) {
-	realms := []keycloak.Realm{{Realm: "prod", Enabled: true, BruteForceProtected: true}}
-	base := evalKC(realms, map[string][]keycloak.Client{"prod": nil}, Options{})
-	changed := evalKC(realms, map[string][]keycloak.Client{"prod": {{ClientID: "new-client", Enabled: true}}}, Options{Baseline: base.Fingerprint})
+	realms := []idp.Realm{{Realm: "prod", Enabled: true, BruteForceProtected: true}}
+	base := evalKC(realms, map[string][]idp.Client{"prod": nil}, Options{})
+	changed := evalKC(realms, map[string][]idp.Client{"prod": {{ClientID: "new-client", Enabled: true}}}, Options{Baseline: base.Fingerprint})
 	if !changed.Drifted {
 		t.Fatal("expected drift after client inventory changed")
 	}

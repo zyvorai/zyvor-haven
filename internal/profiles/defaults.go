@@ -11,40 +11,32 @@ import (
 
 type Defaults struct {
 	DBInstances    int
-	KCInstances    int
 	Storage        string
 	NetworkPolicy  bool
 	BackupRequired bool
-	PoolSize       int
 	IdPReplicas    int
 }
 
 var table = map[v1alpha1.PlaneProfile]Defaults{
 	v1alpha1.ProfileDev: {
 		DBInstances:    1,
-		KCInstances:    1,
 		Storage:        "8Gi",
 		NetworkPolicy:  false,
 		BackupRequired: false,
-		PoolSize:       8,
 		IdPReplicas:    1,
 	},
 	v1alpha1.ProfileStaging: {
 		DBInstances:    2,
-		KCInstances:    2,
 		Storage:        "20Gi",
 		NetworkPolicy:  true,
 		BackupRequired: true,
-		PoolSize:       16,
 		IdPReplicas:    2,
 	},
 	v1alpha1.ProfileProduction: {
 		DBInstances:    3,
-		KCInstances:    3,
 		Storage:        "50Gi",
 		NetworkPolicy:  true,
 		BackupRequired: true,
-		PoolSize:       30,
 		IdPReplicas:    3,
 	},
 }
@@ -91,9 +83,6 @@ func Merge(spec *v1alpha1.IdentityPlaneSpec) v1alpha1.IdentityPlaneSpec {
 	}
 	if out.Database.Vendor == "" {
 		out.Database.Vendor = "postgres"
-	}
-	if out.Keycloak.Instances == 0 {
-		out.Keycloak.Instances = d.KCInstances
 	}
 	if out.IdP.Replicas == 0 {
 		out.IdP.Replicas = d.IdPReplicas

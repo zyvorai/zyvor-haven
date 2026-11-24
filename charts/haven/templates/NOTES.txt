@@ -1,8 +1,8 @@
 Haven {{ .Chart.Version }} installed in {{ .Release.Namespace }}.
 
 This chart ships RBAC (and optional controller/console Deployments).
-The identity server (haven-idp, or deprecated Keycloak) and PostgreSQL come from IdentityPlane
-CRs, not from this chart. Identity backend for the console: {{ .Values.identity.backend }}.
+The identity server (haven-idp) and PostgreSQL come from IdentityPlane
+CRs, not from this chart. The console talks to haven-idp.
 
 Images:
 

@@ -36,7 +36,7 @@ type env struct {
 	writes []string
 }
 
-func newEnv(t *testing.T, hasKC bool, objs ...client.Object) *env {
+func newEnv(t *testing.T, objs ...client.Object) *env {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
@@ -74,11 +74,7 @@ func newEnv(t *testing.T, hasKC bool, objs ...client.Object) *env {
 			},
 		}).Build()
 	yes, no := true, false
-	kc := &no
-	if hasKC {
-		kc = &yes
-	}
-	e.r = &IdentityPlaneReconciler{Client: e.c, Scheme: scheme, cnpgOK: &yes, kcOK: kc, certOK: &no}
+	e.r = &IdentityPlaneReconciler{Client: e.c, Scheme: scheme, cnpgOK: &yes, certOK: &no}
 	return e
 }
 
@@ -166,55 +162,10 @@ func cond(p *havenv1.IdentityPlane, typ string) *metav1.Condition {
 	return nil
 }
 
-func TestResolveEngineTable(t *testing.T) {
-	owned := func(kind string) *unstructured.Unstructured {
-		u := &unstructured.Unstructured{}
-		u.SetGroupVersionKind(kcGVK)
-		if kind == "cnpg" {
-			u.SetGroupVersionKind(cnpgGVK)
-			u.SetName("platform-db")
-			_ = unstructured.SetNestedField(u.Object, "keycloak", "spec", "bootstrap", "initdb", "owner")
-		} else {
-			u.SetName("platform")
-		}
-		u.SetNamespace(testNS)
-		u.SetOwnerReferences([]metav1.OwnerReference{{
-			APIVersion: havenv1.GroupVersion.String(), Kind: "IdentityPlane", Name: "platform", UID: "uid-1", Controller: ptr(true),
-		}})
-		return u
-	}
-	foreign := owned("kc")
-	foreign.SetOwnerReferences(nil)
-
-	cases := []struct {
-		name  string
-		hasKC bool
-		spec  havenv1.PlaneEngine
-		objs  []client.Object
-		want  havenv1.PlaneEngine
-	}{
-		{"fresh plane is native", true, "", nil, havenv1.EngineNative},
-		{"explicit keycloak wins", false, havenv1.EngineKeycloak, nil, havenv1.EngineKeycloak},
-		{"explicit native wins over existing CR", true, havenv1.EngineNative, []client.Object{owned("kc")}, havenv1.EngineNative},
-		{"owned keycloak CR keeps keycloak", true, "", []client.Object{owned("kc")}, havenv1.EngineKeycloak},
-		{"keycloak CR not owned by the plane is ignored", true, "", []client.Object{foreign}, havenv1.EngineNative},
-		{"keycloak operator absent but keycloak-bootstrapped DB keeps keycloak", false, "", []client.Object{owned("cnpg")}, havenv1.EngineKeycloak},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			e := newEnv(t, tc.hasKC, tc.objs...)
-			got, err := e.r.resolveEngine(context.Background(), plane(func(p *havenv1.IdentityPlane) { p.Spec.Engine = tc.spec }))
-			if err != nil || got != tc.want {
-				t.Fatalf("got %q err %v, want %q", got, err, tc.want)
-			}
-		})
-	}
-}
-
 func ptr[T any](v T) *T { return &v }
 
 func TestNewPlaneCreatesExactlyTheNativeObjects(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 
 	want := []string{
@@ -266,12 +217,6 @@ func TestNewPlaneCreatesExactlyTheNativeObjects(t *testing.T) {
 	if e.plane().Status.Endpoints.IdP != "https://id.example.com" {
 		t.Fatalf("endpoints %+v", e.plane().Status.Endpoints)
 	}
-	// No keycloak objects.
-	var kc unstructured.Unstructured
-	kc.SetGroupVersionKind(kcGVK)
-	if err := e.get(&kc, "platform"); err == nil {
-		t.Fatal("keycloak CR must not exist for a native plane")
-	}
 }
 
 func normalise(in []string) []string {
@@ -298,7 +243,7 @@ func sameSet(a, b []string) bool {
 }
 
 func TestSecondReconcileIsANoOp(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	e.cnpgHealthy()
 	e.setReady(2)
@@ -331,42 +276,8 @@ func TestSecondReconcileIsANoOp(t *testing.T) {
 	}
 }
 
-func TestExistingKeycloakPlaneStaysOnKeycloak(t *testing.T) {
-	kc := &unstructured.Unstructured{}
-	kc.SetGroupVersionKind(kcGVK)
-	kc.SetName("platform")
-	kc.SetNamespace(testNS)
-	kc.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion: havenv1.GroupVersion.String(), Kind: "IdentityPlane", Name: "platform", UID: "uid-1", Controller: ptr(true),
-	}})
-	e := newEnv(t, true, plane(nil), kc)
-	e.reconcile()
-
-	var d appsv1.Deployment
-	if err := e.get(&d, "platform-idp"); !errors.IsNotFound(err) {
-		t.Fatalf("no native deployment expected, err=%v", err)
-	}
-	var sec corev1.Secret
-	e.mustGet(&sec, "platform-db-app")
-	if string(sec.Data["username"]) != "" { // stringData is untouched by the fake client
-		t.Fatal("unexpected data")
-	}
-	var db unstructured.Unstructured
-	db.SetGroupVersionKind(cnpgGVK)
-	e.mustGet(&db, "platform-db")
-	if owner, _, _ := unstructured.NestedString(db.Object, "spec", "bootstrap", "initdb", "owner"); owner != "keycloak" {
-		t.Fatalf("owner %q", owner)
-	}
-	var kdb corev1.Secret
-	e.mustGet(&kdb, "platform-keycloak-db")
-	p := e.plane()
-	if p.Status.Endpoints.Keycloak == "" || p.Status.Endpoints.IdP != "" || cond(p, "KeycloakReady") == nil || cond(p, "IdentityProviderReady") != nil {
-		t.Fatalf("keycloak projection changed: %+v", p.Status)
-	}
-}
-
 func TestMissingIdPSecretKeyIsAddedWithoutTouchingOthers(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	var s corev1.Secret
 	e.mustGet(&s, "platform-idp")
@@ -390,7 +301,7 @@ func TestMissingIdPSecretKeyIsAddedWithoutTouchingOthers(t *testing.T) {
 // without any other value changing, and the generated key must be one haven-idp
 // accepts (an unparseable HAVEN_IDP_SECRET_KEY stops the pod from starting).
 func TestSecretKeyIsAddedToAnOlderPlaneSecret(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	var s corev1.Secret
 	e.mustGet(&s, "platform-idp")
@@ -439,7 +350,7 @@ func TestSecretKeyIsAddedToAnOlderPlaneSecret(t *testing.T) {
 }
 
 func TestReplicasChangeRollsAndManagesPDB(t *testing.T) {
-	e := newEnv(t, false, plane(func(p *havenv1.IdentityPlane) { p.Spec.Profile = havenv1.ProfileDev }))
+	e := newEnv(t, plane(func(p *havenv1.IdentityPlane) { p.Spec.Profile = havenv1.ProfileDev }))
 	e.reconcile()
 	var pdb policyv1.PodDisruptionBudget
 	if err := e.get(&pdb, "platform-idp"); !errors.IsNotFound(err) {
@@ -475,7 +386,7 @@ func TestReplicasChangeRollsAndManagesPDB(t *testing.T) {
 }
 
 func TestUnsetReplicasLeavesOtherWritersAlone(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	d := e.deploy()
 	d.Spec.Replicas = ptr(int32(5)) // an HPA
@@ -489,7 +400,7 @@ func TestUnsetReplicasLeavesOtherWritersAlone(t *testing.T) {
 }
 
 func TestConfigChangeRollsPods(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	h1 := e.deploy().Spec.Template.Annotations[render.AnnotationConfigHash]
 	e.setSpec(func(p *havenv1.IdentityPlane) { p.Spec.Hostname = "new.example.com" })
@@ -500,7 +411,7 @@ func TestConfigChangeRollsPods(t *testing.T) {
 }
 
 func TestSuspendScalesToZeroAndResumes(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	e.setSpec(func(p *havenv1.IdentityPlane) { p.Spec.Suspend = true })
 	e.reconcile()
@@ -519,7 +430,7 @@ func TestSuspendScalesToZeroAndResumes(t *testing.T) {
 }
 
 func TestStatusZeroOfNThenNofN(t *testing.T) {
-	e := newEnv(t, false, plane(func(p *havenv1.IdentityPlane) { p.Spec.IdP.Replicas = 3 }))
+	e := newEnv(t, plane(func(p *havenv1.IdentityPlane) { p.Spec.IdP.Replicas = 3 }))
 	e.reconcile()
 	if p := e.plane(); p.Status.Phase != havenv1.PhaseProvisioningDatabase || cond(p, "IdentityProviderReady").Reason != "DatabaseNotReady" {
 		t.Fatalf("db not ready yet: %s %+v", p.Status.Phase, cond(p, "IdentityProviderReady"))
@@ -565,7 +476,7 @@ func TestStatusZeroOfNThenNofN(t *testing.T) {
 }
 
 func TestNativeRequiresCNPG(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	no := false
 	e.r.cnpgOK = &no
 	e.reconcile()
@@ -580,7 +491,7 @@ func TestNativeRequiresCNPG(t *testing.T) {
 }
 
 func TestNoSecretValuesInEnvLiterals(t *testing.T) {
-	e := newEnv(t, false, plane(nil))
+	e := newEnv(t, plane(nil))
 	e.reconcile()
 	var s, db corev1.Secret
 	e.mustGet(&s, "platform-idp")

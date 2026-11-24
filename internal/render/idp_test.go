@@ -21,7 +21,6 @@ func testPlane(profile v1alpha1.PlaneProfile) *v1alpha1.IdentityPlane {
 	return &v1alpha1.IdentityPlane{
 		ObjectMeta: metav1.ObjectMeta{Name: "platform", Namespace: "identity"},
 		Spec: v1alpha1.IdentityPlaneSpec{
-			Engine:   v1alpha1.EngineNative,
 			Profile:  profile,
 			Hostname: "id.example.com",
 		},
@@ -184,34 +183,20 @@ func TestIdPSecretsAndDSN(t *testing.T) {
 	}
 }
 
-func TestEngineDependentDatabaseAndEndpoints(t *testing.T) {
+func TestDatabaseAndEndpoints(t *testing.T) {
 	n := testPlane(v1alpha1.ProfileDev)
-	k := testPlane(v1alpha1.ProfileDev)
-	k.Spec.Engine = v1alpha1.EngineKeycloak
 
-	nested := func(p *v1alpha1.IdentityPlane) (string, string) {
-		init := CNPGCluster(p).Object["spec"].(map[string]interface{})["bootstrap"].(map[string]interface{})["initdb"].(map[string]interface{})
-		return init["database"].(string), init["owner"].(string)
-	}
-	if d, o := nested(n); d != "haven_idp" || o != "haven_idp" {
-		t.Fatalf("native cnpg: %s %s", d, o)
-	}
-	if d, o := nested(k); d != "keycloak" || o != "keycloak" {
-		t.Fatalf("keycloak cnpg: %s %s", d, o)
+	init := CNPGCluster(n).Object["spec"].(map[string]interface{})["bootstrap"].(map[string]interface{})["initdb"].(map[string]interface{})
+	if d, o := init["database"].(string), init["owner"].(string); d != "haven_idp" || o != "haven_idp" {
+		t.Fatalf("cnpg: %s %s", d, o)
 	}
 	if u := DBAppSecret(n, "x").Object["stringData"].(map[string]interface{})["username"]; u != "haven_idp" {
-		t.Fatalf("native app secret user %v", u)
-	}
-	if u := DBAppSecret(k, "x").Object["stringData"].(map[string]interface{})["username"]; u != "keycloak" {
-		t.Fatalf("keycloak app secret user %v", u)
+		t.Fatalf("app secret user %v", u)
 	}
 	e := Endpoints(n)
 	if e.IdP != "https://id.example.com" || e.Issuer != "https://id.example.com/realms/platform" ||
-		e.Console != "https://haven.id.example.com" || e.Account != "" || e.Admin != "" || e.Keycloak != "" {
-		t.Fatalf("native endpoints: %+v", e)
-	}
-	if ke := Endpoints(k); ke.Keycloak == "" || ke.Account == "" || ke.Admin == "" || ke.IdP != "" {
-		t.Fatalf("keycloak endpoints: %+v", ke)
+		e.Console != "https://haven.id.example.com" {
+		t.Fatalf("endpoints: %+v", e)
 	}
 }
 

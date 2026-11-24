@@ -461,11 +461,6 @@ func TestDevOverlay(t *testing.T) {
 	objs := run(t, "kubectl", "kustomize", "deploy/overlays/dev")
 	checkCommon(t, objs, true, nil)
 	checkIdpDeployment(t, objs, "platform", false)
-	for _, o := range objs {
-		if o.kind() == "Deployment" && strings.Contains(o.name(), "keycloak") {
-			t.Error("dev overlay must not deploy Keycloak")
-		}
-	}
 	// The CNPG bootstrap secret and the idp DSN must agree on the role.
 	var dsn, owner string
 	for _, o := range objs {
@@ -518,7 +513,6 @@ func TestChart(t *testing.T) {
 	}{
 		{"default", nil, false, false},
 		{"native-workloads", []string{"--set", "controller.enabled=true", "--set", "console.enabled=true"}, false, false},
-		{"keycloak", []string{"--set", "identity.backend=keycloak", "--set", "console.enabled=true", "--set", "controller.enabled=true"}, false, false},
 		{"idp", []string{"--set", "idp.enabled=true", "--set", "idp.baseUrl=https://auth.example.com", "--set", "console.enabled=true"}, true, false},
 		{"idp-ha-monitoring", []string{"--set", "idp.enabled=true", "--set", "idp.baseUrl=https://auth.example.com", "--set", "idp.replicas=3", "--set", "observability.serviceMonitor=true"}, true, true},
 	}
@@ -559,10 +553,6 @@ func TestChartConsoleBackendEnv(t *testing.T) {
 		if !native[n] {
 			t.Errorf("native console missing env %s", n)
 		}
-	}
-	kc := envOf(run(t, "helm", "template", "haven", "charts/haven", "--set", "console.enabled=true", "--set", "identity.backend=keycloak"))
-	if !kc["KEYCLOAK_URL"] || kc["HAVEN_IDP_BACKEND"] {
-		t.Errorf("keycloak backend env wrong: %v", kc)
 	}
 }
 
@@ -648,7 +638,7 @@ func clusterRoleRules(objs []obj, name string) []any {
 	return rules
 }
 
-func TestControllerRBACCoversNativeEngine(t *testing.T) {
+func TestControllerRBACCoversIdPWorkloads(t *testing.T) {
 	chart := clusterRoleRules(run(t, "helm", "template", "haven", "charts/haven"), "haven-controller")
 	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "deploy", "k8s", "controller", "deployment.yaml"))
 	if err != nil {
@@ -672,7 +662,7 @@ func TestControllerRBACCoversNativeEngine(t *testing.T) {
 	}
 }
 
-// The sample planes use the new spec.engine / spec.idp fields: they must decode
+// The sample planes use the spec.idp fields: they must decode
 // strictly into the Go API type and be declared by the CRD schema, so the two
 // agents' halves (API + CRD vs samples) cannot drift.
 func TestSamplesMatchAPIAndCRD(t *testing.T) {
@@ -694,9 +684,10 @@ func TestSamplesMatchAPIAndCRD(t *testing.T) {
 	if specProps == nil {
 		t.Fatal("CRD has no spec schema")
 	}
-	engine := m(specProps["engine"])
-	if fmt.Sprint(engine["enum"]) != "[native keycloak]" {
-		t.Errorf("CRD engine enum = %v, want [native keycloak]", engine["enum"])
+	for _, gone := range []string{"engine", "keycloak"} {
+		if _, ok := specProps[gone]; ok {
+			t.Errorf("CRD still declares the removed spec.%s field", gone)
+		}
 	}
 	idp := m(specProps["idp"])
 	if str(idp["type"]) != "object" {
@@ -727,9 +718,6 @@ func TestSamplesMatchAPIAndCRD(t *testing.T) {
 		if err := yaml.UnmarshalStrict(planeDoc, &plane); err != nil {
 			t.Errorf("%s does not decode strictly into the API type: %v", f, err)
 			continue
-		}
-		if plane.Spec.Engine != "native" {
-			t.Errorf("%s: engine = %q, want native", f, plane.Spec.Engine)
 		}
 	}
 }

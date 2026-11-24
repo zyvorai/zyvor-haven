@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/zyvorai/haven/internal/idp"
 	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/zyvorai/haven/internal/idmodel"
-	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/policy"
 	"github.com/zyvorai/haven/internal/posture"
 )
@@ -22,8 +22,8 @@ import (
 const maxInputBytes = 64 << 20
 
 type realmExport struct {
-	keycloak.Realm
-	Clients []keycloak.Client `json:"clients"`
+	idp.Realm
+	Clients []idp.Client `json:"clients"`
 }
 
 func main() {
@@ -87,7 +87,7 @@ func run(args []string, stdin io.Reader, stdout io.Writer) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	realms := make([]keycloak.Realm, 0, len(exports))
+	realms := make([]idp.Realm, 0, len(exports))
 	clients := make(map[string][]idmodel.Client, len(exports))
 	for _, item := range exports {
 		realms = append(realms, item.Realm)

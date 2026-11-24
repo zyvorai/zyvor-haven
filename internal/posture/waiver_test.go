@@ -4,31 +4,30 @@
 package posture
 
 import (
+	"github.com/zyvorai/haven/internal/idp"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 var waiverNow = time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)
 
 func waiverReport() Report {
-	realm := keycloak.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true,
-		RealmHardening: &keycloak.RealmHardening{SSLRequired: sp("none"), EventsEnabled: bp(false)}}
-	clients := []keycloak.Client{{ClientID: "app", Enabled: true, StandardFlowEnabled: true, RedirectURIs: []string{"*"}}}
-	return evalKC([]keycloak.Realm{realm}, map[string][]keycloak.Client{"r": clients}, Options{})
+	realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true,
+		RealmHardening: &idp.RealmHardening{SSLRequired: sp("none"), EventsEnabled: bp(false)}}
+	clients := []idp.Client{{ClientID: "app", Enabled: true, StandardFlowEnabled: true, RedirectURIs: []string{"*"}}}
+	return evalKC([]idp.Realm{realm}, map[string][]idp.Client{"r": clients}, Options{})
 }
 
 func TestNewHardeningRules022And023(t *testing.T) {
-	h := &keycloak.RealmHardening{SSOSessionMaxLifespan: ip(31 * 86400), OfflineSessionIdleTimeout: ip(91 * 86400)}
-	realm := keycloak.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: h}
-	ids := ruleIDs(evalKC([]keycloak.Realm{realm}, nil, Options{}))
+	h := &idp.RealmHardening{SSOSessionMaxLifespan: ip(31 * 86400), OfflineSessionIdleTimeout: ip(91 * 86400)}
+	realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: h}
+	ids := ruleIDs(evalKC([]idp.Realm{realm}, nil, Options{}))
 	if !ids["HAVEN022"] || !ids["HAVEN023"] {
 		t.Fatalf("want 022 and 023, got %v", ids)
 	}
 	h.SSOSessionMaxLifespan, h.OfflineSessionIdleTimeout = ip(30*86400), ip(90*86400)
-	ids = ruleIDs(evalKC([]keycloak.Realm{realm}, nil, Options{}))
+	ids = ruleIDs(evalKC([]idp.Realm{realm}, nil, Options{}))
 	if ids["HAVEN022"] || ids["HAVEN023"] {
 		t.Fatalf("boundary values must pass, got %v", ids)
 	}

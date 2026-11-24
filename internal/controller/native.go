@@ -24,49 +24,12 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-// resolveEngine implements the engine selection in render/IDP_CONTRACT.md: an
-// explicit spec.engine wins; otherwise a plane that already owns a Keycloak CR
-// (or a CNPG cluster bootstrapped for Keycloak) stays on keycloak so it is
-// never switched silently; everything else is native.
-func (r *IdentityPlaneReconciler) resolveEngine(ctx context.Context, plane *havenv1.IdentityPlane) (havenv1.PlaneEngine, error) {
-	if plane.Spec.Engine != "" {
-		return plane.Spec.Engine, nil
-	}
-	if r.hasGVK(kcGVK) {
-		var kc unstructured.Unstructured
-		kc.SetGroupVersionKind(kcGVK)
-		err := r.Get(ctx, types.NamespacedName{Name: render.KeycloakName(plane.Name), Namespace: plane.Namespace}, &kc)
-		if err == nil && metav1.IsControlledBy(&kc, plane) {
-			return havenv1.EngineKeycloak, nil
-		}
-		if err != nil && !errors.IsNotFound(err) {
-			return "", err
-		}
-	}
-	if r.hasGVK(cnpgGVK) {
-		var db unstructured.Unstructured
-		db.SetGroupVersionKind(cnpgGVK)
-		err := r.Get(ctx, types.NamespacedName{Name: render.DBClusterName(plane.Name), Namespace: plane.Namespace}, &db)
-		if err == nil && metav1.IsControlledBy(&db, plane) {
-			owner, _, _ := unstructured.NestedString(db.Object, "spec", "bootstrap", "initdb", "owner")
-			if owner == "keycloak" {
-				return havenv1.EngineKeycloak, nil
-			}
-		}
-		if err != nil && !errors.IsNotFound(err) {
-			return "", err
-		}
-	}
-	return havenv1.EngineNative, nil
-}
 
 func (r *IdentityPlaneReconciler) idpDefaultImage() string {
 	if r.IdPImage != "" {
@@ -85,7 +48,6 @@ func (r *IdentityPlaneReconciler) reader() client.Reader {
 func (r *IdentityPlaneReconciler) reconcileNative(ctx context.Context, orig *havenv1.IdentityPlane, hasCNPG, hasCert bool) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	plane := orig.DeepCopy()
-	plane.Spec.Engine = havenv1.EngineNative
 	spec := profiles.Merge(&plane.Spec)
 
 	var reconcileErr error
@@ -294,7 +256,6 @@ func (r *IdentityPlaneReconciler) projectNativeStatus(
 ) havenv1.IdentityPlaneStatus {
 	st := orig.Status
 	st.Conditions = nil
-	st.Keycloak = havenv1.KeycloakStatus{}
 
 	if !hasCNPG {
 		st.Phase = havenv1.PhaseProvisioningDatabase

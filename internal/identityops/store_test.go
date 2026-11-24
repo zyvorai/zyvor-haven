@@ -4,22 +4,21 @@
 package identityops
 
 import (
+	"github.com/zyvorai/haven/internal/idp"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 func sampleSnapshot() RealmSnapshot {
 	return RealmSnapshot{
 		Realm:             "platform",
-		RealmConfig:       keycloak.Realm{Realm: "platform", Enabled: true},
-		Clients:           []keycloak.Client{{ClientID: "grafana", Enabled: true}, {ClientID: "kubernetes", Enabled: true}},
-		Users:             []keycloak.User{{Username: "alice", Enabled: true}},
-		Roles:             []keycloak.Role{{Name: "admin"}, {Name: "viewer"}},
-		Groups:            []keycloak.Group{{Name: "engineering", Path: "/engineering"}},
-		IdentityProviders: []keycloak.IdentityProvider{{Alias: "entra", ProviderID: "oidc", Enabled: true}},
+		RealmConfig:       idp.Realm{Realm: "platform", Enabled: true},
+		Clients:           []idp.Client{{ClientID: "grafana", Enabled: true}, {ClientID: "kubernetes", Enabled: true}},
+		Users:             []idp.User{{Username: "alice", Enabled: true}},
+		Roles:             []idp.Role{{Name: "admin"}, {Name: "viewer"}},
+		Groups:            []idp.Group{{Name: "engineering", Path: "/engineering"}},
+		IdentityProviders: []idp.IdentityProvider{{Alias: "entra", ProviderID: "oidc", Enabled: true}},
 	}
 }
 
@@ -95,7 +94,7 @@ func TestDiff(t *testing.T) {
 	before := sampleSnapshot()
 	before.ID = "snap-1"
 	after := sampleSnapshot()
-	after.Clients = append(after.Clients, keycloak.Client{ClientID: "argocd", Enabled: true})
+	after.Clients = append(after.Clients, idp.Client{ClientID: "argocd", Enabled: true})
 	after.Users = nil
 	before.UserAccess = []UserAccess{{Username: "alice", RealmRoles: []string{"admin"}}}
 	after.UserAccess = []UserAccess{{Username: "alice", RealmRoles: []string{"viewer"}}}

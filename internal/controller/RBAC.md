@@ -1,9 +1,9 @@
-# Controller RBAC required by the native engine
+# Controller RBAC required by haven-idp planes
 
 Add to the controller ClusterRole (`charts/haven/templates/rbac.yaml` and
 `deploy/k8s/controller/deployment.yaml`). Existing rules (identityplanes and
 status/finalizers, namespaces get/patch, secrets, CNPG clusters/backups,
-cert-manager certificates, Keycloak CRs) stay as they are.
+cert-manager certificates) stay as they are.
 
 ```yaml
 # Deployments, owned and watched (Owns)

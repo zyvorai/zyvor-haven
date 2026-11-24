@@ -86,13 +86,13 @@ This is stricter than the Admin API itself, which also accepts custom schemes
 | `plane`, `realm`, `clientId` | What was actually created. Used to detect edits of immutable fields. |
 
 Condition reasons: `Synced`, `InvalidSpec`, `PlaneNotFound`, `PlaneNotAllowed`,
-`PlaneNotNative`, `PlaneNotReady`, `PlaneUnreachable`, `RealmNotFound`, `ClientExists`,
+`PlaneNotReady`, `PlaneUnreachable`, `RealmNotFound`, `ClientExists`,
 `SecretNotOwned`, `ImmutableFieldChanged`, `BackendError`, `Deleting`.
 
 Retry behaviour: `InvalidSpec`, `PlaneNotAllowed`, `ImmutableFieldChanged` do not requeue
 (only editing the object fixes them, and that triggers a reconcile), so a bad spec never
 hot-loops. `PlaneNotFound`, `PlaneNotReady`, `PlaneUnreachable`, `RealmNotFound` retry every
-20 to 30 seconds. `ClientExists`, `SecretNotOwned` and `PlaneNotNative` re-check every five
+20 to 30 seconds. `ClientExists` and `SecretNotOwned` re-check every five
 minutes. A healthy object is re-checked every five minutes for [drift](#drift).
 
 ## How it reconciles
@@ -286,7 +286,6 @@ admin secret are read cluster-wide, as for the rest of the controller.
   by unit tests and a test against the real `haven-idp`; see [deploy-native.md](deploy-native.md)
   for the in-cluster run. The CRD has no CEL immutability rules (the controller enforces
   immutability instead, reporting `ImmutableFieldChanged`).
-- Native planes only: a plane that does not run `haven-idp` gets `PlaneNotNative`.
 - Redirects: https or loopback http only. No custom-scheme (native app) redirects, no
   wildcards, by design.
 - Flows: authorization code (+PKCE) and client credentials. The Admin API rejects the

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/zyvorai/haven/internal/auth"
+	"github.com/zyvorai/haven/internal/idp"
 )
 
 const (
@@ -30,42 +31,29 @@ type oidcDiscovery struct {
 	Userinfo      string `json:"userinfo_endpoint"`
 }
 
-// The issuer layout <url>/realms/<realm> is shared by Keycloak and the native
-// IdP; the OIDC code path needs nothing Keycloak-specific (no /admin, no master realm).
+// The issuer layout is <url>/realms/<realm>; the OIDC code path needs nothing
+// beyond the standard endpoints (no /admin, no master realm).
 func oidcIssuerFrom(baseURL string) string {
 	if v := strings.TrimSpace(os.Getenv("HAVEN_OIDC_ISSUER")); v != "" {
 		return strings.TrimRight(v, "/")
 	}
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if base == "" {
-		base = strings.TrimRight(strings.TrimSpace(os.Getenv("KEYCLOAK_URL")), "/")
-	}
-	if base == "" {
 		return ""
 	}
-	return base + "/realms/" + keycloakBootstrapRealm()
+	return base + "/realms/" + idp.BootstrapRealm()
 }
 
-func keycloakBootstrapRealm() string {
-	if v := strings.TrimSpace(os.Getenv("HAVEN_BOOTSTRAP_REALM")); v != "" {
-		return v
+func (s *Server) liveIdentityServerURL() string {
+	if s.Backend == nil {
+		return ""
 	}
-	return "platform"
-}
-
-func (s *Server) liveKeycloakURL() string {
-	if s.KC == nil {
-		return strings.TrimRight(strings.TrimSpace(os.Getenv("KEYCLOAK_URL")), "/")
-	}
-	url, _ := s.KC.Config()
-	if url != "" {
-		return strings.TrimRight(url, "/")
-	}
-	return strings.TrimRight(strings.TrimSpace(os.Getenv("KEYCLOAK_URL")), "/")
+	url, _ := s.Backend.Config()
+	return strings.TrimRight(url, "/")
 }
 
 func (s *Server) oidcIssuer() string {
-	return oidcIssuerFrom(s.liveKeycloakURL())
+	return oidcIssuerFrom(s.liveIdentityServerURL())
 }
 
 func oidcClientID() string {
@@ -111,7 +99,7 @@ func (s *Server) OIDCLogin(w http.ResponseWriter, r *http.Request) {
 	issuer := s.oidcIssuer()
 	if issuer == "" {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{
-			"error": "OIDC is not configured — connect Keycloak in Settings or set HAVEN_OIDC_ISSUER",
+			"error": "OIDC is not configured — connect the identity server in Settings or set HAVEN_OIDC_ISSUER",
 		})
 		return
 	}
@@ -119,10 +107,10 @@ func (s *Server) OIDCLogin(w http.ResponseWriter, r *http.Request) {
 	base := s.publicBase(r)
 	// Only Provider methods are used here, so this path works for any backend.
 	if c := s.backendClient(); c != nil {
-		realm := keycloakBootstrapRealm()
+		realm := idp.BootstrapRealm()
 		if err := c.EnsureHavenConsoleClient(r.Context(), realm, base); err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{
-				"error": "OIDC client setup failed: " + err.Error() + " — reconnect Keycloak in Settings",
+				"error": "OIDC client setup failed: " + err.Error() + " — reconnect the identity server in Settings",
 			})
 			return
 		}

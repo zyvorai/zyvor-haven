@@ -7,13 +7,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	havenv1 "github.com/zyvorai/haven/api/v1alpha1"
-	"github.com/zyvorai/haven/internal/profiles"
 	"github.com/zyvorai/haven/internal/render"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +32,6 @@ const finalizerName = "identity.haven.dev/finalizer"
 
 var (
 	cnpgGVK = schema.GroupVersionKind{Group: "postgresql.cnpg.io", Version: "v1", Kind: "Cluster"}
-	kcGVK   = schema.GroupVersionKind{Group: "k8s.keycloak.org", Version: "v2beta1", Kind: "Keycloak"}
 	certGVK = schema.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "Certificate"}
 	bakGVK  = schema.GroupVersionKind{Group: "postgresql.cnpg.io", Version: "v1", Kind: "Backup"}
 )
@@ -53,7 +50,6 @@ type IdentityPlaneReconciler struct {
 	CNPGNamespace string
 
 	cnpgOK *bool
-	kcOK   *bool
 	certOK *bool
 }
 
@@ -81,63 +77,7 @@ func (r *IdentityPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		logger.Info("namespace ensure skipped", "err", err.Error())
 	}
 
-	spec := profiles.Merge(&plane.Spec)
-	hasCNPG := r.hasGVK(cnpgGVK)
-	hasKC := r.hasGVK(kcGVK)
-	hasCert := r.hasGVK(certGVK)
-
-	engine, err := r.resolveEngine(ctx, &plane)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if engine == havenv1.EngineNative {
-		return r.reconcileNative(ctx, &plane, hasCNPG, hasCert)
-	}
-
-	// Always ensure JDBC secrets (plain Secrets) for when operators arrive later.
-	if dbPassword, err := r.dbPassword(ctx, &plane); err != nil {
-		logger.Error(err, "db password")
-	} else {
-		if err := r.ensureUnstructured(ctx, &plane, render.DBAppSecret(&plane, dbPassword)); err != nil {
-			logger.Error(err, "db app secret")
-		}
-		if err := r.ensureUnstructured(ctx, &plane, render.KeycloakDBSecret(&plane, dbPassword)); err != nil {
-			logger.Error(err, "keycloak db secret")
-		}
-	}
-
-	if hasCNPG {
-		if err := r.ensureUnstructured(ctx, &plane, render.CNPGCluster(&plane)); err != nil {
-			logger.Error(err, "cnpg cluster")
-		}
-	}
-	if hasCert {
-		if cert := render.Certificate(&plane); cert != nil {
-			if err := r.ensureUnstructured(ctx, &plane, cert); err != nil {
-				logger.Error(err, "certificate")
-			}
-		}
-	}
-	if hasKC {
-		if err := r.ensureUnstructured(ctx, &plane, render.KeycloakCR(&plane)); err != nil {
-			logger.Error(err, "keycloak")
-		}
-	}
-
-	status := r.projectStatus(ctx, &plane, spec, hasCNPG, hasKC, hasCert)
-	status.ObservedGeneration = plane.Generation
-	status.Endpoints = render.Endpoints(&plane)
-
-	plane.Status = status
-	if err := r.Status().Update(ctx, &plane); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	requeue := 60 * time.Second
-	if status.Phase != havenv1.PhaseReady {
-		requeue = 20 * time.Second
-	}
-	return ctrl.Result{RequeueAfter: requeue}, nil
+	return r.reconcileNative(ctx, &plane, r.hasGVK(cnpgGVK), r.hasGVK(certGVK))
 }
 
 func (r *IdentityPlaneReconciler) hasGVK(gvk schema.GroupVersionKind) bool {
@@ -145,10 +85,6 @@ func (r *IdentityPlaneReconciler) hasGVK(gvk schema.GroupVersionKind) bool {
 	case "Cluster":
 		if r.cnpgOK != nil {
 			return *r.cnpgOK
-		}
-	case "Keycloak":
-		if r.kcOK != nil {
-			return *r.kcOK
 		}
 	case "Certificate":
 		if r.certOK != nil {
@@ -177,8 +113,6 @@ func (r *IdentityPlaneReconciler) hasGVK(gvk schema.GroupVersionKind) bool {
 	switch gvk.Kind {
 	case "Cluster":
 		r.cnpgOK = &ok
-	case "Keycloak":
-		r.kcOK = &ok
 	case "Certificate":
 		r.certOK = &ok
 	}
@@ -206,10 +140,7 @@ func (r *IdentityPlaneReconciler) ensureNamespace(ctx context.Context, ns string
 // the pair stays consistent across reconciles, or a fresh random one for a
 // new plane. ensureUnstructured never overwrites an existing secret.
 func (r *IdentityPlaneReconciler) dbPassword(ctx context.Context, plane *havenv1.IdentityPlane) (string, error) {
-	names := []string{render.DBClusterName(plane.Name) + "-app", render.KeycloakName(plane.Name) + "-keycloak-db"}
-	if render.IsNative(plane) {
-		names = []string{render.DBClusterName(plane.Name) + "-app", render.IdPDBSecretName(plane.Name)}
-	}
+	names := []string{render.DBClusterName(plane.Name) + "-app", render.IdPDBSecretName(plane.Name)}
 	for _, name := range names {
 		var sec corev1.Secret
 		err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: plane.Namespace}, &sec)
@@ -263,105 +194,6 @@ func (r *IdentityPlaneReconciler) ensureUnstructured(ctx context.Context, plane 
 		return r.Patch(ctx, &existing, patch)
 	}
 	return nil
-}
-
-func (r *IdentityPlaneReconciler) projectStatus(
-	ctx context.Context,
-	plane *havenv1.IdentityPlane,
-	spec havenv1.IdentityPlaneSpec,
-	hasCNPG, hasKC, hasCert bool,
-) havenv1.IdentityPlaneStatus {
-	st := plane.Status
-	st.Conditions = nil
-
-	if !hasCNPG && !hasKC {
-		// External mode: Keycloak/Postgres run outside Haven operators (e.g. argus Deployment).
-		st.Database.Phase = "external"
-		st.Database.Instances = spec.Database.Instances
-		st.Database.Ready = spec.Database.Instances
-		st.Database.Primary = "external"
-		st.Keycloak.Instances = spec.Keycloak.Instances
-		st.Keycloak.Ready = spec.Keycloak.Instances
-		st.Keycloak.Version = spec.Keycloak.Version
-		st.Conditions = append(st.Conditions,
-			render.Condition("DatabaseReady", "True", "ExternalDatabase", "CNPG operator not installed — database managed outside plane"),
-			render.Condition("KeycloakReady", "True", "ExternalKeycloak", "Keycloak operator not installed — use Haven Settings to connect"),
-			render.Condition("BackupConfigured", "False", "OperatorsMissing", "no backups yet"),
-			render.Condition("OperatorsInstalled", "False", "OperatorsMissing", "postgresql.cnpg.io and k8s.keycloak.org CRDs not found"),
-		)
-		if hasCert {
-			r.projectCert(ctx, plane, spec, &st)
-		} else {
-			st.Conditions = append(st.Conditions,
-				render.Condition("CertificateReady", "True", "HTTPMode", "TLS not configured (dev / external)"),
-			)
-		}
-		st.Phase = havenv1.PhaseReady
-		return st
-	}
-
-	dbReady := false
-	if hasCNPG {
-		dbReady = r.projectCNPG(ctx, plane, spec, &st)
-	} else {
-		st.Database.Phase = "external"
-		st.Conditions = append(st.Conditions,
-			render.Condition("DatabaseReady", "True", "ExternalDatabase", "CNPG CRD missing"),
-			render.Condition("BackupConfigured", "False", "BackupStatus", "no backups yet"),
-		)
-		dbReady = true
-	}
-
-	kcReady := false
-	if hasKC {
-		kcName := render.KeycloakName(plane.Name)
-		var kc unstructured.Unstructured
-		kc.SetGroupVersionKind(kcGVK)
-		kcErr := r.Get(ctx, types.NamespacedName{Name: kcName, Namespace: plane.Namespace}, &kc)
-		if kcErr == nil {
-			instances, _, _ := unstructured.NestedInt64(kc.Object, "spec", "instances")
-			ready, _, _ := unstructured.NestedInt64(kc.Object, "status", "readyInstances")
-			if ready == 0 {
-				ready, _, _ = unstructured.NestedInt64(kc.Object, "status", "instances")
-			}
-			st.Keycloak.Instances = int(instances)
-			st.Keycloak.Ready = int(ready)
-			st.Keycloak.Version = spec.Keycloak.Version
-			kcReady = int(ready) >= int(instances) && int(instances) > 0
-			st.Conditions = append(st.Conditions, render.Condition("KeycloakReady",
-				boolStatus(kcReady), "KeycloakInstances", fmt.Sprintf("%d/%d ready", ready, instances)))
-		} else {
-			st.Conditions = append(st.Conditions, render.Condition("KeycloakReady",
-				"False", "KeycloakMissing", kcErr.Error()))
-		}
-	} else {
-		st.Keycloak.Instances = spec.Keycloak.Instances
-		st.Keycloak.Ready = spec.Keycloak.Instances
-		st.Conditions = append(st.Conditions,
-			render.Condition("KeycloakReady", "True", "ExternalKeycloak", "Keycloak operator CRD missing"),
-		)
-		kcReady = true
-	}
-
-	certOK := true
-	if hasCert {
-		r.projectCert(ctx, plane, spec, &st)
-		for _, c := range st.Conditions {
-			if c.Type == "CertificateReady" && c.Status != metav1.ConditionTrue {
-				certOK = false
-			}
-		}
-	} else if spec.Expose.TLS.SecretName != "" {
-		st.TLS.SecretName = spec.Expose.TLS.SecretName
-		st.Conditions = append(st.Conditions, render.Condition("CertificateReady",
-			"True", "ExternalSecret", spec.Expose.TLS.SecretName))
-	} else {
-		st.Conditions = append(st.Conditions, render.Condition("CertificateReady",
-			"True", "HTTPMode", "TLS not configured"))
-	}
-
-	st.Phase = derivePhase(dbReady, kcReady, certOK)
-	return st
 }
 
 // projectCNPG fills the database status and the DatabaseReady/BackupConfigured
@@ -442,19 +274,6 @@ func (r *IdentityPlaneReconciler) projectCert(ctx context.Context, plane *havenv
 	}
 }
 
-func derivePhase(dbReady, kcReady, certOK bool) havenv1.PlanePhase {
-	if !dbReady {
-		return havenv1.PhaseProvisioningDatabase
-	}
-	if !kcReady {
-		return havenv1.PhaseProvisioningKeycloak
-	}
-	if !certOK {
-		return havenv1.PhaseDegraded
-	}
-	return havenv1.PhaseReady
-}
-
 func (r *IdentityPlaneReconciler) latestBackup(ctx context.Context, ns, cluster string) (string, bool) {
 	var list unstructured.UnstructuredList
 	list.SetGroupVersionKind(schema.GroupVersionKind{Group: bakGVK.Group, Version: bakGVK.Version, Kind: "BackupList"})
@@ -495,7 +314,7 @@ func (r *IdentityPlaneReconciler) latestBackup(ctx context.Context, ns, cluster 
 
 func (r *IdentityPlaneReconciler) finalize(ctx context.Context, plane *havenv1.IdentityPlane) (ctrl.Result, error) {
 	if plane.Spec.ReclaimPolicy == "Delete" {
-		for _, gvk := range []schema.GroupVersionKind{cnpgGVK, kcGVK, certGVK} {
+		for _, gvk := range []schema.GroupVersionKind{cnpgGVK, certGVK} {
 			if !r.hasGVK(gvk) {
 				continue
 			}

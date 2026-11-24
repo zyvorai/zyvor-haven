@@ -20,7 +20,7 @@ type IdentityPlaneSpec struct {
     Hostname        string           `json:"hostname"`
     ConsoleHostname string           `json:"consoleHostname,omitempty"`
     Database        DatabaseSpec     `json:"database,omitempty"`
-    Keycloak        KeycloakSpec     `json:"keycloak,omitempty"`
+    IdP             IdPSpec          `json:"idp,omitempty"`
     Expose          ExposeSpec       `json:"expose,omitempty"`
     Bootstrap       BootstrapSpec    `json:"bootstrap,omitempty"`
     Observability   ObservabilitySpec `json:"observability,omitempty"`
@@ -31,7 +31,7 @@ type IdentityPlaneStatus struct {
     ObservedGeneration int64              `json:"observedGeneration,omitempty"`
     Endpoints          EndpointsStatus    `json:"endpoints,omitempty"`
     Database           DatabaseStatus     `json:"database,omitempty"`
-    Keycloak           KeycloakStatus     `json:"keycloak,omitempty"`
+    IdP                IdPStatus          `json:"idp,omitempty"`
     Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -41,8 +41,8 @@ type IdentityPlaneStatus struct {
 //  2. Render CNPG Cluster from spec.database + profile defaults
 //  3. Wait Cluster ready; project CA ConfigMap + JDBC Secret
 //  4. Ensure TLS Certificate or consume spec.expose.tls.secretName
-//  5. Render Keycloak CR; wait instances ready
-//  6. Ensure bootstrap RealmBundle + OidcClients
+//  5. Render the haven-idp Deployment, Service and secrets; wait replicas ready
+//  6. Reconcile OIDCClient resources against the identity server
 //  7. Ensure console Deployment bound to haven-console client
 //  8. Update status.phase and endpoints
 //
@@ -56,8 +56,7 @@ Profile defaults live in `internal/profiles/defaults.go`:
 | Field | dev | staging | production |
 |---|---|---|---|
 | database.instances | 1 | 2 | 3 |
-| keycloak.instances | 1 | 2 | 3 |
+| idp.replicas | 1 | 2 | 3 |
 | database.storage | 8Gi | 20Gi | 50Gi |
 | expose.networkPolicy | false | true | true |
-| keycloak pool | 8 | 16 | 30 |
 | backup | off | daily | daily + require destination |

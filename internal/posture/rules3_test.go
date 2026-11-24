@@ -6,38 +6,37 @@ package posture
 import (
 	"encoding/json"
 	"encoding/xml"
+	"github.com/zyvorai/haven/internal/idp"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 func TestRound3RealmRules(t *testing.T) {
 	cases := []struct {
 		name   string
-		h      *keycloak.RealmHardening
+		h      *idp.RealmHardening
 		want   []string
 		absent []string
 	}{
-		{"events kept forever", &keycloak.RealmHardening{EventsExpiration: ip(0)}, []string{"HAVEN024"}, nil},
-		{"events with retention", &keycloak.RealmHardening{EventsExpiration: ip(7776000)}, nil, []string{"HAVEN024"}},
-		{"events off, no retention needed", &keycloak.RealmHardening{EventsEnabled: bp(false), EventsExpiration: ip(0)}, []string{"HAVEN019"}, []string{"HAVEN024"}},
-		{"unreported retention", &keycloak.RealmHardening{}, nil, []string{"HAVEN024"}},
-		{"reuse with rotation", &keycloak.RealmHardening{RevokeRefreshToken: bp(true), RefreshTokenMaxReuse: ip(2)}, []string{"HAVEN025"}, nil},
-		{"no reuse", &keycloak.RealmHardening{RevokeRefreshToken: bp(true), RefreshTokenMaxReuse: ip(0)}, nil, []string{"HAVEN025"}},
-		{"reuse without rotation is moot", &keycloak.RealmHardening{RevokeRefreshToken: bp(false), RefreshTokenMaxReuse: ip(2)}, nil, []string{"HAVEN025"}},
-		{"loose lockout", &keycloak.RealmHardening{FailureFactor: ip(30)}, []string{"HAVEN026"}, nil},
-		{"boundary lockout", &keycloak.RealmHardening{FailureFactor: ip(10)}, nil, []string{"HAVEN026"}},
-		{"offline unlimited", &keycloak.RealmHardening{OfflineSessionMaxLifespanEnabled: bp(false)}, []string{"HAVEN027"}, nil},
-		{"offline limited", &keycloak.RealmHardening{OfflineSessionMaxLifespanEnabled: bp(true)}, nil, []string{"HAVEN027"}},
+		{"events kept forever", &idp.RealmHardening{EventsExpiration: ip(0)}, []string{"HAVEN024"}, nil},
+		{"events with retention", &idp.RealmHardening{EventsExpiration: ip(7776000)}, nil, []string{"HAVEN024"}},
+		{"events off, no retention needed", &idp.RealmHardening{EventsEnabled: bp(false), EventsExpiration: ip(0)}, []string{"HAVEN019"}, []string{"HAVEN024"}},
+		{"unreported retention", &idp.RealmHardening{}, nil, []string{"HAVEN024"}},
+		{"reuse with rotation", &idp.RealmHardening{RevokeRefreshToken: bp(true), RefreshTokenMaxReuse: ip(2)}, []string{"HAVEN025"}, nil},
+		{"no reuse", &idp.RealmHardening{RevokeRefreshToken: bp(true), RefreshTokenMaxReuse: ip(0)}, nil, []string{"HAVEN025"}},
+		{"reuse without rotation is moot", &idp.RealmHardening{RevokeRefreshToken: bp(false), RefreshTokenMaxReuse: ip(2)}, nil, []string{"HAVEN025"}},
+		{"loose lockout", &idp.RealmHardening{FailureFactor: ip(30)}, []string{"HAVEN026"}, nil},
+		{"boundary lockout", &idp.RealmHardening{FailureFactor: ip(10)}, nil, []string{"HAVEN026"}},
+		{"offline unlimited", &idp.RealmHardening{OfflineSessionMaxLifespanEnabled: bp(false)}, []string{"HAVEN027"}, nil},
+		{"offline limited", &idp.RealmHardening{OfflineSessionMaxLifespanEnabled: bp(true)}, nil, []string{"HAVEN027"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			realm := keycloak.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: tc.h}
-			got := ruleIDs(evalKC([]keycloak.Realm{realm}, nil, Options{}))
+			realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true, RealmHardening: tc.h}
+			got := ruleIDs(evalKC([]idp.Realm{realm}, nil, Options{}))
 			for _, id := range tc.want {
 				if !got[id] {
 					t.Errorf("missing %s", id)
@@ -51,37 +50,37 @@ func TestRound3RealmRules(t *testing.T) {
 		})
 	}
 	// Lockout threshold is moot when brute-force detection is off (HAVEN012 covers that).
-	off := keycloak.Realm{Realm: "r", Enabled: true, RealmHardening: &keycloak.RealmHardening{FailureFactor: ip(30)}}
-	if ruleIDs(evalKC([]keycloak.Realm{off}, nil, Options{}))["HAVEN026"] {
+	off := idp.Realm{Realm: "r", Enabled: true, RealmHardening: &idp.RealmHardening{FailureFactor: ip(30)}}
+	if ruleIDs(evalKC([]idp.Realm{off}, nil, Options{}))["HAVEN026"] {
 		t.Error("HAVEN026 reported with brute-force detection off")
 	}
 }
 
 func TestRound3ClientRules(t *testing.T) {
 	yes, no := true, false
-	base := keycloak.Client{ClientID: "app", Enabled: true, StandardFlowEnabled: true, RedirectURIs: []string{"https://a.example/cb"}}
-	mk := func(f func(c *keycloak.Client)) keycloak.Client { c := base; f(&c); return c }
+	base := idp.Client{ClientID: "app", Enabled: true, StandardFlowEnabled: true, RedirectURIs: []string{"https://a.example/cb"}}
+	mk := func(f func(c *idp.Client)) idp.Client { c := base; f(&c); return c }
 	cases := []struct {
 		name   string
-		c      keycloak.Client
+		c      idp.Client
 		want   string
 		absent string
 	}{
-		{"full scope", mk(func(c *keycloak.Client) { c.FullScopeAllowed = &yes }), "HAVEN028", ""},
-		{"scoped", mk(func(c *keycloak.Client) { c.FullScopeAllowed = &no }), "", "HAVEN028"},
+		{"full scope", mk(func(c *idp.Client) { c.FullScopeAllowed = &yes }), "HAVEN028", ""},
+		{"scoped", mk(func(c *idp.Client) { c.FullScopeAllowed = &no }), "", "HAVEN028"},
 		{"unreported scope", base, "", "HAVEN028"},
-		{"bearer-only full scope ignored", mk(func(c *keycloak.Client) { c.BearerOnly = true; c.FullScopeAllowed = &yes }), "", "HAVEN028"},
-		{"offline default", mk(func(c *keycloak.Client) { c.DefaultClientScopes = []string{"profile", "offline_access"} }), "HAVEN029", ""},
-		{"no offline default", mk(func(c *keycloak.Client) { c.DefaultClientScopes = []string{"profile"} }), "", "HAVEN029"},
-		{"long client token", mk(func(c *keycloak.Client) { c.Attributes = map[string]string{"access.token.lifespan": "86400"} }), "HAVEN030", ""},
-		{"short client token", mk(func(c *keycloak.Client) { c.Attributes = map[string]string{"access.token.lifespan": "300"} }), "", "HAVEN030"},
-		{"garbage client token", mk(func(c *keycloak.Client) { c.Attributes = map[string]string{"access.token.lifespan": "x"} }), "", "HAVEN030"},
-		{"saml skipped", mk(func(c *keycloak.Client) { c.Protocol = "saml"; c.FullScopeAllowed = &yes }), "", "HAVEN028"},
+		{"bearer-only full scope ignored", mk(func(c *idp.Client) { c.BearerOnly = true; c.FullScopeAllowed = &yes }), "", "HAVEN028"},
+		{"offline default", mk(func(c *idp.Client) { c.DefaultClientScopes = []string{"profile", "offline_access"} }), "HAVEN029", ""},
+		{"no offline default", mk(func(c *idp.Client) { c.DefaultClientScopes = []string{"profile"} }), "", "HAVEN029"},
+		{"long client token", mk(func(c *idp.Client) { c.Attributes = map[string]string{"access.token.lifespan": "86400"} }), "HAVEN030", ""},
+		{"short client token", mk(func(c *idp.Client) { c.Attributes = map[string]string{"access.token.lifespan": "300"} }), "", "HAVEN030"},
+		{"garbage client token", mk(func(c *idp.Client) { c.Attributes = map[string]string{"access.token.lifespan": "x"} }), "", "HAVEN030"},
+		{"saml skipped", mk(func(c *idp.Client) { c.Protocol = "saml"; c.FullScopeAllowed = &yes }), "", "HAVEN028"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			realm := keycloak.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
-			got := ruleIDs(evalKC([]keycloak.Realm{realm}, map[string][]keycloak.Client{"r": {tc.c}}, Options{}))
+			realm := idp.Realm{Realm: "r", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
+			got := ruleIDs(evalKC([]idp.Realm{realm}, map[string][]idp.Client{"r": {tc.c}}, Options{}))
 			if tc.want != "" && !got[tc.want] {
 				t.Errorf("missing %s", tc.want)
 			}
@@ -93,14 +92,14 @@ func TestRound3ClientRules(t *testing.T) {
 }
 
 func TestRound3FieldsDecodeFromRealmExport(t *testing.T) {
-	var c keycloak.Client
+	var c idp.Client
 	if err := json.Unmarshal([]byte(`{"clientId":"x","fullScopeAllowed":true,"defaultClientScopes":["offline_access"]}`), &c); err != nil {
 		t.Fatal(err)
 	}
 	if c.FullScopeAllowed == nil || !*c.FullScopeAllowed || len(c.DefaultClientScopes) != 1 {
 		t.Fatalf("client fields not decoded: %+v", c)
 	}
-	var r keycloak.Realm
+	var r idp.Realm
 	if err := json.Unmarshal([]byte(`{"realm":"r","eventsExpiration":0,"failureFactor":30,"refreshTokenMaxReuse":1,"offlineSessionMaxLifespanEnabled":false}`), &r); err != nil {
 		t.Fatal(err)
 	}
@@ -146,9 +145,9 @@ func TestRuleCatalogAndDocsAgree(t *testing.T) {
 
 func sampleReport(t *testing.T) Report {
 	t.Helper()
-	realm := keycloak.Realm{Realm: "prod", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
-	clients := map[string][]keycloak.Client{"prod": {{ClientID: "a|b <img>", Enabled: true, PublicClient: true, ImplicitFlowEnabled: true}}}
-	return evalKC([]keycloak.Realm{realm}, clients, Options{})
+	realm := idp.Realm{Realm: "prod", Enabled: true, VerifyEmail: true, BruteForceProtected: true}
+	clients := map[string][]idp.Client{"prod": {{ClientID: "a|b <img>", Enabled: true, PublicClient: true, ImplicitFlowEnabled: true}}}
+	return evalKC([]idp.Realm{realm}, clients, Options{})
 }
 
 func TestMarkdownEscapesEvidenceAndListsFindings(t *testing.T) {

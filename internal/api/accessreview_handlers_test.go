@@ -5,6 +5,7 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/zyvorai/haven/internal/idp"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"github.com/zyvorai/haven/internal/accessreview"
 	"github.com/zyvorai/haven/internal/auth"
 	"github.com/zyvorai/haven/internal/identityops"
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 func TestMain(m *testing.M) {
@@ -61,7 +61,7 @@ func TestAccessReviewAPI(t *testing.T) {
 
 	st := accessReviewStore()
 	rep, err := accessreview.Analyze(identityops.RealmSnapshot{Realm: "acme",
-		Users:      []keycloak.User{{Username: "u1", Enabled: true}},
+		Users:      []idp.User{{Username: "u1", Enabled: true}},
 		UserAccess: []identityops.UserAccess{{Username: "u1", RealmRoles: []string{"admin"}}}}, accessreview.Options{})
 	if err != nil {
 		t.Fatal(err)

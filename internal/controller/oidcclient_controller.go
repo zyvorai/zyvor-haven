@@ -66,7 +66,6 @@ const (
 	ReasonInvalidSpec      = "InvalidSpec"
 	ReasonPlaneNotFound    = "PlaneNotFound"
 	ReasonPlaneNotAllowed  = "PlaneNotAllowed"
-	ReasonPlaneNotNative   = "PlaneNotNative"
 	ReasonPlaneNotReady    = "PlaneNotReady"
 	ReasonPlaneUnreachable = "PlaneUnreachable"
 	ReasonRealmNotFound    = "RealmNotFound"
@@ -482,9 +481,6 @@ func (r *OIDCClientReconciler) sync(ctx context.Context, oc *havenv1.OIDCClient,
 	if plane.Namespace != oc.Namespace && !allowedFrom(plane, oc.Namespace) {
 		return r.fail(oc, st, ReasonPlaneNotAllowed,
 			fmt.Sprintf("IdentityPlane %s/%s does not allow OIDCClients from namespace %s (annotation %s)", plane.Namespace, plane.Name, oc.Namespace, AnnotationAllowFrom), 0)
-	}
-	if plane.Spec.Engine == havenv1.EngineKeycloak {
-		return r.fail(oc, st, ReasonPlaneNotNative, "the plane runs the keycloak engine; OIDCClient needs the native engine", oidcResync)
 	}
 
 	realm := realmOf(oc, plane)

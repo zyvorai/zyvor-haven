@@ -19,9 +19,6 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
-        - name: Engine
-          type: string
-          jsonPath: .spec.engine
         - name: Profile
           type: string
           jsonPath: .spec.profile
@@ -31,9 +28,9 @@ spec:
         - name: Hostname
           type: string
           jsonPath: .spec.hostname
-        - name: KC
+        - name: IdP
           type: integer
-          jsonPath: .spec.keycloak.instances
+          jsonPath: .spec.idp.replicas
         - name: PG
           type: integer
           jsonPath: .spec.database.instances
@@ -45,17 +42,13 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
-          description: IdentityPlane deploys and operates Keycloak plus its PostgreSQL cluster as one product.
+          description: IdentityPlane deploys and operates the haven-idp identity server plus its PostgreSQL cluster as one product.
           required: [spec]
           properties:
             spec:
               type: object
               required: [hostname]
               properties:
-                engine:
-                  type: string
-                  enum: [native, keycloak]
-                  description: Identity provider. Empty is resolved by the controller (keycloak if a Keycloak CR already belongs to the plane, otherwise native).
                 profile:
                   type: string
                   enum: [dev, staging, production]
@@ -63,7 +56,7 @@ spec:
                   description: Durability preset. Every field remains overridable.
                 hostname:
                   type: string
-                  description: Public hostname for Keycloak (issuer).
+                  description: Public hostname of the identity server (issuer).
                 consoleHostname:
                   type: string
                   description: Hostname for the Haven console. Defaults to haven.<basedomain>.
@@ -75,7 +68,7 @@ spec:
                 suspend:
                   type: boolean
                   default: false
-                  description: Scale Keycloak to zero and keep the database.
+                  description: Scale the identity server to zero and keep the database.
                 database:
                   type: object
                   properties:
@@ -112,40 +105,9 @@ spec:
                           type: string
                         credentialsSecret:
                           type: string
-                keycloak:
-                  type: object
-                  properties:
-                    instances:
-                      type: integer
-                      minimum: 1
-                      maximum: 16
-                    version:
-                      type: string
-                      description: Keycloak version tag. Empty lets the operator default.
-                    image:
-                      type: string
-                    features:
-                      type: array
-                      items:
-                        type: string
-                    resources:
-                      type: object
-                      properties:
-                        requests:
-                          type: object
-                          additionalProperties:
-                            type: string
-                        limits:
-                          type: object
-                          additionalProperties:
-                            type: string
-                    raw:
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                      description: Pass-through merged into the Keycloak CR spec.
                 idp:
                   type: object
-                  description: Native haven-idp settings (engine native).
+                  description: haven-idp settings.
                   properties:
                     replicas:
                       type: integer
@@ -238,24 +200,18 @@ spec:
               properties:
                 phase:
                   type: string
-                  enum: [Pending, ProvisioningDatabase, ProvisioningKeycloak, ProvisioningIdP, Bootstrapping, Ready, Degraded, Failed, Suspending]
+                  enum: [Pending, ProvisioningDatabase, ProvisioningIdP, Bootstrapping, Ready, Degraded, Failed, Suspending]
                 observedGeneration:
                   type: integer
                   format: int64
                 endpoints:
                   type: object
                   properties:
-                    keycloak:
-                      type: string
                     idp:
                       type: string
                     issuer:
                       type: string
                     console:
-                      type: string
-                    account:
-                      type: string
-                    admin:
                       type: string
                 database:
                   type: object
@@ -272,15 +228,6 @@ spec:
                       type: integer
                     instances:
                       type: integer
-                keycloak:
-                  type: object
-                  properties:
-                    instances:
-                      type: integer
-                    ready:
-                      type: integer
-                    version:
-                      type: string
                 idp:
                   type: object
                   properties:
@@ -316,75 +263,6 @@ spec:
                       lastTransitionTime:
                         type: string
                         format: date-time
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: realmbundles.identity.haven.dev
-  labels:
-    app.kubernetes.io/name: haven
-spec:
-  group: identity.haven.dev
-  names:
-    kind: RealmBundle
-    listKind: RealmBundleList
-    plural: realmbundles
-    singular: realmbundle
-    shortNames: [rbundle]
-  scope: Namespaced
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-      additionalPrinterColumns:
-        - name: Plane
-          type: string
-          jsonPath: .spec.planeRef
-        - name: Realm
-          type: string
-          jsonPath: .spec.realm
-        - name: Phase
-          type: string
-          jsonPath: .status.phase
-        - name: Age
-          type: date
-          jsonPath: .metadata.creationTimestamp
-      subresources:
-        status: {}
-      schema:
-        openAPIV3Schema:
-          type: object
-          required: [spec]
-          properties:
-            spec:
-              type: object
-              required: [planeRef, realm]
-              properties:
-                planeRef:
-                  type: string
-                realm:
-                  type: string
-                displayName:
-                  type: string
-                blueprint:
-                  type: string
-                  enum: [platform-sso, b2b-tenant, ci-robots, empty]
-                  default: empty
-                importSecret:
-                  type: string
-                  description: Secret containing a Keycloak realm JSON export.
-                clients:
-                  type: array
-                  items:
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-            status:
-              type: object
-              properties:
-                phase:
-                  type: string
-                lastApplied:
-                  type: string
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition

@@ -1,12 +1,12 @@
 apiVersion: v2
 name: haven
-description: Haven Identity Plane — deploy and operate haven-idp (native OIDC; Keycloak deprecated) + PostgreSQL as one private-cloud product.
+description: Haven Identity Plane — deploy and operate haven-idp (native OIDC) + PostgreSQL as one private-cloud product.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
 home: https://github.com/zyvorai/haven
 keywords:
-  - keycloak
+  - oidc
   - identity
   - postgres
   - cloudnative-pg
@@ -17,7 +17,6 @@ maintainers:
     url: https://zyvor.dev
 sources:
   - https://github.com/zyvorai/haven
-  - https://www.keycloak.org
   - https://cloudnative-pg.io
 annotations:
   artifacthub.io/license: LicenseRef-Zyvor-Production-2.0

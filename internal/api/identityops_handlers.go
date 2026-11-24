@@ -16,7 +16,6 @@ import (
 	"github.com/zyvorai/haven/internal/federation"
 	"github.com/zyvorai/haven/internal/identityops"
 	"github.com/zyvorai/haven/internal/idp"
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 func (s *Server) ListTimeMachineSnapshots(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +160,7 @@ func (s *Server) RestoreTimeMachineSnapshot(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	kc := s.kc()
+	kc := s.provider()
 	exists, err := kc.RealmExists(r.Context(), target)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
@@ -287,12 +286,12 @@ func restoreSnapshot(r *http.Request, kc idp.Provider, snap identityops.RealmSna
 
 func restoreUserAccess(r *http.Request, kc idp.Provider, realm string, access []identityops.UserAccess, out *restoreResult) {
 	roles, _ := kc.ListRoles(r.Context(), realm)
-	roleByName := make(map[string]keycloak.Role, len(roles))
+	roleByName := make(map[string]idp.Role, len(roles))
 	for _, role := range roles {
 		roleByName[role.Name] = role
 	}
 	groups, _ := kc.ListGroups(r.Context(), realm)
-	groupByKey := make(map[string]keycloak.Group, len(groups)*2)
+	groupByKey := make(map[string]idp.Group, len(groups)*2)
 	for _, group := range groups {
 		groupByKey[group.Name] = group
 		if group.Path != "" {
@@ -315,7 +314,7 @@ func restoreUserAccess(r *http.Request, kc idp.Provider, realm string, access []
 		if userID == "" {
 			continue
 		}
-		mapped := make([]keycloak.Role, 0, len(grant.RealmRoles))
+		mapped := make([]idp.Role, 0, len(grant.RealmRoles))
 		for _, name := range grant.RealmRoles {
 			if role, ok := roleByName[name]; ok {
 				mapped = append(mapped, role)
@@ -343,7 +342,7 @@ func restoreUserAccess(r *http.Request, kc idp.Provider, realm string, access []
 }
 
 func (s *Server) captureRealmSnapshot(r *http.Request, realm, reason string) (identityops.RealmSnapshot, error) {
-	kc := s.kc()
+	kc := s.provider()
 	if kc == nil {
 		return identityops.RealmSnapshot{}, errors.New("keycloak is not connected")
 	}
@@ -419,7 +418,7 @@ type credentialInventoryItem struct {
 }
 
 func (s *Server) ListCredentials(w http.ResponseWriter, r *http.Request) {
-	kc := s.kc()
+	kc := s.provider()
 	realms, err := kc.ListRealms(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
@@ -486,7 +485,7 @@ func credentialSubroutes(s *Server) http.HandlerFunc {
 }
 
 func (s *Server) RotateCredential(w http.ResponseWriter, r *http.Request, realm, id string) {
-	kc := s.kc()
+	kc := s.provider()
 	cl, err := kc.GetClient(r.Context(), realm, id)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
@@ -521,7 +520,7 @@ func (s *Server) RotateCredential(w http.ResponseWriter, r *http.Request, realm,
 }
 
 func (s *Server) RetireRotatedCredential(w http.ResponseWriter, r *http.Request, realm, id string) {
-	if err := s.kc().InvalidateRotatedClientSecret(r.Context(), realm, id); err != nil && !errors.Is(err, idp.ErrNotFound) {
+	if err := s.provider().InvalidateRotatedClientSecret(r.Context(), realm, id); err != nil && !errors.Is(err, idp.ErrNotFound) {
 		writeRejection(w, err, "Keycloak could not invalidate the rotated secret")
 		return
 	}
@@ -554,7 +553,7 @@ func (s *Server) ListFederationConnections(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "realm is required"})
 		return
 	}
-	items, err := s.kc().ListIdentityProviders(r.Context(), realm)
+	items, err := s.provider().ListIdentityProviders(r.Context(), realm)
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
@@ -577,7 +576,7 @@ func (s *Server) CreateFederationConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	idp := federation.ToKeycloak(fp)
-	if err := s.kc().CreateIdentityProvider(r.Context(), req.Realm, idp); err != nil {
+	if err := s.provider().CreateIdentityProvider(r.Context(), req.Realm, idp); err != nil {
 		writeRejection(w, err, "Keycloak rejected the identity provider")
 		return
 	}
@@ -604,7 +603,7 @@ func federationSubroutes(s *Server) http.HandlerFunc {
 }
 
 func (s *Server) DeleteFederationConnection(w http.ResponseWriter, r *http.Request, realm, alias string) {
-	if err := s.kc().DeleteIdentityProvider(r.Context(), realm, alias); err != nil && !errors.Is(err, idp.ErrNotFound) {
+	if err := s.provider().DeleteIdentityProvider(r.Context(), realm, alias); err != nil && !errors.Is(err, idp.ErrNotFound) {
 		writeRejection(w, err, "Keycloak rejected the delete")
 		return
 	}
@@ -646,7 +645,7 @@ func redactRawValue(v any) {
 	}
 }
 
-func redactIDP(idp *keycloak.IdentityProvider) {
+func redactIDP(idp *idp.IdentityProvider) {
 	if idp.Config == nil {
 		return
 	}

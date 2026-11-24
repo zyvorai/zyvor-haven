@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/zyvorai/haven/internal/idp"
-	"github.com/zyvorai/haven/internal/keycloak"
 )
 
 // mergeURIs keeps existing redirect URIs, appends wanted ones, drops host
@@ -35,10 +34,10 @@ func mergeURIs(existing, wanted []string) []string {
 // merging redirect URIs into any existing set.
 func (c *Client) EnsureHavenConsoleClient(ctx context.Context, realm string, consoleBases ...string) error {
 	if realm == "" {
-		realm = keycloak.BootstrapRealm()
+		realm = idp.BootstrapRealm()
 	}
-	clientID := keycloak.ConsoleClientID()
-	want := keycloak.ConsoleRedirectURIs(consoleBases...)
+	clientID := idp.ConsoleClientID()
+	want := idp.ConsoleRedirectURIs(consoleBases...)
 
 	found, err := c.FindClientByClientID(ctx, realm, clientID)
 	if err != nil {
