@@ -90,12 +90,23 @@ Each successful send is recorded as an `ADMIN_ACTION` event (user name only, no 
 
 ## Not yet
 
-* No "your password was changed" notification email.
-* No verification when a user's email address is changed; the new address is trusted as written by
-  whoever changed it.
 * No per-realm templates or branding: one built-in text/HTML template per message.
-* No per-realm SMTP: one server for the whole haven-idp instance.
+* No per-realm SMTP: one server for the whole haven-idp instance. This is deliberate: per-realm
+  SMTP would put mail credentials in the realm model, which config as code exports and the
+  console displays.
 * The reset link's GET page shows the form without checking the token, so an expired link is only
   reported after the user submits a new password.
-* The per-IP forgot-password limiter lives in memory per replica, so with N replicas the effective
-  limit is up to N times higher. The per-user hourly cap is stored in the database and is shared.
+* Email-change verification is wired into the Admin API (`PUT /users/{id}`). There is no
+  self-service "change my email" page yet.
+* Limiter windows are fixed, not sliding: a client can send up to twice the limit across a window
+  boundary.
+
+## Also in this release
+
+* **Password-changed notice.** After a reset (by link or by an administrator) the address on file
+  gets a notification with the time and how it happened. It never contains a link or the password.
+* **Email-change verification.** Changing a user's address through the Admin API marks it
+  unverified (unless the request explicitly sets `emailVerified: true`), kills links sent to the
+  old address, and sends a verification link to the new one only.
+* **Shared limits.** The per-IP forgot-password limit is stored in the database, so it holds across
+  replicas and restarts. Keys are hashes of realm and IP; raw addresses are not stored.
