@@ -1,11 +1,10 @@
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
-// keycloak* are legacy wire names for the identity server settings.
 export type HavenConfig = {
-  keycloakUrl?: string;
-  keycloakAdminUrl?: string;
-  keycloakNamespace?: string;
+  identityServerUrl?: string;
+  identityServerAdminUrl?: string;
+  identityServerNamespace?: string;
 };
 
 let cached: HavenConfig | null = null;

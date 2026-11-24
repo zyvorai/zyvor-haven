@@ -8,10 +8,10 @@ import { ConsolePageHeader } from '../components/ConsolePageHeader';
 import { PasswordDialog } from '../components/PasswordDialog';
 import { useTheme, type ThemeMode } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { api, type KeycloakStatus } from '../api/client';
+import { api, type IdentityServerStatus } from '../api/client';
 
 // Lab identity server default URL.
-function labKeycloakURL(): string {
+function labIdentityServerURL(): string {
   if (typeof window === 'undefined') return 'http://localhost:30180';
   const { protocol, hostname } = window.location;
   return `${protocol}//${hostname}:30180`;
@@ -22,42 +22,42 @@ export function SettingsPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [adminUrl, setAdminUrl] = useState('');
-  const [keycloakUrl, setKeycloakUrl] = useState('');
+  const [identityServerUrl, setIdentityServerUrl] = useState('');
   const [adminUser, setAdminUser] = useState('admin');
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<KeycloakStatus | null>(null);
+  const [status, setStatus] = useState<IdentityServerStatus | null>(null);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [pwMode, setPwMode] = useState<'console' | 'keycloak' | null>(null);
+  const [pwMode, setPwMode] = useState<'console' | 'identity-server' | null>(null);
 
-  const labURL = useMemo(() => labKeycloakURL(), []);
-  const focusKeycloak = searchParams.get('focus') === 'keycloak';
+  const labURL = useMemo(() => labIdentityServerURL(), []);
+  const focusIdentityServer = searchParams.get('focus') === 'identity-server';
 
   useEffect(() => {
-    api.keycloakConfig().then((c) => {
-      const url = c.keycloakUrl || labURL;
-      setKeycloakUrl(url);
+    api.identityServerConfig().then((c) => {
+      const url = c.identityServerUrl || labURL;
+      setIdentityServerUrl(url);
       setAdminUser(c.adminUser || 'admin');
       if (url) setAdminUrl(`${url.replace(/\/$/, '')}/admin`);
     });
-    api.keycloakStatus().then(setStatus).catch(() => setStatus(null));
+    api.identityServerStatus().then(setStatus).catch(() => setStatus(null));
   }, [labURL]);
 
   useEffect(() => {
-    if (!focusKeycloak) return;
-    const el = document.getElementById('settings-keycloak');
+    if (!focusIdentityServer) return;
+    const el = document.getElementById('settings-identity-server');
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [focusKeycloak]);
+  }, [focusIdentityServer]);
 
   const applyLabDefaults = () => {
-    setKeycloakUrl(labURL);
+    setIdentityServerUrl(labURL);
     setAdminUser('admin');
     setPassword('');
     setMsg(`Lab defaults filled — URL ${labURL}. Enter the admin password (often changeme), then Test & connect.`);
     setErr('');
     const next = new URLSearchParams(searchParams);
-    next.set('focus', 'keycloak');
+    next.set('focus', 'identity-server');
     setSearchParams(next, { replace: true });
   };
 
@@ -66,17 +66,17 @@ export function SettingsPage() {
     setErr('');
     setMsg('');
     try {
-      const st = await api.connectKeycloak({
-        keycloakUrl: keycloakUrl.replace(/\/$/, ''),
+      const st = await api.connectIdentityServer({
+        identityServerUrl: identityServerUrl.replace(/\/$/, ''),
         adminUser,
         password,
         consoleUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
       });
       setStatus(st);
-      setAdminUrl(`${keycloakUrl.replace(/\/$/, '')}/admin`);
+      setAdminUrl(`${identityServerUrl.replace(/\/$/, '')}/admin`);
       setPassword('');
       setMsg(`Connected — identity server ${st.version ?? ''} · ${st.realmCount} realm(s)`);
-      if (focusKeycloak) {
+      if (focusIdentityServer) {
         const next = new URLSearchParams(searchParams);
         next.delete('focus');
         setSearchParams(next, { replace: true });
@@ -135,7 +135,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() => setPwMode('keycloak')}
+                onClick={() => setPwMode('identity-server')}
                 disabled={!status?.connected}
               >
                 Change identity server admin password
@@ -150,8 +150,8 @@ export function SettingsPage() {
           </section>
 
           <section
-            id="settings-keycloak"
-            className={`card settings-card${focusKeycloak ? ' settings-card-focus' : ''}`}
+            id="settings-identity-server"
+            className={`card settings-card${focusIdentityServer ? ' settings-card-focus' : ''}`}
           >
             <h2>Identity server connection</h2>
             <p className="settings-desc">
@@ -174,36 +174,36 @@ export function SettingsPage() {
 
             {status?.connected && (
               <div className="settings-online-hint" role="status">
-                Connected to {status.keycloakUrl} · v{status.version} · {status.realmCount} realms
+                Connected to {status.identityServerUrl} · v{status.version} · {status.realmCount} realms
               </div>
             )}
 
             <div className="wizard-field">
-              <label htmlFor="kc-url">Identity server URL</label>
+              <label htmlFor="server-url">Identity server URL</label>
               <input
-                id="kc-url"
-                value={keycloakUrl}
-                onChange={(e) => setKeycloakUrl(e.target.value)}
+                id="server-url"
+                value={identityServerUrl}
+                onChange={(e) => setIdentityServerUrl(e.target.value)}
                 placeholder={labURL}
-                autoFocus={focusKeycloak}
+                autoFocus={focusIdentityServer}
               />
               <span className="settings-field-hint">
                 Examples: <code>{labURL}</code> · <code>http://haven-idp.identity.svc:8080</code>
               </span>
             </div>
             <div className="wizard-field">
-              <label htmlFor="kc-user">Admin username</label>
+              <label htmlFor="server-user">Admin username</label>
               <input
-                id="kc-user"
+                id="server-user"
                 value={adminUser}
                 onChange={(e) => setAdminUser(e.target.value)}
                 placeholder="admin"
               />
             </div>
             <div className="wizard-field">
-              <label htmlFor="kc-pass">Admin password</label>
+              <label htmlFor="server-pass">Admin password</label>
               <input
-                id="kc-pass"
+                id="server-pass"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -215,7 +215,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={busy || !keycloakUrl || !password}
+                disabled={busy || !identityServerUrl || !password}
                 onClick={connect}
               >
                 {busy ? 'Connecting…' : 'Test & connect'}
@@ -268,14 +268,14 @@ export function SettingsPage() {
       />
 
       <PasswordDialog
-        open={pwMode === 'keycloak'}
+        open={pwMode === 'identity-server'}
         title="Change identity server admin password"
         subtitle={`Resets admin password for ${adminUser} and reconnects Haven.`}
         requireCurrent
         confirmLabel="Update identity server admin"
         onCancel={() => setPwMode(null)}
         onSubmit={async ({ currentPassword, newPassword }) => {
-          const res = await api.changeKeycloakAdminPassword(currentPassword!, newPassword);
+          const res = await api.changeIdentityServerAdminPassword(currentPassword!, newPassword);
           setPwMode(null);
           setMsg(res.note ?? 'Identity server admin password updated.');
         }}

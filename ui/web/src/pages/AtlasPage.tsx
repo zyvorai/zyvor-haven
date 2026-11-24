@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { ConsolePageHeader } from '../components/ConsolePageHeader';
-import { api, type KeycloakStatus, type PlaneStatus } from '../api/client';
+import { api, type IdentityServerStatus, type PlaneStatus } from '../api/client';
 
 type NodeState = 'ok' | 'warn' | 'off';
 
@@ -30,19 +30,19 @@ function Flow({ state, split }: { state: NodeState; split?: boolean }) {
 }
 
 export function AtlasPage() {
-  const [kc, setKc] = useState<KeycloakStatus | null>(null);
+  const [server, setServer] = useState<IdentityServerStatus | null>(null);
   const [plane, setPlane] = useState<PlaneStatus | null>(null);
 
   useEffect(() => {
-    api.keycloakStatus().then(setKc).catch(() => setKc(null));
+    api.identityServerStatus().then(setServer).catch(() => setServer(null));
     api.planeStatus().then(setPlane).catch(() => setPlane(null));
   }, []);
 
   const consoleState: NodeState = 'ok';
-  const kcState: NodeState = kc?.connected ? 'ok' : 'warn';
+  const serverState: NodeState = server?.connected ? 'ok' : 'warn';
   const pgState: NodeState =
     plane?.postgres?.ok || plane?.postgres?.value === 'external' ? 'ok' : 'warn';
-  const ingressState: NodeState = kc?.connected ? 'ok' : 'off';
+  const ingressState: NodeState = server?.connected ? 'ok' : 'off';
 
   return (
     <ConsoleLayout>
@@ -76,21 +76,21 @@ export function AtlasPage() {
                 <div className="atlas-node-kicker">Edge</div>
                 <div className="atlas-node-title">Ingress / NodePort</div>
                 <div className="atlas-node-meta">
-                  {kc?.keycloakUrl ? new URL(kc.keycloakUrl).host : 'Identity server host'}
+                  {server?.identityServerUrl ? new URL(server.identityServerUrl).host : 'Identity server host'}
                 </div>
               </div>
             </div>
             <div className="atlas-arrow">
-              <Flow state={kcState} split />
+              <Flow state={serverState} split />
               <span>↓ Issuer</span>
             </div>
             <div className="atlas-row atlas-row--split">
-              <div className={nodeClass(kcState)}>
+              <div className={nodeClass(serverState)}>
                 <div className="atlas-node-kicker">Identity</div>
                 <div className="atlas-node-title">Identity server</div>
                 <div className="atlas-node-meta">
-                  {kc?.connected
-                    ? `v${kc.version} · ${kc.realmCount} realms`
+                  {server?.connected
+                    ? `v${server.version} · ${server.realmCount} realms`
                     : 'Offline — connect in Settings'}
                 </div>
               </div>
@@ -114,7 +114,7 @@ export function AtlasPage() {
             <Link to="/deck">Command Deck</Link>
             <Link to="/realms">Realm Studio</Link>
             <Link to="/clients">Clients</Link>
-            <Link to="/settings?focus=keycloak">Settings</Link>
+            <Link to="/settings?focus=identity-server">Settings</Link>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { sidebarNav } from '../data/mock';
-import { api, type KeycloakStatus, type PlaneStatus } from '../api/client';
+import { api, type IdentityServerStatus, type PlaneStatus } from '../api/client';
 import { ZyvorLogo } from './ZyvorLogo';
 import {
   IconChevronLeft,
@@ -24,12 +24,12 @@ function readCollapsed(): boolean {
 
 export function Sidebar() {
   const { pathname } = useLocation();
-  const [kc, setKc] = useState<KeycloakStatus | null>(null);
+  const [server, setServer] = useState<IdentityServerStatus | null>(null);
   const [plane, setPlane] = useState<PlaneStatus | null>(null);
   const [collapsed, setCollapsed] = useState(readCollapsed);
 
   useEffect(() => {
-    api.keycloakStatus().then(setKc).catch(() => setKc(null));
+    api.identityServerStatus().then(setServer).catch(() => setServer(null));
     api.planeStatus().then(setPlane).catch(() => setPlane(null));
   }, [pathname]);
 
@@ -41,12 +41,12 @@ export function Sidebar() {
     }
   }, [collapsed]);
 
-  const statusLabel = kc?.connected
-    ? `Connected · v${kc.version ?? '—'}`
+  const statusLabel = server?.connected
+    ? `Connected · v${server.version ?? '—'}`
     : 'Identity server offline';
   const statusDetail =
-    kc?.connected
-      ? `${kc.realmCount} realm${kc.realmCount === 1 ? '' : 's'}${plane?.phase ? ` · ${plane.phase}` : ''}`
+    server?.connected
+      ? `${server.realmCount} realm${server.realmCount === 1 ? '' : 's'}${plane?.phase ? ` · ${plane.phase}` : ''}`
       : '';
 
   return (
@@ -100,16 +100,16 @@ export function Sidebar() {
       >
         <span
           className="sidebar-status-dot"
-          style={{ background: kc?.connected ? 'var(--zy-ok)' : 'var(--zy-warn)' }}
+          style={{ background: server?.connected ? 'var(--zy-ok)' : 'var(--zy-warn)' }}
         />
         <div className="sidebar-status-text">
           <span
             className="sidebar-status-label"
-            style={{ color: kc?.connected ? 'var(--zy-ok)' : 'var(--zy-warn)' }}
+            style={{ color: server?.connected ? 'var(--zy-ok)' : 'var(--zy-warn)' }}
           >
             {statusLabel}
           </span>
-          {kc?.connected && statusDetail && (
+          {server?.connected && statusDetail && (
             <div className="sidebar-uptime">{statusDetail}</div>
           )}
         </div>

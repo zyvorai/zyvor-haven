@@ -3,7 +3,7 @@
 
 export const planeStatus = {
   phase: { label: 'Phase', value: 'Ready', meta: 'All systems nominal', ok: true },
-  keycloak: { label: 'Identity server', value: '3/3', meta: 'All instances ready', ok: true },
+  identity: { label: 'Identity server', value: '3/3', meta: 'All instances ready', ok: true },
   postgres: { label: 'Postgres primary', value: 'healthy', meta: '2 replicas streaming', ok: true },
   backup: { label: 'Last Backup', value: '2h ago', meta: 'snapshot-20260827-0200', ok: true },
   cert: { label: 'Certificate', value: '84 days', meta: 'expires 2026-11-20', ok: true },
@@ -13,7 +13,7 @@ export const reconcileSteps = [
   { id: 'observatory', label: 'Observatory', sub: 'watchers synced' },
   { id: 'ingress', label: 'Ingress', sub: 'rules reconciled' },
   { id: 'certs', label: 'Certificates', sub: 'secrets valid' },
-  { id: 'keycloak', label: 'Identity server', sub: 'realms synced' },
+  { id: 'identity', label: 'Identity server', sub: 'realms synced' },
   { id: 'postgres', label: 'Postgres', sub: 'clusters healthy' },
   { id: 'vault', label: 'Vault', sub: 'leases rotated' },
   { id: 'gateway', label: 'API Gateway', sub: 'routes active' },

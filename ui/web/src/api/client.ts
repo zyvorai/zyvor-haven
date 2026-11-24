@@ -6,12 +6,12 @@ const TOKEN_KEY = 'haven-session-token';
 
 export class APIError extends Error {
   status: number;
-  // legacy wire name: backend error payloads carry this field as `keycloak`
-  keycloak?: unknown;
-  constructor(message: string, status: number, keycloak?: unknown) {
+  // Raw identity-server error body relayed by the API (`identityServer` field).
+  identityServer?: unknown;
+  constructor(message: string, status: number, identityServer?: unknown) {
     super(message);
     this.status = status;
-    this.keycloak = keycloak;
+    this.identityServer = identityServer;
   }
 }
 
@@ -39,23 +39,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   if (!res.ok) {
-    let body: { error?: string; keycloak?: unknown } = {};
+    let body: { error?: string; identityServer?: unknown } = {};
     try {
       body = text ? JSON.parse(text) : {};
     } catch {
       /* ignore */
     }
-    throw new APIError(body.error ?? text ?? res.statusText, res.status, body.keycloak);
+    throw new APIError(body.error ?? text ?? res.statusText, res.status, body.identityServer);
   }
   return text ? JSON.parse(text) : (undefined as T);
 }
 
-// Wire format: `keycloakUrl` is the legacy field name for the identity server URL.
-export interface KeycloakStatus {
+export interface IdentityServerStatus {
   connected: boolean;
   version?: string;
   realmCount: number;
-  keycloakUrl: string;
+  identityServerUrl: string;
 }
 
 export interface Realm {
@@ -373,9 +372,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
-  changeKeycloakAdminPassword: (currentPassword: string, newPassword: string) =>
+  changeIdentityServerAdminPassword: (currentPassword: string, newPassword: string) =>
     request<{ ok: boolean; user: string; note?: string }>(
-      '/keycloak/admin-password',
+      '/identity-server/admin-password',
       {
         method: 'POST',
         body: JSON.stringify({ currentPassword, newPassword }),
@@ -397,7 +396,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  keycloakStatus: () => request<KeycloakStatus>('/keycloak/status'),
+  identityServerStatus: () => request<IdentityServerStatus>('/identity-server/status'),
   securityPosture: (opts?: { realm?: string; baseline?: string; includeMaster?: boolean }) =>
     request<SecurityPostureReport>(`/security/posture${postureQuery(opts)}`),
   securityPostureSarif: (opts?: { realm?: string; baseline?: string; includeMaster?: boolean }) =>
@@ -446,15 +445,15 @@ export const api = {
     request<IdentityProvider>('/federation/connections', { method: 'POST', body: JSON.stringify(body) }),
   deleteFederationConnection: (realm: string, alias: string) =>
     request<void>(`/federation/connections/${encodeURIComponent(realm)}/${encodeURIComponent(alias)}`, { method: 'DELETE' }),
-  keycloakConfig: () =>
-    request<{ keycloakUrl: string; adminUser: string }>('/keycloak/config'),
-  connectKeycloak: (body: {
-    keycloakUrl: string;
+  identityServerConfig: () =>
+    request<{ identityServerUrl: string; adminUser: string }>('/identity-server/config'),
+  connectIdentityServer: (body: {
+    identityServerUrl: string;
     adminUser: string;
     password: string;
     consoleUrl?: string;
   }) =>
-    request<KeycloakStatus>('/keycloak/connect', {
+    request<IdentityServerStatus>('/identity-server/connect', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

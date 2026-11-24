@@ -568,7 +568,7 @@ label {
   color: var(--zy-muted);
 }
 
-.keycloak-featured {
+.identity-featured {
   position: relative;
   overflow: hidden;
   border-radius: var(--zy-r-xl);
@@ -576,26 +576,26 @@ label {
   margin-bottom: var(--zy-s6);
 }
 
-.keycloak-featured--offline {
+.identity-featured--offline {
   background: var(--zy-surface);
   gap: var(--zy-s4);
 }
 
-.keycloak-offline-art {
+.identity-offline-art {
   flex: 0 0 auto;
 }
 
-.keycloak-offline-copy {
+.identity-offline-copy {
   flex: 1;
   min-width: 200px;
 }
 
-.keycloak-featured--loading {
+.identity-featured--loading {
   display: block;
   background: var(--zy-surface);
 }
 
-.keycloak-url-chip {
+.identity-url-chip {
   background: var(--zy-surface-2);
 }
 
@@ -1799,7 +1799,7 @@ label {
     font-size: 48px;
   }
 
-  .keycloak-featured--offline {
+  .identity-featured--offline {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -1813,7 +1813,7 @@ label {
   .art-orbit,
   .skeleton,
   .atlas-flow path,
-  .keycloak-live-dot,
+  .identity-live-dot,
   .timeline-live-dot,
   .rail-dot,
   .timeline-step-icon.ok {

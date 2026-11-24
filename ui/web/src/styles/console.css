@@ -41,7 +41,7 @@
   max-width: 560px;
 }
 
-.keycloak-featured {
+.identity-featured {
   margin-bottom: var(--zy-s7);
   padding: var(--zy-s6);
   border-radius: var(--zy-r-xl);
@@ -55,11 +55,11 @@
   gap: var(--zy-s5);
 }
 
-.keycloak-featured--offline {
+.identity-featured--offline {
   background: var(--zy-surface-2);
 }
 
-.keycloak-featured-label {
+.identity-featured-label {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -71,21 +71,21 @@
   margin-bottom: 8px;
 }
 
-.keycloak-live-dot {
+.identity-live-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--zy-ok);
   box-shadow: 0 0 0 3px var(--zy-ok-tint);
-  animation: kc-pulse 2s ease-in-out infinite;
+  animation: identity-pulse 2s ease-in-out infinite;
 }
 
-@keyframes kc-pulse {
+@keyframes identity-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
 
-.keycloak-url-chip {
+.identity-url-chip {
   display: inline-block;
   font-family: var(--zy-mono);
   font-size: 13px;
@@ -96,13 +96,13 @@
   color: var(--zy-ink);
 }
 
-.keycloak-meta {
+.identity-meta {
   font-size: 14px;
   color: var(--zy-slate);
   margin-top: 10px;
 }
 
-.keycloak-featured-actions {
+.identity-featured-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -497,7 +497,7 @@
   border-color: rgba(41, 151, 255, 0.4);
 }
 
-[data-theme="dark"] .keycloak-featured {
+[data-theme="dark"] .identity-featured {
   box-shadow: var(--zy-e2);
 }
 

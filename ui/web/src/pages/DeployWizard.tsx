@@ -28,8 +28,8 @@ export function DeployWizard() {
   }, []);
 
   const canCreatePlane = !!caps?.canCreatePlane;
-  const kcInstances = durability === 'dev' ? 1 : durability === 'staging' ? 2 : 3;
-  const pgInstances = kcInstances;
+  const idpInstances = durability === 'dev' ? 1 : durability === 'staging' ? 2 : 3;
+  const pgInstances = idpInstances;
 
   const summary = canCreatePlane
     ? durability === 'production'
@@ -243,10 +243,10 @@ export function DeployWizard() {
               <div className="preview-arrow">↓</div>
               <div className="preview-node">
                 <div className="preview-node-title">
-                  Identity server ({kcInstances} pod{kcInstances > 1 ? 's' : ''})
+                  Identity server ({idpInstances} pod{idpInstances > 1 ? 's' : ''})
                 </div>
                 <div className="preview-pods">
-                  {Array.from({ length: kcInstances }).map((_, i) => (
+                  {Array.from({ length: idpInstances }).map((_, i) => (
                     <div key={i} className="preview-pod">
                       pod
                     </div>

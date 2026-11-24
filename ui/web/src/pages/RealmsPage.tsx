@@ -70,7 +70,7 @@ export function RealmsPage() {
               <div>
               <strong>Identity server unreachable</strong>
               <p>{err}</p>
-              <Link to="/settings?focus=keycloak" className="btn btn-primary">
+              <Link to="/settings?focus=identity-server" className="btn btn-primary">
                 Configure in Settings
               </Link>
               </div>

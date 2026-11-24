@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { ConsoleLayout } from '../components/ConsoleLayout';
 import { StatusCard } from '../components/StatusCard';
 import { ReconcileTimeline } from '../components/ReconcileTimeline';
-import { api, type KeycloakStatus, type PlaneStatus } from '../api/client';
+import { api, type IdentityServerStatus, type PlaneStatus } from '../api/client';
 import {
   type NavIconId,
   navIcons,
@@ -28,7 +28,7 @@ const quickActions: {
   { path: '/realms', icon: 'realms', label: 'Realm Studio', desc: 'Manage tenants & realms' },
   { path: '/clients', icon: 'clients', label: 'Clients', desc: 'OIDC apps across realms' },
   { path: '/deploy', icon: 'deploy', label: 'Deploy wizard', desc: 'Spin up identity plane' },
-  { path: '/settings?focus=keycloak', icon: 'settings', label: 'Settings', desc: 'Identity server connection' },
+  { path: '/settings?focus=identity-server', icon: 'settings', label: 'Settings', desc: 'Identity server connection' },
 ];
 
 const cardIcons: Record<string, ReactNode> = {
@@ -40,13 +40,13 @@ const cardIcons: Record<string, ReactNode> = {
 };
 
 export function CommandDeck() {
-  const [kc, setKc] = useState<KeycloakStatus | null>(null);
-  const [kcErr, setKcErr] = useState('');
+  const [server, setServer] = useState<IdentityServerStatus | null>(null);
+  const [serverErr, setServerErr] = useState('');
   const [plane, setPlane] = useState<PlaneStatus | null>(null);
   const [planeLoaded, setPlaneLoaded] = useState(false);
 
   useEffect(() => {
-    api.keycloakStatus().then(setKc).catch((e) => setKcErr(e.message));
+    api.identityServerStatus().then(setServer).catch((e) => setServerErr(e.message));
     api
       .planeStatus()
       .then(setPlane)
@@ -58,21 +58,21 @@ export function CommandDeck() {
     return () => window.clearInterval(id);
   }, []);
 
-  const kcCard = kc
+  const serverCard = server
     ? {
         label: 'Identity server',
-        value: kc.connected ? kc.version ?? 'connected' : 'offline',
-        meta: kc.connected
-          ? `${kc.realmCount} realm${kc.realmCount === 1 ? '' : 's'} · live`
-          : kcErr || 'unreachable',
-        ok: kc.connected,
+        value: server.connected ? server.version ?? 'connected' : 'offline',
+        meta: server.connected
+          ? `${server.realmCount} realm${server.realmCount === 1 ? '' : 's'} · live`
+          : serverErr || 'unreachable',
+        ok: server.connected,
         variant: 'live' as const,
       }
-    : kcErr
+    : serverErr
       ? {
           label: 'Identity server',
           value: 'offline',
-          meta: kcErr,
+          meta: serverErr,
           ok: false,
           variant: 'live' as const,
         }
@@ -117,11 +117,11 @@ export function CommandDeck() {
       ]
     : [];
 
-  const cards = [kcCard, ...liveCards];
-  const checked = kc || kcErr ? cards : [];
+  const cards = [serverCard, ...liveCards];
+  const checked = server || serverErr ? cards : [];
   const healthy = checked.filter((c) => c.ok).length;
   const ringTone: Tone = checked.length === 0 ? 'muted' : healthy === checked.length ? 'ok' : healthy >= checked.length - 1 ? 'warn' : 'err';
-  const phaseLabel = plane?.phase ?? plane?.phaseCard?.value ?? (kc ? (kc.connected ? 'Connected' : 'Offline') : '…');
+  const phaseLabel = plane?.phase ?? plane?.phaseCard?.value ?? (server ? (server.connected ? 'Connected' : 'Offline') : '…');
 
   return (
     <ConsoleLayout>
@@ -163,20 +163,20 @@ export function CommandDeck() {
             </div>
           </div>
 
-          {kc?.connected ? (
-            <div className="keycloak-featured">
+          {server?.connected ? (
+            <div className="identity-featured">
               <div>
-                <div className="keycloak-featured-label">
-                  <span className="keycloak-live-dot" aria-hidden />
+                <div className="identity-featured-label">
+                  <span className="identity-live-dot" aria-hidden />
                   Identity server
                 </div>
-                <code className="keycloak-url-chip">{kc.keycloakUrl}</code>
-                <div className="keycloak-meta">
-                  {kc.realmCount} realm{kc.realmCount === 1 ? '' : 's'} · v{kc.version}
+                <code className="identity-url-chip">{server.identityServerUrl}</code>
+                <div className="identity-meta">
+                  {server.realmCount} realm{server.realmCount === 1 ? '' : 's'} · v{server.version}
                   {plane?.phase ? ` · plane ${plane.phase}` : ''}
                 </div>
               </div>
-              <div className="keycloak-featured-actions">
+              <div className="identity-featured-actions">
                 <Link to="/realms" className="btn btn-primary deck-btn">
                   Open Realm Studio
                 </Link>
@@ -185,23 +185,23 @@ export function CommandDeck() {
                 </Link>
               </div>
             </div>
-          ) : kc || kcErr ? (
-            <div className="keycloak-featured keycloak-featured--offline">
-              <div className="keycloak-offline-art" aria-hidden>
+          ) : server || serverErr ? (
+            <div className="identity-featured identity-featured--offline">
+              <div className="identity-offline-art" aria-hidden>
                 <Art name="offline" size={120} />
               </div>
-              <div className="keycloak-offline-copy">
-                <div className="keycloak-featured-label">Identity server offline</div>
-                <p className="keycloak-meta" style={{ marginTop: 0 }}>
-                  {kcErr || 'Not connected — configure in Settings'}
+              <div className="identity-offline-copy">
+                <div className="identity-featured-label">Identity server offline</div>
+                <p className="identity-meta" style={{ marginTop: 0 }}>
+                  {serverErr || 'Not connected — configure in Settings'}
                 </p>
               </div>
-              <Link to="/settings?focus=keycloak" className="btn btn-primary deck-btn">
+              <Link to="/settings?focus=identity-server" className="btn btn-primary deck-btn">
                 Connect identity server
               </Link>
             </div>
           ) : (
-            <div className="keycloak-featured keycloak-featured--loading">
+            <div className="identity-featured identity-featured--loading">
               <SkeletonBlock label="Checking identity server connection" rows={1} />
             </div>
           )}
@@ -233,7 +233,7 @@ export function CommandDeck() {
                 variant={c.variant}
               />
             ))}
-            {(kc || kcErr) && !planeLoaded && [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} card label="Loading plane status" rows={1} />)}
+            {(server || serverErr) && !planeLoaded && [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} card label="Loading plane status" rows={1} />)}
           </div>
 
           <ReconcileTimeline conditions={plane?.conditions} phase={plane?.phase} />

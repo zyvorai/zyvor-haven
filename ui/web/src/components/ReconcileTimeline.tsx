@@ -15,8 +15,7 @@ function StepGlyph({ kind }: { kind: 'ok' | 'pending' | 'warn' }) {
 
 const defaultSteps = [
   { id: 'database', label: 'PostgreSQL', sub: 'cluster health', type: 'DatabaseReady' },
-  // KeycloakReady is the legacy wire name of the condition type.
-  { id: 'keycloak', label: 'Identity server', sub: 'instances ready', type: 'KeycloakReady' },
+  { id: 'identity', label: 'Identity server', sub: 'instances ready', type: 'IdentityProviderReady' },
   { id: 'certs', label: 'Certificates', sub: 'TLS valid', type: 'CertificateReady' },
   { id: 'backup', label: 'Backups', sub: 'schedule configured', type: 'BackupConfigured' },
 ];

@@ -60,6 +60,6 @@ export const paletteCommands: PaletteCommand[] = [
     label: 'Identity server connection settings',
     keywords: ['identity server', 'connect', 'credentials'],
     action: 'navigate',
-    path: '/settings?focus=keycloak',
+    path: '/settings?focus=identity-server',
   },
 ];
