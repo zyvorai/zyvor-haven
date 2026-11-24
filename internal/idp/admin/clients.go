@@ -80,6 +80,9 @@ func (a *api) createClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.Realm = rl.Name
+	if !a.guardClient(w, r, rl, c) {
+		return
+	}
 	var secret string
 	if !c.Public {
 		if secret, err = newSecret(); err != nil {
@@ -133,6 +136,9 @@ func (a *api) updateClient(w http.ResponseWriter, r *http.Request) {
 	next.ID, next.Realm, next.CreatedAt = cur.ID, cur.Realm, cur.CreatedAt
 	if !next.Public {
 		next.SecretHash = cur.SecretHash
+	}
+	if !a.guardClient(w, r, rl, next) {
+		return
 	}
 	if err := a.cfg.Store.UpdateClient(r.Context(), next); err != nil {
 		a.fail(w, r, err)

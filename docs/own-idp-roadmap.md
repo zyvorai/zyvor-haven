@@ -74,7 +74,9 @@ webhook, dashboards and alert rules), and #7's email transport: self-service ema
 password reset (SMTP, single-use links; see
 [email-and-password-reset.md](email-and-password-reset.md)), and SSO sessions with single logout
 (`haven_sso` cookie, `prompt`/`max_age`, `sid`, RP-initiated and back-channel logout, Admin session
-routes; see [sso-and-logout.md](sso-and-logout.md)).
+routes; see [sso-and-logout.md](sso-and-logout.md)). #11 Guard as an admission gate is done for
+realm create/update and client create/update (off, warn or enforce, audited overrides, waivers, dry-run
+route; see [guard-gate.md](guard-gate.md)); users, roles, groups and realm import are not gated.
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:

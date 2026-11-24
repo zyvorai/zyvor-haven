@@ -320,6 +320,10 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		adminCfg = admin.Config{
 			Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL,
 			AdminRealm: adminRealm, Logger: log, Actions: act, SecretBox: box, Sessions: sess,
+			Guard: guardConfigFromEnv(),
+		}
+		if err := adminCfg.Guard.Validate(time.Now()); err != nil {
+			return err
 		}
 		withObs(observer, &oidcCfg, &adminCfg)
 		mux.Handle("/admin/v1/", admin.New(adminCfg))

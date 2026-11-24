@@ -84,3 +84,36 @@ func (b *StaticBackend) Config() (string, string) { return b.url, b.user }
 func (b *StaticBackend) Reconfigure(context.Context, string, string, string) error {
 	return ErrBackendFixed
 }
+
+// GuardFinding is one Guard finding as the Admin API reports it.
+type GuardFinding struct {
+	RuleID   string `json:"ruleId"`
+	Severity string `json:"severity"`
+	Title    string `json:"title"`
+	Resource string `json:"resource"`
+	Detail   string `json:"detail,omitempty"`
+	Fix      string `json:"fix,omitempty"`
+}
+
+// GuardVerdict is Guard's answer for a proposed realm or client write.
+// Blocked holds the new findings (after waivers) at or above the threshold;
+// Allowed is false only when the mode is "enforce" and Blocked is not empty.
+type GuardVerdict struct {
+	Mode      string         `json:"mode"`
+	Threshold string         `json:"threshold"`
+	Kind      string         `json:"kind"`
+	Resource  string         `json:"resource"`
+	Allowed   bool           `json:"allowed"`
+	Blocked   []GuardFinding `json:"blocked"`
+	New       []GuardFinding `json:"new"`
+	Fixed     []GuardFinding `json:"fixed"`
+	Waived    int            `json:"waived"`
+}
+
+// GuardEvaluator is implemented by providers that can ask Guard about a
+// proposed write without applying it. kind is "realm" or "client"; body is
+// the same JSON the matching write route takes (idp.Realm or idp.Client).
+// It is optional, like UserMailer, and is not part of Provider.
+type GuardEvaluator interface {
+	EvaluateGuard(ctx context.Context, realm, kind string, body any) (GuardVerdict, error)
+}
