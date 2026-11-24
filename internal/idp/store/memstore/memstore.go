@@ -34,6 +34,7 @@ type Store struct {
 	sess    map[string]core.Session // key: id
 	events  []core.Event
 	rates   map[string]rateWindow
+	dcr     *dcrState // dynamic client registration (dcr.go), created lazily
 }
 
 type rateWindow struct {

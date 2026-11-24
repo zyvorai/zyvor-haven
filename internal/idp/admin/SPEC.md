@@ -140,3 +140,29 @@ because the server stores only a hash and `GET .../secret` is 501. The console's
 create-client handler uses it for confidential clients and returns
 `201 {"id","secret"}` with `Cache-Control: no-store`; the UI must show the secret
 once. Providers that can read secrets back (Keycloak) keep the old 201-with-no-body response.
+
+## Dynamic client registration (RFC 7591/7592)
+Needs a store with `core.DCRStore`; without it these routes answer 501
+`dynamic client registration is not available on this store`. The registration
+endpoint itself is served by the OIDC provider
+(`POST /realms/{realm}/clients-registrations/openid-connect`), see
+docs/dynamic-client-registration.md.
+
+- `POST /realms/{r}/initial-access-tokens` body `{expirationSeconds?, count?, note?}`
+  (defaults 86400 and 1; max 2592000 s and 1000 uses; note at most 255 chars, no
+  control characters; unknown fields rejected). 201 `{id, token, count, expiresAt, note}`.
+  `token` (`hiat_...`) is shown exactly once; only its sha256 is stored. Audit
+  `ADMIN_CREATE initial-access-token <id>`.
+- `GET /realms/{r}/initial-access-tokens` -> `[{id, note, createdAt, expiresAt, count, remaining}]`.
+  Never the token or its hash. Expired and exhausted tokens stay listed until deleted.
+- `DELETE /realms/{r}/initial-access-tokens/{id}` -> 204, or 404. The token then fails
+  exactly like an unknown one.
+- `GET /realms/{r}/registration-policy` -> `{maxClients, allowedGrantTypes}` (defaults 100
+  and all of authorization_code, refresh_token, client_credentials when none was set).
+- `PUT /realms/{r}/registration-policy` body `{maxClients (required, 0..100000),
+  allowedGrantTypes?}` -> 200 with the stored policy. `maxClients: 0` switches registration
+  off for the realm. `allowedGrantTypes` must be a non-empty subset of the three grants, each
+  once; omitted = all three.
+- `GET /realms/{r}/registered-clients` -> `[{id, clientId, name, enabled, createdVia:"dcr",
+  initialTokenId, createdAt}]`: clients created through the registration endpoint that still
+  exist. Admin-created clients are never listed.

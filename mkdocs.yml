@@ -88,6 +88,7 @@ nav:
       - Import a Keycloak realm: import-from-keycloak.md
       - Email and password reset: email-and-password-reset.md
       - SSO sessions and single logout: sso-and-logout.md
+      - Dynamic client registration: dynamic-client-registration.md
       - Password policy: password-policy.md
       - Add an app (wizard and Test login): add-an-app.md
       - Backups: backups.md
