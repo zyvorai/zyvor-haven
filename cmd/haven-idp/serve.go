@@ -57,6 +57,17 @@ type Config struct {
 	AuditWebhookSecret string
 	Observer           *obs.Observer // built by serve when nil
 
+	// Email (verification and password reset). Mailer, when set, wins (dev
+	// mode installs an in-memory outbox); otherwise SMTPHost enables SMTP.
+	// With neither, the email flows are off.
+	Mailer       mail.Sender
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUser     string
+	SMTPPassword string
+	SMTPFrom     string
+	SMTPTLS      string // starttls (default) | implicit | none
+
 	// Hooks (optional).
 	PostBootstrap func(ctx context.Context, st core.Store, h core.PasswordHasher) error
 	Mount         func(mux *http.ServeMux)
@@ -85,7 +96,20 @@ func configFromEnv() (Config, error) {
 		AuditSpec:          os.Getenv("HAVEN_IDP_AUDIT"),
 		AuditWebhookSecret: os.Getenv("HAVEN_IDP_AUDIT_WEBHOOK_SECRET"),
 	}
+	c.SMTPHost = os.Getenv("HAVEN_IDP_SMTP_HOST")
+	c.SMTPUser = os.Getenv("HAVEN_IDP_SMTP_USER")
+	c.SMTPPassword = os.Getenv("HAVEN_IDP_SMTP_PASSWORD")
+	c.SMTPFrom = os.Getenv("HAVEN_IDP_SMTP_FROM")
+	c.SMTPTLS = os.Getenv("HAVEN_IDP_SMTP_TLS")
 	var err error
+	if v := os.Getenv("HAVEN_IDP_SMTP_PORT"); v != "" {
+		if c.SMTPPort, err = strconv.Atoi(v); err != nil || c.SMTPPort < 1 || c.SMTPPort > 65535 {
+			return c, fmt.Errorf("HAVEN_IDP_SMTP_PORT %q is not a port", v)
+		}
+	}
+	if c.SMTPPassword, err = fromFile(c.SMTPPassword, os.Getenv("HAVEN_IDP_SMTP_PASSWORD_FILE"), "smtp password"); err != nil {
+		return c, err
+	}
 	if c.BootstrapPassword, err = fromFile(c.BootstrapPassword, os.Getenv("HAVEN_IDP_BOOTSTRAP_PASSWORD_FILE"), "bootstrap password"); err != nil {
 		return c, err
 	}
@@ -105,6 +129,24 @@ func fromFile(val, path, what string) (string, error) {
 		return "", fmt.Errorf("read %s file: %w", what, err)
 	}
 	return strings.TrimSpace(string(b)), nil
+}
+
+// buildMailer returns the configured mail sender, or nil when email is off.
+func buildMailer(cfg Config) (mail.Sender, error) {
+	if cfg.Mailer != nil {
+		return cfg.Mailer, nil
+	}
+	if cfg.SMTPHost == "" {
+		if cfg.SMTPFrom != "" || cfg.SMTPUser != "" || cfg.SMTPPassword != "" {
+			return nil, errors.New("HAVEN_IDP_SMTP_* is set but HAVEN_IDP_SMTP_HOST is empty: refusing to start with email half-configured")
+		}
+		return nil, nil
+	}
+	if cfg.SMTPFrom == "" {
+		return nil, errors.New("HAVEN_IDP_SMTP_FROM is required when HAVEN_IDP_SMTP_HOST is set")
+	}
+	return mail.NewSMTP(mail.SMTPConfig{Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUser,
+		Password: cfg.SMTPPassword, From: cfg.SMTPFrom, TLS: cfg.SMTPTLS})
 }
 
 // serve runs the identity server until ctx is cancelled.
@@ -184,7 +226,19 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		}
 	}
 
+	mailer, err := buildMailer(cfg)
+	if err != nil {
+		return err
+	}
+	var act *actions.Service
+	if mailer != nil {
+		act = &actions.Service{Store: st, Mailer: mailer, BaseURL: cfg.BaseURL}
+		log.Info("email enabled: password reset and email verification are available")
+	} else {
+		log.Info("email not configured: password reset and email verification are off (set HAVEN_IDP_SMTP_HOST)")
+	}
 	oidcCfg := oidc.Config{
+		Actions: act,
 		Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL, Logger: log,
 		TrustProxy: cfg.TrustProxy,
 		CSRFKey:    []byte(cfg.CSRFKey),
@@ -201,7 +255,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	} else {
 		adminCfg = admin.Config{
 			Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL,
-			AdminRealm: adminRealm, Logger: log,
+			AdminRealm: adminRealm, Logger: log, Actions: act,
 		}
 		withObs(observer, &oidcCfg, &adminCfg)
 		mux.Handle("/admin/v1/", admin.New(adminCfg))
