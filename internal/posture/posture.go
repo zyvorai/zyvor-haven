@@ -65,6 +65,15 @@ type Report struct {
 	Counts      Counts        `json:"counts"`
 	Findings    []Finding     `json:"findings"`
 	Realms      []RealmReport `json:"realms"`
+
+	// Populated by ApplyWaivers.
+	Waived         []WaivedFinding `json:"waived,omitempty"`
+	ExpiredWaivers []Waiver        `json:"expiredWaivers,omitempty"`
+	UnusedWaivers  []Waiver        `json:"unusedWaivers,omitempty"`
+
+	// Populated by MarkNew.
+	KnownApplied bool      `json:"knownApplied,omitempty"`
+	NewFindings  []Finding `json:"newFindings,omitempty"`
 }
 
 type Options struct {
@@ -99,6 +108,8 @@ var rules = map[string]rule{
 	"HAVEN019": {"HAVEN019", SeverityMedium, "Login events are not recorded", "Enable user events and an event listener so sign-ins can be audited and streamed."},
 	"HAVEN020": {"HAVEN020", SeverityLow, "Admin events are not recorded", "Enable admin events so configuration changes leave an audit trail."},
 	"HAVEN021": {"HAVEN021", SeverityMedium, "Refresh tokens are not rotated while public clients exist", "Enable Revoke Refresh Token so public-client refresh tokens are single use (RFC 9700)."},
+	"HAVEN022": {"HAVEN022", SeverityLow, "SSO session maximum lifespan exceeds 30 days", "Reduce the SSO session maximum lifespan to 30 days or less so users re-authenticate periodically."},
+	"HAVEN023": {"HAVEN023", SeverityLow, "Offline session idle timeout exceeds 90 days", "Reduce the offline session idle timeout to 90 days or less; offline tokens are long-lived bearer credentials."},
 	"HAVEN013": {"HAVEN013", SeverityLow, "Disabled client remains configured", "Remove stale clients or document why they are intentionally retained."},
 }
 
@@ -418,6 +429,12 @@ func evaluateHardening(realm idmodel.Realm, hasPublicClient bool) []Finding {
 	if h.SessionIdleTTLSeconds != nil && *h.SessionIdleTTLSeconds > 86400 {
 		out = append(out, finding("HAVEN018", name, "", fmt.Sprintf("ssoSessionIdleTimeout=%ds", *h.SessionIdleTTLSeconds)))
 	}
+	if h.SessionMaxTTLSeconds != nil && *h.SessionMaxTTLSeconds > 30*86400 {
+		out = append(out, finding("HAVEN022", name, "", fmt.Sprintf("ssoSessionMaxLifespan=%ds", *h.SessionMaxTTLSeconds)))
+	}
+	if h.OfflineIdleTTLSeconds != nil && *h.OfflineIdleTTLSeconds > 90*86400 {
+		out = append(out, finding("HAVEN023", name, "", fmt.Sprintf("offlineSessionIdleTimeout=%ds", *h.OfflineIdleTTLSeconds)))
+	}
 	if h.AuthEventsLogged != nil && !*h.AuthEventsLogged {
 		out = append(out, finding("HAVEN019", name, "", "eventsEnabled=false"))
 	}
@@ -471,6 +488,11 @@ func (r *Report) AddFindings(extra []Finding) {
 		}
 		r.Realms[i].Findings = append(r.Realms[i].Findings, f)
 	}
+	r.recompute()
+}
+
+// recompute rebuilds counts, scores and grade from the per-realm findings.
+func (r *Report) recompute() {
 	r.Counts = Counts{}
 	r.Findings = nil
 	for i := range r.Realms {

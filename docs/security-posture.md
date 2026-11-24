@@ -8,7 +8,7 @@ hero:
     realm/client configuration produces the same findings, score, and
     SHA-256 fingerprint.
   highlights:
-    - {value: "21", label: "Deterministic rules, HAVEN001–021, across four severity tiers"}
+    - {value: "23", label: "Deterministic rules, HAVEN001–023, across four severity tiers"}
     - {value: "SHA-256", label: "Fingerprint for pinning a baseline and detecting drift"}
     - {value: "3", label: "CI exit codes: 0 clean, 1 error, 2 findings over threshold"}
     - {value: "6", label: "Built-in Keycloak clients excluded from findings and counts"}
@@ -75,6 +75,27 @@ Exit codes:
 - `1`: input/configuration/runtime error
 - `2`: scan succeeded but findings crossed `--fail-on`
 
+## Waivers and the known-findings gate
+
+Two CI features keep Guard adoptable on a realm that is not clean yet.
+
+**Waivers** (`--waivers waivers.json`) record accepted risks. Every waiver needs a reason, an approver and an expiry (`YYYY-MM-DD`, valid through the end of that UTC day, at most a year ahead):
+
+```json
+{"version": 1, "waivers": [
+  {"ruleId": "HAVEN014", "realm": "lab", "reason": "Lab realm behind a TLS-terminating proxy", "approver": "sec@example.com", "expires": "2027-03-31"}
+]}
+```
+
+A waiver matches one rule in one realm. `clientId` omitted matches realm-level findings only; `"*"` matches any client. Waived findings leave the counts, score and `--fail-on` gate and are listed under `waived` in JSON. When a waiver expires, its finding comes back and the waiver appears under `expiredWaivers`; waivers that match nothing appear under `unusedWaivers` so stale exceptions get removed. Waivers never change the fingerprint.
+
+**Known findings** (`--write-known known.json`, then `--known known.json`) save today's findings as a baseline and make `--fail-on` gate only on findings that are not in it, so a legacy realm can adopt Guard and still fail on regressions. A finding is identified by rule, realm, client and evidence, so a new offending value on an already flagged client counts as new. The report lists them under `newFindings`.
+
+```bash
+go run ./cmd/haven-audit --input realm.json --write-known known.json --fail-on none   # once
+go run ./cmd/haven-audit --input realm.json --known known.json --waivers waivers.json --fail-on high
+```
+
 ## Policy, diff and access review
 
 - `--policy policy.json` adds your own declarative rules to the audit: [Policy as code](policy-as-code.md).
@@ -106,8 +127,10 @@ Exit codes:
 | HAVEN019 | medium | user events not recorded |
 | HAVEN020 | low | admin events not recorded |
 | HAVEN021 | medium | refresh tokens not rotated while an enabled public client exists |
+| HAVEN022 | low | SSO session maximum lifespan above 30 days |
+| HAVEN023 | low | offline session idle timeout above 90 days |
 
-HAVEN014-021 read optional realm settings (`sslRequired`, `passwordPolicy`, `accessTokenLifespan`, `ssoSessionIdleTimeout`, `eventsEnabled`, `adminEventsEnabled`, `revokeRefreshToken`). A realm export or API response that omits a setting produces no finding for it: Guard does not guess. These settings are not part of the fingerprint, so existing baselines stay valid; use `--policy` for enforced settings drift (see [Policy as code](policy-as-code.md)).
+HAVEN014-023 read optional realm settings (`sslRequired`, `passwordPolicy`, `accessTokenLifespan`, `ssoSessionIdleTimeout`, `ssoSessionMaxLifespan`, `offlineSessionIdleTimeout`, `eventsEnabled`, `adminEventsEnabled`, `revokeRefreshToken`). A realm export or API response that omits a setting produces no finding for it: Guard does not guess. These settings are not part of the fingerprint, so existing baselines stay valid; use `--policy` for enforced settings drift (see [Policy as code](policy-as-code.md)).
 
 Built-in Keycloak clients (`account`, `account-console`, `admin-cli`, `broker`, `realm-management`, `security-admin-console`) are excluded from client counts and findings.
 

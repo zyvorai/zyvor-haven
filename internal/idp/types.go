@@ -44,9 +44,13 @@ type RealmHardening struct {
 	PasswordPolicy        *string `json:"passwordPolicy,omitempty"`
 	AccessTokenLifespan   *int    `json:"accessTokenLifespan,omitempty"`
 	SSOSessionIdleTimeout *int    `json:"ssoSessionIdleTimeout,omitempty"`
-	EventsEnabled         *bool   `json:"eventsEnabled,omitempty"`
-	AdminEventsEnabled    *bool   `json:"adminEventsEnabled,omitempty"`
-	RevokeRefreshToken    *bool   `json:"revokeRefreshToken,omitempty"`
+	// SSOSessionMaxLifespan and OfflineSessionIdleTimeout are read by Guard
+	// rules HAVEN022/HAVEN023 (seconds). nil = the source did not report them.
+	SSOSessionMaxLifespan     *int  `json:"ssoSessionMaxLifespan,omitempty"`
+	OfflineSessionIdleTimeout *int  `json:"offlineSessionIdleTimeout,omitempty"`
+	EventsEnabled             *bool `json:"eventsEnabled,omitempty"`
+	AdminEventsEnabled        *bool `json:"adminEventsEnabled,omitempty"`
+	RevokeRefreshToken        *bool `json:"revokeRefreshToken,omitempty"`
 }
 
 type Client struct {

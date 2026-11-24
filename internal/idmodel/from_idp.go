@@ -33,6 +33,8 @@ func FromRealm(r idp.Realm) Realm {
 			PasswordPolicy:        h.PasswordPolicy,
 			AccessTokenTTLSeconds: h.AccessTokenLifespan,
 			SessionIdleTTLSeconds: h.SSOSessionIdleTimeout,
+			SessionMaxTTLSeconds:  h.SSOSessionMaxLifespan,
+			OfflineIdleTTLSeconds: h.OfflineSessionIdleTimeout,
 			AuthEventsLogged:      h.EventsEnabled,
 			AdminEventsLogged:     h.AdminEventsEnabled,
 			RefreshTokenRotation:  h.RevokeRefreshToken,

@@ -26,6 +26,8 @@ type Hardening struct {
 	PasswordPolicy        *string
 	AccessTokenTTLSeconds *int
 	SessionIdleTTLSeconds *int
+	SessionMaxTTLSeconds  *int // SSO session absolute lifetime (Guard HAVEN022)
+	OfflineIdleTTLSeconds *int // offline session idle timeout (Guard HAVEN023)
 	AuthEventsLogged      *bool
 	AdminEventsLogged     *bool
 	RefreshTokenRotation  *bool
