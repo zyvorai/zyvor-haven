@@ -103,8 +103,8 @@ func newMFA(t *testing.T, withKey bool, opts ...mfaOpt) *mfaEnv {
 	return e
 }
 
-// browser keeps cookies (by name+path) like a real client.
-type browser struct {
+// mfaBrowser keeps cookies (by name+path) like a real client.
+type mfaBrowser struct {
 	e       *mfaEnv
 	cookies map[string]*http.Cookie
 	ip      string
@@ -115,11 +115,11 @@ type browser struct {
 	expectCSRFFail bool
 }
 
-func (e *mfaEnv) browser() *browser {
-	return &browser{e: e, cookies: map[string]*http.Cookie{}, ip: "192.0.2.1:1234"}
+func (e *mfaEnv) mfaBrowser() *mfaBrowser {
+	return &mfaBrowser{e: e, cookies: map[string]*http.Cookie{}, ip: "192.0.2.1:1234"}
 }
 
-func (b *browser) do(req *http.Request) *httptest.ResponseRecorder {
+func (b *mfaBrowser) do(req *http.Request) *httptest.ResponseRecorder {
 	req.RemoteAddr = b.ip
 	for _, c := range b.cookies {
 		if strings.HasPrefix(req.URL.Path, c.Path) {
@@ -147,17 +147,17 @@ func (b *browser) do(req *http.Request) *httptest.ResponseRecorder {
 	return w
 }
 
-func (b *browser) get(path string) *httptest.ResponseRecorder {
+func (b *mfaBrowser) get(path string) *httptest.ResponseRecorder {
 	return b.do(httptest.NewRequest("GET", path, nil))
 }
 
-func (b *browser) post(path string, f url.Values) *httptest.ResponseRecorder {
+func (b *mfaBrowser) post(path string, f url.Values) *httptest.ResponseRecorder {
 	req := httptest.NewRequest("POST", path, strings.NewReader(f.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return b.do(req)
 }
 
-func (b *browser) hasSSO() bool {
+func (b *mfaBrowser) hasSSO() bool {
 	for _, c := range b.cookies {
 		if c.Name == ssoCookie {
 			return true
@@ -176,7 +176,7 @@ var (
 func authURL() string { return base + "auth?" + authQuery(nil).Encode() }
 
 // password runs GET /auth + POST with the password and returns the response.
-func (b *browser) password(user, pw string) *httptest.ResponseRecorder {
+func (b *mfaBrowser) password(user, pw string) *httptest.ResponseRecorder {
 	b.t().Helper()
 	w := b.get(authURL())
 	m := csrfRe.FindStringSubmatch(w.Body.String())
@@ -186,11 +186,11 @@ func (b *browser) password(user, pw string) *httptest.ResponseRecorder {
 	return b.post(authURL(), url.Values{"username": {user}, "password": {pw}, "csrf": {m[1]}})
 }
 
-func (b *browser) t() *testing.T { return b.e.t }
+func (b *mfaBrowser) t() *testing.T { return b.e.t }
 
 // step posts to the step page shown in prev (csrf + mfa_token taken from it)
 // with extra fields.
-func (b *browser) step(prev *httptest.ResponseRecorder, extra url.Values) *httptest.ResponseRecorder {
+func (b *mfaBrowser) step(prev *httptest.ResponseRecorder, extra url.Values) *httptest.ResponseRecorder {
 	b.t().Helper()
 	body := prev.Body.String()
 	tk := tokenRe.FindStringSubmatch(body)
@@ -277,7 +277,7 @@ func TestMFAOffWithoutKey(t *testing.T) {
 	e := newMFA(t, false)
 	// Even a stored requireMfa policy and a credential row must not affect login.
 	_ = e.st.PutMFAPolicy(context.Background(), "r", core.MFAPolicy{RequireMFA: true})
-	b := e.browser()
+	b := e.mfaBrowser()
 	w := b.password("alice", "pw")
 	if !isRedirectWithCode(w) {
 		t.Fatalf("login must be unaffected without a key: %d %s", w.Code, w.Body)
@@ -293,7 +293,7 @@ func TestMFAOffWithoutKey(t *testing.T) {
 func TestMFAOffWithoutStoreSupport(t *testing.T) {
 	type plainStore struct{ core.Store } // hides MFAStore
 	e := newMFA(t, true, func(c *Config) { c.Store = plainStore{c.Store} })
-	b := e.browser()
+	b := e.mfaBrowser()
 	if w := b.password("alice", "pw"); !isRedirectWithCode(w) {
 		t.Fatalf("login affected by a store without MFA support: %d", w.Code)
 	}
@@ -306,7 +306,7 @@ func TestMFAOffWithoutStoreSupport(t *testing.T) {
 // wrong confirm code, confirm, recovery codes shown once, later login needs the code.
 func TestMFAEnrollOnAccountPageAndLogin(t *testing.T) {
 	e := newMFA(t, true)
-	b := e.browser()
+	b := e.mfaBrowser()
 
 	if w := b.get("/realms/r/account/totp"); w.Code != http.StatusUnauthorized {
 		t.Fatalf("account page without SSO session: %d", w.Code)
@@ -396,7 +396,7 @@ func TestMFAEnrollOnAccountPageAndLogin(t *testing.T) {
 
 	// New login: password alone no longer finishes the login.
 	e.now = e.now.Add(35 * time.Second) // next step
-	b2 := e.browser()
+	b2 := e.mfaBrowser()
 	w = b2.password("alice", "pw")
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "Two-step verification") || isRedirectWithCode(w) {
 		t.Fatalf("code page not shown: %d %s", w.Code, w.Body)
@@ -492,9 +492,9 @@ func assertNoLeak(t *testing.T, e *mfaEnv, secret, seedHex string, codes []strin
 	}
 }
 
-// loginUntilCodePage returns a browser and the code page response of alice.
-func (e *mfaEnv) codePage(user string) (*browser, *httptest.ResponseRecorder) {
-	b := e.browser()
+// loginUntilCodePage returns a mfaBrowser and the code page response of alice.
+func (e *mfaEnv) codePage(user string) (*mfaBrowser, *httptest.ResponseRecorder) {
+	b := e.mfaBrowser()
 	w := b.password(user, "pw")
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "Two-step verification") {
 		e.t.Fatalf("expected the code page for %s: %d %s", user, w.Code, w.Body)
@@ -612,8 +612,8 @@ func TestMFAWrongCodesLockoutAndRecovery(t *testing.T) {
 	if w.Code != http.StatusTooManyRequests || isRedirectWithCode(w) || !strings.Contains(w.Body.String(), mfaLimited) {
 		t.Fatalf("correct code during lockout: %d %s", w.Code, w.Body)
 	}
-	// ...from another browser and another IP too (it is per user)...
-	b2 := e.browser()
+	// ...from another mfaBrowser and another IP too (it is per user)...
+	b2 := e.mfaBrowser()
 	b2.ip = "198.51.100.9:4444"
 	w2 := b2.password("alice", "pw")
 	if got := b2.step(w2, url.Values{"code": {good}}); got.Code != http.StatusTooManyRequests {
@@ -770,7 +770,7 @@ func TestMFAWrongCodeRevealsNothing(t *testing.T) {
 func TestMFABareCodeWithoutProofRejected(t *testing.T) {
 	e := newMFA(t, true)
 	e.enrollDirect(e.alice)
-	b := e.browser()
+	b := e.mfaBrowser()
 	b.get(authURL())
 	code := e.code("id-alice", 0)
 	for name, f := range map[string]url.Values{
@@ -854,7 +854,7 @@ func TestMFAProofValidation(t *testing.T) {
 func TestMFARequiredForcesEnrollment(t *testing.T) {
 	e := newMFA(t, true)
 	e.setPolicy(true)
-	b := e.browser()
+	b := e.mfaBrowser()
 	w := b.password("alice", "pw")
 	if w.Code != 200 || isRedirectWithCode(w) || !strings.Contains(w.Body.String(), "requires a second factor") || b.hasSSO() {
 		t.Fatalf("enrollment page not shown: %d %s", w.Code, w.Body)
@@ -884,7 +884,7 @@ func TestMFARequiredForcesEnrollment(t *testing.T) {
 		}
 	}
 	// Navigating straight to /auth (no prompt) or the account page with this
-	// browser (half-finished login) gets neither a code nor a session.
+	// mfaBrowser (half-finished login) gets neither a code nor a session.
 	if got := b.get(authURL()); isRedirectWithCode(got) {
 		t.Error("GET /auth issued a code for a half-finished login")
 	}
@@ -914,7 +914,7 @@ func TestMFARequiredForcesEnrollment(t *testing.T) {
 	}
 	// Next login asks for the code, as for any enrolled user.
 	e.now = e.now.Add(35 * time.Second)
-	b3 := e.browser()
+	b3 := e.mfaBrowser()
 	w3 := b3.password("alice", "pw")
 	if !strings.Contains(w3.Body.String(), "Two-step verification") {
 		t.Fatalf("enrolled user not asked for a code: %d", w3.Code)
@@ -936,7 +936,7 @@ func TestMFARequiredForcesEnrollment(t *testing.T) {
 func TestMFADoneProofDiesWithCredential(t *testing.T) {
 	e := newMFA(t, true)
 	e.setPolicy(true)
-	b := e.browser()
+	b := e.mfaBrowser()
 	w := b.password("alice", "pw")
 	seed, _ := totp.DecodeSeed(secretRe.FindStringSubmatch(w.Body.String())[1])
 	done := b.step(w, url.Values{"code": {totp.Code(seed, e.now)}})
@@ -958,7 +958,7 @@ func (e *mfaEnv) enrollViaLogin(user string) []byte {
 	e.t.Helper()
 	e.setPolicy(true)
 	defer e.setPolicy(false)
-	b := e.browser()
+	b := e.mfaBrowser()
 	w := b.password(user, "pw")
 	m := secretRe.FindStringSubmatch(w.Body.String())
 	if m == nil {
@@ -974,7 +974,7 @@ func (e *mfaEnv) enrollViaLogin(user string) []byte {
 
 func TestMFAPolicyOffDoesNotForceEnrollment(t *testing.T) {
 	e := newMFA(t, true)
-	b := e.browser()
+	b := e.mfaBrowser()
 	if w := b.password("alice", "pw"); !isRedirectWithCode(w) {
 		t.Fatalf("login without policy and credential: %d", w.Code)
 	}
@@ -983,7 +983,7 @@ func TestMFAPolicyOffDoesNotForceEnrollment(t *testing.T) {
 	st := e2.st
 	_ = st.PutTOTP(context.Background(), core.TOTPCredential{Realm: "r", UserID: "id-alice", CreatedAt: e2.now,
 		SealedSeed: e2.box.Seal(totp.NewSeed(), "totp|r|id-alice")})
-	if w := e2.browser().password("alice", "pw"); !isRedirectWithCode(w) {
+	if w := e2.mfaBrowser().password("alice", "pw"); !isRedirectWithCode(w) {
 		t.Fatalf("pending credential blocked login: %d", w.Code)
 	}
 }
@@ -996,7 +996,7 @@ func TestMFADisabledAndLockedUsersNeverReachStep(t *testing.T) {
 	if err := e.st.UpdateUser(context.Background(), u); err != nil {
 		t.Fatal(err)
 	}
-	w := e.browser().password("alice", "pw")
+	w := e.mfaBrowser().password("alice", "pw")
 	if strings.Contains(w.Body.String(), "Two-step verification") || isRedirectWithCode(w) {
 		t.Fatalf("disabled user reached the step: %d", w.Code)
 	}
@@ -1048,7 +1048,7 @@ func TestMFASecretBoxContextBinding(t *testing.T) {
 func TestMFAAccountDisableRegenerateAndReauth(t *testing.T) {
 	e := newMFA(t, true)
 	codes := e.enrollDirect(e.alice)
-	b := e.browser()
+	b := e.mfaBrowser()
 	// Log in with a code to get an SSO session.
 	w := b.password("alice", "pw")
 	if got := b.step(w, url.Values{"code": {e.code("id-alice", 0)}}); !isRedirectWithCode(got) {
@@ -1123,14 +1123,14 @@ func TestMFAAccountDisableRegenerateAndReauth(t *testing.T) {
 		t.Errorf("events: disabled=%d recovery_used=%d", len(e.events("TOTP_DISABLED")), len(e.events("RECOVERY_USED")))
 	}
 	// Login no longer needs a code.
-	if w := e.browser().password("alice", "pw"); !isRedirectWithCode(w) {
+	if w := e.mfaBrowser().password("alice", "pw"); !isRedirectWithCode(w) {
 		t.Fatalf("login after disable: %d", w.Code)
 	}
 }
 
 func TestMFAAccountStartRequiresFreshAuthAndRefusesWhenOn(t *testing.T) {
 	e := newMFA(t, true)
-	b := e.browser()
+	b := e.mfaBrowser()
 	if w := b.password("alice", "pw"); !isRedirectWithCode(w) {
 		t.Fatal("setup")
 	}
@@ -1165,7 +1165,7 @@ func TestMFAAccountStartRequiresFreshAuthAndRefusesWhenOn(t *testing.T) {
 
 func TestMFAAccountPageUnauthenticatedVariants(t *testing.T) {
 	e := newMFA(t, true)
-	b := e.browser()
+	b := e.mfaBrowser()
 	if w := b.password("alice", "pw"); !isRedirectWithCode(w) {
 		t.Fatal("setup")
 	}
@@ -1181,7 +1181,7 @@ func TestMFAAccountPageUnauthenticatedVariants(t *testing.T) {
 		t.Errorf("unknown realm: %d", w.Code)
 	}
 	// A session of another realm does not open this realm's page.
-	b2 := e.browser()
+	b2 := e.mfaBrowser()
 	if w := b2.get("/realms/other/account/totp"); w.Code != http.StatusUnauthorized {
 		t.Errorf("other realm without session: %d", w.Code)
 	}
