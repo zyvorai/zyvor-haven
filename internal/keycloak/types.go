@@ -23,13 +23,15 @@ type Realm struct {
 // RealmHardening holds the realm settings Haven Guard evaluates beyond the
 // core fields. Fields are pointers so "absent" and "false" stay distinct.
 type RealmHardening struct {
-	SSLRequired           *string `json:"sslRequired,omitempty"`
-	PasswordPolicy        *string `json:"passwordPolicy,omitempty"`
-	AccessTokenLifespan   *int    `json:"accessTokenLifespan,omitempty"`
-	SSOSessionIdleTimeout *int    `json:"ssoSessionIdleTimeout,omitempty"`
-	EventsEnabled         *bool   `json:"eventsEnabled,omitempty"`
-	AdminEventsEnabled    *bool   `json:"adminEventsEnabled,omitempty"`
-	RevokeRefreshToken    *bool   `json:"revokeRefreshToken,omitempty"`
+	SSLRequired               *string `json:"sslRequired,omitempty"`
+	PasswordPolicy            *string `json:"passwordPolicy,omitempty"`
+	AccessTokenLifespan       *int    `json:"accessTokenLifespan,omitempty"`
+	SSOSessionIdleTimeout     *int    `json:"ssoSessionIdleTimeout,omitempty"`
+	SSOSessionMaxLifespan     *int    `json:"ssoSessionMaxLifespan,omitempty"`
+	OfflineSessionIdleTimeout *int    `json:"offlineSessionIdleTimeout,omitempty"`
+	EventsEnabled             *bool   `json:"eventsEnabled,omitempty"`
+	AdminEventsEnabled        *bool   `json:"adminEventsEnabled,omitempty"`
+	RevokeRefreshToken        *bool   `json:"revokeRefreshToken,omitempty"`
 }
 
 type Client struct {
