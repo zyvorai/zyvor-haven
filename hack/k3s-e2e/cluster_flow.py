@@ -47,7 +47,8 @@ api("DELETE","/realms/%s/identity-providers/e2e-up"%REALM)
 # ---- full interactive login against the PostgreSQL-backed deployment
 user="admin"; pw=sec("platform-idp","admin-password")
 cs,cb=api("POST","/realms/%s/clients"%REALM,{"clientId":"e2e-app","enabled":True,"publicClient":True,"standardFlowEnabled":True,"redirectUris":["http://localhost:3000/cb"],"deviceFlowEnabled":False})
-ok("create a public client through the Admin API",cs in(200,201,204),(cs,cb))
+# a re-run against the same database finds the client from the previous run: that is fine, the point is that it exists
+ok("create a public client through the Admin API (or it already exists from an earlier run)",cs in(200,201,204) or (cs==409 and "already exists" in cb),(cs,cb))
 def pkce():
     v=base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode(); return v,base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).rstrip(b"=").decode()
 def q(ch,extra=None):
