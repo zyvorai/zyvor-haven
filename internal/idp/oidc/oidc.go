@@ -25,6 +25,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/obs"
+	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"github.com/zyvorai/haven/internal/idp/sessions"
 )
 
@@ -58,6 +59,10 @@ type Config struct {
 	// Nil (or a Service without a Mailer) disables both: the pages answer 404
 	// and the login page shows no "Forgot password" link.
 	Actions *actions.Service
+	// SecretBox encrypts secrets that must be read back (TOTP seeds, upstream
+	// IdP client secrets). Nil disables the features that need it (they must
+	// fail closed and say why), it never falls back to storing plaintext.
+	SecretBox *secretbox.Box
 	// Sessions ends SSO sessions (logout, admin revoke). Built from Store with
 	// no notifier when nil; set it to enable back-channel logout.
 	Sessions *sessions.Service

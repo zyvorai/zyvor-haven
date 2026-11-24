@@ -25,6 +25,8 @@
 //	                             the Admin API is not mounted when both are empty)
 //	HAVEN_IDP_ADMIN_CLIENT_SECRET secret of the "haven-admin" service-account client (or ..._SECRET_FILE);
 //	                             created in the bootstrap realm, rotated on restart when changed
+//	HAVEN_IDP_SECRET_KEY         32-byte key (base64 or hex; comma separated for rotation, newest first) that encrypts
+//	                             TOTP seeds and upstream IdP secrets; _FILE variant supported; `haven-idp keygen` makes one
 //	HAVEN_IDP_METRICS_LISTEN     serve Prometheus /metrics (only) on this separate address, e.g. :9100 (empty = off)
 //	HAVEN_IDP_AUDIT              audit event sink: stdout, file:PATH or webhook:URL (empty = none)
 //	HAVEN_IDP_AUDIT_WEBHOOK_SECRET HMAC secret signing webhook audit deliveries
@@ -38,6 +40,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"io"
 	"log/slog"
 	"os"
@@ -59,6 +62,7 @@ Usage:
   haven-idp export   REALM [--dev | --url URL --admin-realm R]
   haven-idp import-keycloak -f EXPORT.json [--realm NAME] [--out-dir DIR] [--format text|json]
   haven-idp import-users    -f users.json --realm NAME [--dev | --url URL --admin-realm R]
+  haven-idp keygen          print a new HAVEN_IDP_SECRET_KEY (TOTP seeds, upstream IdP secrets)
   haven-idp version
 
 New here? Run "haven-idp dev".
@@ -82,6 +86,9 @@ func main() {
 		os.Exit(cmdConfig(cmd, args, osCfgIO()))
 	case "import-keycloak", "import-users":
 		os.Exit(cmdImport(cmd, args, osCfgIO()))
+	case "keygen":
+		// A fresh HAVEN_IDP_SECRET_KEY (encrypts TOTP seeds and upstream IdP secrets).
+		fmt.Println(secretbox.GenerateKey())
 	case "version":
 		fmt.Println(version())
 	case "help":

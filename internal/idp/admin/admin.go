@@ -23,6 +23,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/obs"
+	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"github.com/zyvorai/haven/internal/idp/sessions"
 )
 
@@ -47,6 +48,8 @@ type Config struct {
 	// Actions sends verification and reset emails. Nil (or no mailer) makes
 	// the send-* routes answer 409 "email is not configured".
 	Actions *actions.Service
+	// SecretBox: see oidc.Config.SecretBox. Nil = features that need it are off.
+	SecretBox *secretbox.Box
 	// Sessions ends SSO sessions for the session routes, user disable and
 	// password reset. Built from Store with no notifier when nil.
 	Sessions *sessions.Service

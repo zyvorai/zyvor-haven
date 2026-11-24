@@ -26,6 +26,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp/obs"
 	"github.com/zyvorai/haven/internal/idp/oidc"
 	"github.com/zyvorai/haven/internal/idp/password"
+	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"github.com/zyvorai/haven/internal/idp/sessions"
 	"github.com/zyvorai/haven/internal/idp/store/memstore"
 	"github.com/zyvorai/haven/internal/idp/store/pgstore"
@@ -77,6 +78,12 @@ type Config struct {
 	SMTPFrom     string
 	SMTPTLS      string // starttls (default) | implicit | none
 
+	// SecretKey encrypts TOTP seeds and upstream IdP secrets: 32 bytes as base64
+	// or 64 hex chars; several keys comma separated, newest first (rotation).
+	// Empty in dev mode = a random per-process key; empty otherwise = the
+	// features that need it are off.
+	SecretKey string
+
 	// Hooks (optional).
 	PostBootstrap func(ctx context.Context, st core.Store, h core.PasswordHasher) error
 	Mount         func(mux *http.ServeMux)
@@ -108,6 +115,7 @@ func configFromEnv() (Config, error) {
 		AuditSpec:          os.Getenv("HAVEN_IDP_AUDIT"),
 		AuditWebhookSecret: os.Getenv("HAVEN_IDP_AUDIT_WEBHOOK_SECRET"),
 		BreachFilter:       os.Getenv("HAVEN_IDP_BREACH_FILTER"),
+		SecretKey:          os.Getenv("HAVEN_IDP_SECRET_KEY"),
 	}
 	c.SMTPHost = os.Getenv("HAVEN_IDP_SMTP_HOST")
 	c.SMTPUser = os.Getenv("HAVEN_IDP_SMTP_USER")
@@ -115,6 +123,9 @@ func configFromEnv() (Config, error) {
 	c.SMTPFrom = os.Getenv("HAVEN_IDP_SMTP_FROM")
 	c.SMTPTLS = os.Getenv("HAVEN_IDP_SMTP_TLS")
 	var err error
+	if c.SecretKey, err = fromFile(c.SecretKey, os.Getenv("HAVEN_IDP_SECRET_KEY_FILE"), "secret key"); err != nil {
+		return c, err
+	}
 	if v := os.Getenv("HAVEN_IDP_SMTP_PORT"); v != "" {
 		if c.SMTPPort, err = strconv.Atoi(v); err != nil || c.SMTPPort < 1 || c.SMTPPort > 65535 {
 			return c, fmt.Errorf("HAVEN_IDP_SMTP_PORT %q is not a port", v)
@@ -247,6 +258,23 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		password.SetBreachFilter(bf)
 		log.Info("breach filter loaded", "path", cfg.BreachFilter)
 	}
+	var box *secretbox.Box
+	switch {
+	case cfg.SecretKey != "":
+		keys, err := secretbox.ParseKeys(cfg.SecretKey)
+		if err != nil {
+			return fmt.Errorf("HAVEN_IDP_SECRET_KEY: %w", err)
+		}
+		if box, err = secretbox.New(keys...); err != nil {
+			return fmt.Errorf("HAVEN_IDP_SECRET_KEY: %w", err)
+		}
+	case cfg.Memory:
+		// Dev only: the store is in memory too, so a per-process key loses nothing.
+		k, _ := secretbox.ParseKey(secretbox.GenerateKey())
+		box, _ = secretbox.New(k)
+	default:
+		log.Info("HAVEN_IDP_SECRET_KEY is not set: TOTP and federation are off (generate one with: haven-idp keygen)")
+	}
 	mailer, err := buildMailer(cfg)
 	if err != nil {
 		return err
@@ -291,7 +319,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	} else {
 		adminCfg = admin.Config{
 			Store: st, Signer: signer, Hasher: hasher, BaseURL: cfg.BaseURL,
-			AdminRealm: adminRealm, Logger: log, Actions: act, Sessions: sess,
+			AdminRealm: adminRealm, Logger: log, Actions: act, SecretBox: box, Sessions: sess,
 		}
 		withObs(observer, &oidcCfg, &adminCfg)
 		mux.Handle("/admin/v1/", admin.New(adminCfg))
