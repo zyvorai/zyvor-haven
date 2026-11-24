@@ -48,6 +48,7 @@ Updates/deletes return `204`. Names are case-insensitive unique where the Store 
 | POST `/realms/{r}/users/import` | bulk import `{"users":[idp.ImportUser]}` (see "User import"); 200 `idp.ImportResult` |
 | GET, PUT, DELETE `/realms/{r}/users/{id}` | `idp.User` |
 | PUT `/realms/{r}/users/{id}/password` | `idp.PasswordReset`; enforce realm password policy via `password.CheckPolicy`; `temporary:true` adds pending action `UPDATE_PASSWORD`; resets lockout |
+| POST `/realms/{r}/users/{id}/send-verify-email`, `.../send-reset-email` | emails a single-use link to the address on file (never returned); 204; 409 if email is not configured, 400 no address / disabled user, 429 after 3 per user per hour, 502 on delivery failure |
 | GET, POST `/realms/{r}/users/{id}/roles` | `idp.RoleMappings` / `[]idp.Role` (match by name; unknown role -> 400) |
 | GET `/realms/{r}/users/{id}/groups` | `[]idp.Group` |
 | PUT `/realms/{r}/users/{id}/groups/{gid}` | join |

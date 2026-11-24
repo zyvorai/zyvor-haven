@@ -4,12 +4,14 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"slices"
 	"strconv"
 	"time"
 
 	"github.com/zyvorai/haven/internal/idp"
+	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/password"
 )
@@ -29,6 +31,8 @@ func (a *api) userRoutes(m *http.ServeMux) {
 	m.HandleFunc("PUT "+p+"/{id}", a.op("user", "update", a.updateUser))
 	m.HandleFunc("DELETE "+p+"/{id}", a.op("user", "delete", a.deleteUser))
 	m.HandleFunc("PUT "+p+"/{id}/password", a.op("user", "action", a.resetPassword))
+	m.HandleFunc("POST "+p+"/{id}/send-verify-email", a.op("user", "action", a.sendMail(core.ActionVerifyEmail)))
+	m.HandleFunc("POST "+p+"/{id}/send-reset-email", a.op("user", "action", a.sendMail(core.ActionResetPassword)))
 }
 
 func intParam(r *http.Request, name string, def, min, max int) (int, error) {
@@ -214,4 +218,43 @@ func (a *api) resetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	a.audit(r, rl, "ACTION", "user-password", cur.Username)
 	noContent(w)
+}
+
+// sendMail emails the user a single-use verification or password-reset link.
+// The link itself is never returned: only the address on file receives it.
+func (a *api) sendMail(purpose string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rl, ok := a.realmOf(w, r)
+		if !ok {
+			return
+		}
+		if !a.cfg.Actions.Enabled() {
+			a.fail(w, r, &httpErr{http.StatusConflict, "email is not configured"})
+			return
+		}
+		u, err := a.cfg.Store.GetUser(r.Context(), rl.Name, r.PathValue("id"))
+		if err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		if !u.Enabled {
+			a.fail(w, r, bad("user is disabled"))
+			return
+		}
+		switch err := a.cfg.Actions.Send(r.Context(), rl, u, purpose, actions.SendOpts{}); {
+		case err == nil:
+		case errors.Is(err, actions.ErrNoEmail):
+			a.fail(w, r, bad("user has no email address"))
+			return
+		case errors.Is(err, actions.ErrRateLimited):
+			a.fail(w, r, &httpErr{http.StatusTooManyRequests, "too many emails sent to this user recently"})
+			return
+		default:
+			a.cfg.Logger.Error("admin: send action email", "purpose", purpose, "err", err.Error())
+			a.fail(w, r, &httpErr{http.StatusBadGateway, "could not send email"})
+			return
+		}
+		a.audit(r, rl, "ACTION", "user-"+purpose, u.Username)
+		noContent(w)
+	}
 }

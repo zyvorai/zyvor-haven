@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/zyvorai/haven/internal/idp"
+	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
 	"github.com/zyvorai/haven/internal/idp/obs"
 )
@@ -42,6 +43,9 @@ type Config struct {
 	Logger       *slog.Logger
 	Clock        func() time.Time
 	Obs          obs.Recorder // nil records nothing
+	// Actions sends verification and reset emails. Nil (or no mailer) makes
+	// the send-* routes answer 409 "email is not configured".
+	Actions *actions.Service
 }
 
 type api struct {
