@@ -102,8 +102,9 @@ ignored on read and replaced on insert; `PurgeExpiredDPoP` deletes them (nothing
 
 ## Not yet
 
-* `dpop_jkt` at the authorization endpoint (binding the code to a key up front) and `dpop_bound_access_tokens`
-  client metadata: DPoP cannot be **required** for a client or realm, a client simply chooses to use it.
+* A realm-wide "DPoP required" and the `dpop_bound_access_tokens` client metadata of dynamic registration.
+  A per-client "require DPoP" and `dpop_jkt` at the authorization endpoint exist now, see
+  [fapi-par-jar-rar.md](fapi-par-jar-rar.md).
 * DPoP on the revocation endpoint, on dynamic client registration and for client authentication (`private_key_jwt`
   is not implemented at all).
 * Resource servers other than userinfo must verify proofs themselves (use introspection `cnf`).

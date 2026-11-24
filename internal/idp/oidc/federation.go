@@ -123,6 +123,9 @@ func (p *Provider) parseAuthzQuery(ctx context.Context, rl core.Realm, q url.Val
 	if ru == "" || !slices.Contains(cl.RedirectURIs, ru) || !safeRedirect(ru) {
 		return nil, "Invalid redirect URI."
 	}
+	if msg := p.fapiParseCheck(ctx, rl, cl, q); msg != "" { // fapi.go: brokering cannot carry PAR/JAR/RAR extras
+		return nil, msg
+	}
 	if q.Get("state") == "" || q.Get("response_type") != "code" || q.Get("request") != "" || q.Get("request_uri") != "" {
 		return nil, "Invalid authorization request."
 	}

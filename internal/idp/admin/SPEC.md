@@ -384,3 +384,14 @@ See `docs/ciba.md`. Optional store extension (`core.CIBAStore`); a store without
 
 Events (admin events flag): `UPDATE client-ciba`. Protocol events (auth events flag): `CIBA_AUTH_REQUEST`,
 `CIBA_AUTH_REQUEST_ERROR`, `CIBA_APPROVE`, `CIBA_DENY`, `CIBA_TOKEN`.
+## FAPI building blocks: PAR, JAR, RAR, require-PAR / require-DPoP (`docs/fapi-par-jar-rar.md`)
+
+Optional store extension `core.FAPIStore`; a store without it answers 501. Pg migration `0018_fapi.sql`
+(`client_fapi`, `fapi_requests`, `fapi_bindings`). Request bodies reject unknown fields. `{id}` is the client's UUID.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/clients/{id}/fapi` | `{requirePar, requireDpop, requireSignedRequest, jwks, authorizationDetailTypes[]}`; all off / `null` / `[]` when never set. 404 unknown client. |
+| `PUT /realms/{r}/clients/{id}/fapi` | Replaces the settings (missing fields = off). 400: `requirePar` or `requireSignedRequest` on a public client (the PAR endpoint authenticates the client), `requireSignedRequest` without `jwks`, a `jwks` that is not a JWKS with at least one usable public key (EC P-256, or RSA 2048-8192 bits; a key with private members does not count), more than 20 or malformed (`^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,127}$`) `authorizationDetailTypes`. Duplicate types are removed. Audit `ADMIN_UPDATE "client-fapi <clientId>"` (no key material). |
+
+Auth events: `PAR` (a request was pushed), `PAR_ERROR` and `LOGIN_ERROR` with detail `invalid_request_object`; never the request.
