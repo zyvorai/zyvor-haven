@@ -274,19 +274,59 @@ func (e *mfaEnv) setPolicy(on bool) {
 // ---- tests ----
 
 func TestMFAOffWithoutKey(t *testing.T) {
+	// No policy and no enrolled factor: the feature is simply off.
 	e := newMFA(t, false)
-	// Even a stored requireMfa policy and a credential row must not affect login.
-	_ = e.st.PutMFAPolicy(context.Background(), "r", core.MFAPolicy{RequireMFA: true})
 	b := e.mfaBrowser()
 	w := b.password("alice", "pw")
 	if !isRedirectWithCode(w) {
-		t.Fatalf("login must be unaffected without a key: %d %s", w.Code, w.Body)
+		t.Fatalf("login must be unaffected without a key when nothing requires MFA: %d %s", w.Code, w.Body)
 	}
 	if w := b.get("/realms/r/account/totp"); w.Code != http.StatusNotFound {
 		t.Errorf("account page without key: %d", w.Code)
 	}
 	if w := b.post("/realms/r/account/totp", url.Values{"action": {"start"}}); w.Code != http.StatusNotFound {
 		t.Errorf("account POST without key: %d", w.Code)
+	}
+}
+
+// Removing the key must not silently downgrade a realm that requires MFA to
+// password-only logins.
+func TestMFAFailsClosedWhenRequiredAndKeyMissing(t *testing.T) {
+	e := newMFA(t, false)
+	_ = e.st.PutMFAPolicy(context.Background(), "r", core.MFAPolicy{RequireMFA: true})
+	b := e.mfaBrowser()
+	w := b.password("alice", "pw")
+	if isRedirectWithCode(w) || b.hasSSO() {
+		t.Fatalf("a realm requiring MFA let a password-only login through without the key: %d", w.Code)
+	}
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "Two-step verification is required") {
+		t.Errorf("want a clear 503, got %d %s", w.Code, w.Body)
+	}
+	if !strings.Contains(e.logs.String(), "HAVEN_IDP_SECRET_KEY") {
+		t.Error("the operator is not told why (log must name HAVEN_IDP_SECRET_KEY)")
+	}
+	if len(e.events("LOGIN_ERROR")) == 0 {
+		t.Error("no LOGIN_ERROR audit event for the refused login")
+	}
+}
+
+// A user who enrolled TOTP must not be able to bypass it by the key going away.
+func TestMFAFailsClosedForEnrolledUserWhenKeyMissing(t *testing.T) {
+	e := newMFA(t, true)
+	e.enrollDirect(e.alice) // enrolls and confirms
+	e.h.cfg.SecretBox = nil // the key is removed from the deployment
+	b := e.mfaBrowser()
+	w := b.password("alice", "pw")
+	if isRedirectWithCode(w) || b.hasSSO() {
+		t.Fatalf("an enrolled user logged in with the password alone after the key was removed: %d", w.Code)
+	}
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("status %d", w.Code)
+	}
+	// Bob never enrolled and the realm does not require MFA: unaffected.
+	b2 := e.mfaBrowser()
+	if w := b2.password("bob", "pw"); !isRedirectWithCode(w) {
+		t.Fatalf("an un-enrolled user was locked out by the missing key: %d %s", w.Code, w.Body)
 	}
 }
 
@@ -1221,4 +1261,47 @@ func (b *barrierStore) GetTOTP(ctx context.Context, realm, userID string) (core.
 		}
 	}
 	return c, err
+}
+
+// When the store cannot say whether MFA is required, the login is refused: an
+// outage must not turn into "no second factor needed".
+func TestMFAFailsClosedWhenStoreErrorsWithoutKey(t *testing.T) {
+	for name, c := range map[string]struct{ failCred, failPolicy bool }{
+		"credential lookup fails": {failCred: true},
+		"policy lookup fails":     {failPolicy: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newMFA(t, false, func(cfg *Config) {
+				cfg.Store = &errMFAStore{Store: cfg.Store.(*memstore.Store), failCred: c.failCred, failPolicy: c.failPolicy}
+			})
+			b := e.mfaBrowser()
+			w := b.password("alice", "pw")
+			if isRedirectWithCode(w) || b.hasSSO() {
+				t.Fatalf("login proceeded although MFA state could not be determined: %d", w.Code)
+			}
+			if w.Code != http.StatusServiceUnavailable {
+				t.Errorf("status %d", w.Code)
+			}
+		})
+	}
+}
+
+// errMFAStore is a real store whose MFA lookups can be made to fail.
+type errMFAStore struct {
+	*memstore.Store
+	failCred, failPolicy bool
+}
+
+func (s *errMFAStore) GetTOTP(ctx context.Context, realm, userID string) (core.TOTPCredential, error) {
+	if s.failCred {
+		return core.TOTPCredential{}, errors.New("simulated outage")
+	}
+	return s.Store.GetTOTP(ctx, realm, userID)
+}
+
+func (s *errMFAStore) GetMFAPolicy(ctx context.Context, realm string) (core.MFAPolicy, error) {
+	if s.failPolicy {
+		return core.MFAPolicy{}, errors.New("simulated outage")
+	}
+	return s.Store.GetMFAPolicy(ctx, realm)
 }

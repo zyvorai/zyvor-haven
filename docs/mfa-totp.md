@@ -14,11 +14,18 @@ haven-idp keygen                       # prints a key
 HAVEN_IDP_SECRET_KEY=<key> haven-idp serve ...
 ```
 
-`haven-idp dev` supplies a random per-process key. **Without a key the whole feature is off**: login
-is unaffected (even if a realm policy says `requireMfa`), the account pages answer 404 and the Admin
-API routes answer 409 with the key hint. The same happens with a store that does not implement
-`core.MFAStore` (the in-memory and Postgres stores do; Postgres needs migration `0007`, applied
-automatically).
+`haven-idp dev` supplies a random per-process key. **Without a key the feature is off** (the
+account pages answer 404 and the Admin API routes answer 409 with the key hint), with one
+deliberate exception: it never quietly removes a factor someone depends on. If the key is missing
+and the realm has `requireMfa` on, or the user has a confirmed TOTP credential, or the store cannot
+say, the login is **refused** (HTTP 503, "Two-step verification is required for this account but is
+currently unavailable"), the log names `HAVEN_IDP_SECRET_KEY`, and a `LOGIN_ERROR` audit event
+`mfa_unavailable` is written. Users who never enrolled in a realm that does not require MFA are
+unaffected. Recovery if the key is lost: service-account (client credentials) tokens still work, so
+an admin can switch the policy off with `PUT /realms/{r}/mfa-policy` and reset a user's factors with
+`DELETE /realms/{r}/users/{id}/mfa`. The same feature-off behavior applies to a store that does not
+implement `core.MFAStore` (the in-memory and Postgres stores do; Postgres needs migration `0007`,
+applied automatically).
 
 Key rotation: `HAVEN_IDP_SECRET_KEY` takes several comma-separated keys, newest first; the first
 seals, any can open (see `internal/idp/secretbox`).

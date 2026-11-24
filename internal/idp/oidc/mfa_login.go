@@ -4,6 +4,7 @@
 package oidc
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -104,7 +105,18 @@ func (p *Provider) enrollPage(w http.ResponseWriter, r *http.Request, ar *authzR
 func mfaStep(p *Provider, w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User) bool {
 	st, on := p.mfaStore()
 	if !on {
-		return false // feature off: login unaffected
+		// Feature off. That must never quietly remove a factor somebody
+		// depends on: with no key the seeds cannot be opened, so a user who
+		// enrolled TOTP, or a realm that requires MFA, cannot be served and the
+		// login is refused instead of falling back to the password alone.
+		if p.mfaRequiredButUnavailable(r.Context(), ar.realm.Name, u.ID) {
+			p.cfg.Logger.Error("oidc: two-step verification is required for this login but HAVEN_IDP_SECRET_KEY is not set: refusing the login", "realm", ar.realm.Name)
+			p.cfg.Obs.Login(ar.realm.Name, "mfa_unavailable")
+			p.event(r.Context(), ar.realm, "LOGIN_ERROR", u.ID, ar.client.ClientID, p.clientIP(r), "mfa_unavailable")
+			p.errorPage(w, http.StatusServiceUnavailable, "Two-step verification is required for this account but is currently unavailable. Contact your administrator.")
+			return true
+		}
+		return false
 	}
 	ctx := r.Context()
 	cred, err := st.GetTOTP(ctx, ar.realm.Name, u.ID)
@@ -289,4 +301,25 @@ func (p *Provider) mfaEnrollPost(w http.ResponseWriter, r *http.Request, ar *aut
 		Token: p.mfaProof(ar, r, u.ID, modeDone, credTag(cred), mfaDoneTTL),
 		Codes: codes,
 	})
+}
+
+// mfaRequiredButUnavailable reports whether a login that reached the MFA step
+// would have needed TOTP while the feature is switched off. Anything it cannot
+// establish counts as "required" (fail closed). When the store has no MFA
+// support at all, TOTP was never usable, so nothing is required.
+func (p *Provider) mfaRequiredButUnavailable(ctx context.Context, realm, userID string) bool {
+	st, ok := core.StoreAs[core.MFAStore](p.cfg.Store)
+	if !ok {
+		return false
+	}
+	if cred, err := st.GetTOTP(ctx, realm, userID); err == nil && cred.Confirmed {
+		return true
+	} else if err != nil && !isNotFound(err) {
+		return true
+	}
+	pol, err := st.GetMFAPolicy(ctx, realm)
+	if err != nil {
+		return true
+	}
+	return pol.RequireMFA
 }
