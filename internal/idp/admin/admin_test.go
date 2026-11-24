@@ -43,7 +43,11 @@ type env struct {
 	token  string // haven-admin service-account token
 }
 
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T) *env { return newEnvWith(t, nil) }
+
+// newEnvWith builds the harness; tune may set fields on the admin Config
+// (it receives the store and the public base URL).
+func newEnvWith(t *testing.T, tune func(cfg *admin.Config, st *memstore.Store, baseURL string)) *env {
 	t.Helper()
 	st := memstore.New()
 	h := password.New(password.TestParams)
@@ -59,7 +63,11 @@ func newEnv(t *testing.T) *env {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/realms/", oidc.New(oidc.Config{Store: st, Signer: sg, Hasher: h, BaseURL: e.srv.URL}))
-	mux.Handle("/admin/v1/", admin.New(admin.Config{Store: st, Signer: sg, Hasher: h, BaseURL: e.srv.URL, AdminRealm: realm}))
+	acfg := admin.Config{Store: st, Signer: sg, Hasher: h, BaseURL: e.srv.URL, AdminRealm: realm}
+	if tune != nil {
+		tune(&acfg, st, e.srv.URL)
+	}
+	mux.Handle("/admin/v1/", admin.New(acfg))
 	handler = mux
 	e.token = e.clientToken(realm, "haven-admin", adminSecret)
 	return e

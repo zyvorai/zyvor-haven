@@ -164,9 +164,10 @@ func TestWarningListIsBounded(t *testing.T) {
 	}
 }
 
-// A realm that requires verified email locks out unverified users for good
-// (no email flow in haven-idp yet): the importer must say so per user, whatever
-// order Keycloak wrote the keys in, and must not guess the user is verified.
+// A realm that requires verified email blocks unverified users until they
+// verify (by mailed link when SMTP is configured, never otherwise): the
+// importer must say so per user, whatever order Keycloak wrote the keys in,
+// and must not guess the user is verified.
 func TestUnverifiedEmailLockoutWarning(t *testing.T) {
 	usersFirst := `{"users":[
 	  {"username":"locked","email":"l@x.test","enabled":true,"emailVerified":false,"credentials":[{"type":"password","hashedSaltedValue":"AAAAAAAAAAAAAAAAAAAAAAAAAAA=","salt":"AAAAAAAAAAAAAAAAAAAAAA==","hashIterations":27500,"algorithm":"pbkdf2-sha256"}]},

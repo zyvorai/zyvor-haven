@@ -70,7 +70,9 @@ selectable console backend), #1 `haven-idp init` / `dev` (with a browser OIDC
 playground, the first slice of #2), #3 config as code (`validate`/`plan`/`apply`/
 `export`, Guard gate, drift `--check`), #17 observability (Prometheus metrics,
 W3C tracing with OTLP export, hash-chained audit stream to stdout/file/signed
-webhook, dashboards and alert rules).
+webhook, dashboards and alert rules), and #7's email transport: self-service email verification and
+password reset (SMTP, single-use links; see
+[email-and-password-reset.md](email-and-password-reset.md)).
 
 Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across
