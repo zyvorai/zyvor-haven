@@ -275,7 +275,17 @@ func (s *Store) UpdateUser(ctx context.Context, u core.User) error {
 }
 
 func (s *Store) DeleteUser(ctx context.Context, realm, id string) error {
-	return s.exec1(ctx, `DELETE FROM users WHERE realm=$1 AND id=$2`, realm, id)
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `DELETE FROM users WHERE realm=$1 AND id=$2`, realm, id)
+		if err != nil {
+			return mapErr(err)
+		}
+		if tag.RowsAffected() == 0 {
+			return idp.ErrNotFound
+		}
+		_, err = tx.Exec(ctx, `DELETE FROM sessions WHERE realm=$1 AND user_id=$2`, realm, id)
+		return mapErr(err)
+	})
 }
 
 // Clients
@@ -448,13 +458,13 @@ func (s *Store) ListSigningKeys(ctx context.Context, realm string) ([]core.Signi
 // Authorization codes
 
 const codeCols = `code_hash, realm, client_id, user_id, redirect_uri, scope, nonce, code_challenge,
-	challenge_meth, auth_time, expires_at`
+	challenge_meth, auth_time, session_id, expires_at`
 
 func (s *Store) PutAuthCode(ctx context.Context, c core.AuthCode) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO auth_codes (`+codeCols+`)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
 		c.CodeHash, c.Realm, c.ClientID, c.UserID, c.RedirectURI, c.Scope, c.Nonce, c.CodeChallenge,
-		c.ChallengeMeth, c.AuthTime, c.ExpiresAt)
+		c.ChallengeMeth, c.AuthTime, c.SessionID, c.ExpiresAt)
 	return mapErr(err)
 }
 
@@ -463,7 +473,7 @@ func (s *Store) ConsumeAuthCode(ctx context.Context, codeHash string) (core.Auth
 	var c core.AuthCode
 	err := s.pool.QueryRow(ctx, `DELETE FROM auth_codes WHERE code_hash=$1 RETURNING `+codeCols, codeHash).
 		Scan(&c.CodeHash, &c.Realm, &c.ClientID, &c.UserID, &c.RedirectURI, &c.Scope, &c.Nonce,
-			&c.CodeChallenge, &c.ChallengeMeth, &c.AuthTime, &c.ExpiresAt)
+			&c.CodeChallenge, &c.ChallengeMeth, &c.AuthTime, &c.SessionID, &c.ExpiresAt)
 	c.AuthTime, c.ExpiresAt = utc(c.AuthTime), utc(c.ExpiresAt)
 	return c, mapErr(err)
 }
@@ -475,17 +485,17 @@ func (s *Store) PutRefreshToken(ctx context.Context, t core.RefreshToken) error 
 		t.CreatedAt = time.Now().UTC()
 	}
 	_, err := s.pool.Exec(ctx, `INSERT INTO refresh_tokens
-		(token_hash, family_id, realm, client_id, user_id, scope, used, revoked, expires_at, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		t.TokenHash, t.FamilyID, t.Realm, t.ClientID, t.UserID, t.Scope, t.Used, t.Revoked, t.ExpiresAt, t.CreatedAt)
+		(token_hash, family_id, realm, client_id, user_id, session_id, scope, used, revoked, expires_at, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		t.TokenHash, t.FamilyID, t.Realm, t.ClientID, t.UserID, t.SessionID, t.Scope, t.Used, t.Revoked, t.ExpiresAt, t.CreatedAt)
 	return mapErr(err)
 }
 
 func (s *Store) GetRefreshToken(ctx context.Context, tokenHash string) (core.RefreshToken, error) {
 	var t core.RefreshToken
-	err := s.pool.QueryRow(ctx, `SELECT token_hash, family_id, realm, client_id, user_id, scope, used,
+	err := s.pool.QueryRow(ctx, `SELECT token_hash, family_id, realm, client_id, user_id, session_id, scope, used,
 		revoked, expires_at, created_at FROM refresh_tokens WHERE token_hash=$1`, tokenHash).
-		Scan(&t.TokenHash, &t.FamilyID, &t.Realm, &t.ClientID, &t.UserID, &t.Scope, &t.Used,
+		Scan(&t.TokenHash, &t.FamilyID, &t.Realm, &t.ClientID, &t.UserID, &t.SessionID, &t.Scope, &t.Used,
 			&t.Revoked, &t.ExpiresAt, &t.CreatedAt)
 	t.ExpiresAt, t.CreatedAt = utc(t.ExpiresAt), utc(t.CreatedAt)
 	return t, mapErr(err)
@@ -617,14 +627,114 @@ func (s *Store) HitRateLimit(ctx context.Context, key string, now time.Time, win
 	return n <= max, nil
 }
 
-// PurgeExpired deletes auth codes, refresh tokens, action tokens and rate-limit
-// windows that expired at or before now.
+// PurgeExpired deletes auth codes, refresh tokens, action tokens, ended SSO
+// sessions (absolute or idle expiry) and rate-limit windows that expired at or before now.
 func (s *Store) PurgeExpired(ctx context.Context, now time.Time) (int, error) {
 	var n int
 	err := s.pool.QueryRow(ctx, `WITH c AS (DELETE FROM auth_codes WHERE expires_at <= $1 RETURNING 1),
 		t AS (DELETE FROM refresh_tokens WHERE expires_at <= $1 RETURNING 1),
 		a AS (DELETE FROM action_tokens WHERE expires_at <= $1 RETURNING 1),
-		l AS (DELETE FROM rate_limits WHERE expires_at <= $1 RETURNING 1)
-		SELECT (SELECT count(*) FROM c) + (SELECT count(*) FROM t) + (SELECT count(*) FROM a) + (SELECT count(*) FROM l)`, now).Scan(&n)
+		l AS (DELETE FROM rate_limits WHERE expires_at <= $1 RETURNING 1),
+		x AS (DELETE FROM sessions WHERE expires_at <= $1 OR idle_expires <= $1 RETURNING 1)
+		SELECT (SELECT count(*) FROM c) + (SELECT count(*) FROM t) + (SELECT count(*) FROM a) + (SELECT count(*) FROM l) + (SELECT count(*) FROM x)`, now).Scan(&n)
 	return n, mapErr(err)
+}
+
+// Sessions
+
+const sessionCols = `id, cookie_hash, realm, user_id, auth_time, last_seen, idle_expires, expires_at,
+	ip, user_agent, clients, created_at`
+
+func scanSession(row pgx.Row) (core.Session, error) {
+	var x core.Session
+	err := row.Scan(&x.ID, &x.CookieHash, &x.Realm, &x.UserID, &x.AuthTime, &x.LastSeen, &x.IdleExpires,
+		&x.ExpiresAt, &x.IP, &x.UserAgent, &x.Clients, &x.CreatedAt)
+	x.Clients = nilIfEmpty(x.Clients)
+	x.AuthTime, x.LastSeen, x.IdleExpires = utc(x.AuthTime), utc(x.LastSeen), utc(x.IdleExpires)
+	x.ExpiresAt, x.CreatedAt = utc(x.ExpiresAt), utc(x.CreatedAt)
+	return x, mapErr(err)
+}
+
+func collectSessions(rows pgx.Rows) ([]core.Session, error) {
+	defer rows.Close()
+	out := []core.Session{}
+	for rows.Next() {
+		x, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, x)
+	}
+	return out, mapErr(rows.Err())
+}
+
+func (s *Store) PutSession(ctx context.Context, x core.Session) error {
+	if x.CreatedAt.IsZero() {
+		x.CreatedAt = time.Now().UTC()
+	}
+	_, err := s.pool.Exec(ctx, `INSERT INTO sessions (`+sessionCols+`)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+		x.ID, x.CookieHash, x.Realm, x.UserID, x.AuthTime, x.LastSeen, x.IdleExpires, x.ExpiresAt,
+		x.IP, x.UserAgent, arr(x.Clients), x.CreatedAt)
+	return mapErr(err)
+}
+
+func (s *Store) GetSession(ctx context.Context, realm, id string) (core.Session, error) {
+	return scanSession(s.pool.QueryRow(ctx, `SELECT `+sessionCols+` FROM sessions WHERE realm=$1 AND id=$2`, realm, id))
+}
+
+func (s *Store) GetSessionByCookie(ctx context.Context, realm, cookieHash string) (core.Session, error) {
+	return scanSession(s.pool.QueryRow(ctx,
+		`SELECT `+sessionCols+` FROM sessions WHERE realm=$1 AND cookie_hash=$2`, realm, cookieHash))
+}
+
+func (s *Store) TouchSession(ctx context.Context, realm, id string, lastSeen, idleExpires time.Time) error {
+	return s.exec1(ctx, `UPDATE sessions SET last_seen=$3, idle_expires=$4 WHERE realm=$1 AND id=$2`,
+		realm, id, lastSeen, idleExpires)
+}
+
+// AddSessionClient is one atomic UPDATE that appends only if absent, so
+// concurrent callers neither duplicate nor lose a client.
+func (s *Store) AddSessionClient(ctx context.Context, realm, id, clientID string) error {
+	return s.exec1(ctx, `UPDATE sessions SET clients = CASE WHEN $3::text = ANY(clients) THEN clients
+		ELSE array_append(clients, $3::text) END WHERE realm=$1 AND id=$2`, realm, id, clientID)
+}
+
+// ListSessions returns newest first; limit <= 0 means 100.
+func (s *Store) ListSessions(ctx context.Context, realm, userID string, limit int) ([]core.Session, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx, `SELECT `+sessionCols+` FROM sessions
+		WHERE realm=$1 AND ($2::text = '' OR user_id=$2) ORDER BY created_at DESC, id LIMIT $3`, realm, userID, limit)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return collectSessions(rows)
+}
+
+// TakeSession is a single DELETE ... RETURNING, so exactly one caller wins.
+func (s *Store) TakeSession(ctx context.Context, realm, id string) (core.Session, error) {
+	return scanSession(s.pool.QueryRow(ctx,
+		`DELETE FROM sessions WHERE realm=$1 AND id=$2 RETURNING `+sessionCols, realm, id))
+}
+
+func (s *Store) TakeUserSessions(ctx context.Context, realm, userID string) ([]core.Session, error) {
+	rows, err := s.pool.Query(ctx, `DELETE FROM sessions WHERE realm=$1 AND user_id=$2 RETURNING `+sessionCols, realm, userID)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return collectSessions(rows)
+}
+
+// RevokeSessionRefreshTokens revokes the session's refresh tokens except
+// those whose scope contains the whitespace-delimited word offline_access.
+func (s *Store) RevokeSessionRefreshTokens(ctx context.Context, realm, sessionID string) (int, error) {
+	tag, err := s.pool.Exec(ctx, `UPDATE refresh_tokens SET revoked=true
+		WHERE realm=$1 AND session_id=$2 AND NOT revoked
+		AND scope !~ '(^|\s)offline_access(\s|$)'`, realm, sessionID)
+	if err != nil {
+		return 0, mapErr(err)
+	}
+	return int(tag.RowsAffected()), nil
 }
