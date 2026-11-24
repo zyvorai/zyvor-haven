@@ -47,6 +47,11 @@ func Run(t *testing.T, newStore func(t *testing.T) core.Store) {
 		{"ActionTokenPurgeCascade", actionTokenPurgeCascade},
 		{"Events", events},
 		{"Purge", purge},
+		{"RateLimitBasic", rateLimitBasic},
+		{"RateLimitRollover", rateLimitRollover},
+		{"RateLimitIndependentKeys", rateLimitKeys},
+		{"RateLimitConcurrent", rateLimitConcurrent},
+		{"RateLimitPurge", rateLimitPurge},
 		{"CascadeDeleteRealm", cascade},
 		{"MissingRealm", missingRealm},
 		{"Isolation", isolation},
@@ -733,6 +738,142 @@ func purge(t *testing.T, s core.Store) {
 	ok(t, err)
 	if n != 0 {
 		t.Fatalf("second purge removed %d", n)
+	}
+}
+
+// cleanRates removes every limiter row when the case ends so shared (pg)
+// databases do not leak windows into other cases' purge counts.
+func cleanRates(t *testing.T, s core.Store) {
+	t.Cleanup(func() { _, _ = s.PurgeExpired(ctx, t0.Add(100*365*24*time.Hour)) })
+}
+
+func rateLimitBasic(t *testing.T, s core.Store) {
+	cleanRates(t, s)
+	w := time.Minute
+	for i := 0; i < 3; i++ {
+		a, err := s.HitRateLimit(ctx, "rl-basic", t0, w, 3)
+		ok(t, err)
+		if !a {
+			t.Fatalf("hit %d denied, want allowed", i+1)
+		}
+	}
+	for i := 0; i < 3; i++ {
+		a, err := s.HitRateLimit(ctx, "rl-basic", t0.Add(time.Duration(i+1)*time.Second), w, 3)
+		ok(t, err)
+		if a {
+			t.Fatalf("hit beyond max allowed (extra %d)", i+1)
+		}
+	}
+	a, err := s.HitRateLimit(ctx, "rl-basic", t0.Add(w-time.Second), w, 3)
+	ok(t, err)
+	if a {
+		t.Fatal("allowed inside window")
+	}
+}
+
+func rateLimitRollover(t *testing.T, s core.Store) {
+	cleanRates(t, s)
+	w := time.Minute
+	for i := 0; i < 2; i++ {
+		_, err := s.HitRateLimit(ctx, "rl-roll", t0, w, 2)
+		ok(t, err)
+	}
+	a, err := s.HitRateLimit(ctx, "rl-roll", t0.Add(w-time.Second), w, 2)
+	ok(t, err)
+	if a {
+		t.Fatal("allowed before the window ended")
+	}
+	// At/after the window end a fresh window opens with a full budget.
+	for i := 0; i < 2; i++ {
+		a, err = s.HitRateLimit(ctx, "rl-roll", t0.Add(w), w, 2)
+		ok(t, err)
+		if !a {
+			t.Fatalf("hit %d after rollover denied", i+1)
+		}
+	}
+	a, err = s.HitRateLimit(ctx, "rl-roll", t0.Add(w), w, 2)
+	ok(t, err)
+	if a {
+		t.Fatal("new window exceeded max")
+	}
+}
+
+func rateLimitKeys(t *testing.T, s core.Store) {
+	cleanRates(t, s)
+	for i := 0; i < 2; i++ {
+		_, err := s.HitRateLimit(ctx, "rl-a", t0, time.Minute, 2)
+		ok(t, err)
+	}
+	a, err := s.HitRateLimit(ctx, "rl-a", t0, time.Minute, 2)
+	ok(t, err)
+	if a {
+		t.Fatal("key a not limited")
+	}
+	a, err = s.HitRateLimit(ctx, "rl-b", t0, time.Minute, 2)
+	ok(t, err)
+	if !a {
+		t.Fatal("key b affected by key a")
+	}
+}
+
+func rateLimitConcurrent(t *testing.T, s core.Store) {
+	cleanRates(t, s)
+	const goroutines, max = 50, 7
+	var wg sync.WaitGroup
+	var allowed atomic.Int32
+	errs := make(chan error, goroutines)
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			a, err := s.HitRateLimit(ctx, "rl-conc", t0, time.Hour, max)
+			if err != nil {
+				errs <- err
+				return
+			}
+			if a {
+				allowed.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatal(err)
+	}
+	if got := allowed.Load(); got != max {
+		t.Fatalf("allowed %d of %d concurrent hits, want exactly %d", got, goroutines, max)
+	}
+}
+
+func rateLimitPurge(t *testing.T, s core.Store) {
+	cleanRates(t, s)
+	_, err := s.PurgeExpired(ctx, t0.Add(100*365*24*time.Hour)) // clear leftovers
+	ok(t, err)
+	_, err = s.HitRateLimit(ctx, "rl-old", t0, time.Minute, 5)
+	ok(t, err)
+	_, err = s.HitRateLimit(ctx, "rl-live", t0.Add(time.Hour), time.Minute, 5)
+	ok(t, err)
+	now := t0.Add(time.Hour)
+	n, err := s.PurgeExpired(ctx, now)
+	ok(t, err)
+	eq(t, n, 1)
+	n, err = s.PurgeExpired(ctx, now)
+	ok(t, err)
+	eq(t, n, 0)
+	for i := 0; i < 4; i++ {
+		_, err = s.HitRateLimit(ctx, "rl-live", now, time.Minute, 5)
+		ok(t, err)
+	}
+	a, err := s.HitRateLimit(ctx, "rl-live", now, time.Minute, 5)
+	ok(t, err)
+	if a {
+		t.Fatal("live window was purged (budget reset)")
+	}
+	a, err = s.HitRateLimit(ctx, "rl-old", now, time.Minute, 1)
+	ok(t, err)
+	if !a {
+		t.Fatal("purged key denied")
 	}
 }
 

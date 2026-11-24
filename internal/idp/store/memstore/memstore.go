@@ -32,6 +32,12 @@ type Store struct {
 	refresh map[string]core.RefreshToken
 	actions map[string]core.ActionToken
 	events  []core.Event
+	rates   map[string]rateWindow
+}
+
+type rateWindow struct {
+	end   time.Time
+	count int
 }
 
 var _ core.Store = (*Store)(nil)
@@ -48,6 +54,7 @@ func New() *Store {
 		codes:   map[string]core.AuthCode{},
 		refresh: map[string]core.RefreshToken{},
 		actions: map[string]core.ActionToken{},
+		rates:   map[string]rateWindow{},
 	}
 }
 
@@ -698,8 +705,23 @@ func (s *Store) ListEvents(_ context.Context, realm string, limit int) ([]core.E
 	return out, nil
 }
 
-// PurgeExpired deletes auth codes and refresh tokens that expired at or
-// before now.
+// HitRateLimit implements core.Store (fixed window, mutex-atomic).
+func (s *Store) HitRateLimit(_ context.Context, key string, now time.Time, window time.Duration, max int) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	w, ok := s.rates[key]
+	if !ok || !w.end.After(now) {
+		w = rateWindow{end: now.Add(window)}
+	}
+	if w.count <= max {
+		w.count++
+	}
+	s.rates[key] = w
+	return w.count <= max, nil
+}
+
+// PurgeExpired deletes auth codes, refresh tokens, action tokens and finished
+// rate-limit windows that expired at or before now.
 func (s *Store) PurgeExpired(_ context.Context, now time.Time) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -719,6 +741,12 @@ func (s *Store) PurgeExpired(_ context.Context, now time.Time) (int, error) {
 	for k, t := range s.actions {
 		if !t.ExpiresAt.After(now) {
 			delete(s.actions, k)
+			n++
+		}
+	}
+	for k, w := range s.rates {
+		if !w.end.After(now) {
+			delete(s.rates, k)
 			n++
 		}
 	}

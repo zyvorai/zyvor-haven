@@ -230,6 +230,14 @@ type Store interface {
 	AppendEvent(ctx context.Context, e Event) error
 	ListEvents(ctx context.Context, realm string, limit int) ([]Event, error) // newest first
 
-	// Housekeeping: delete expired codes/tokens (incl. action tokens), returns rows removed.
+	// HitRateLimit atomically records one hit for key in a fixed window and
+	// reports whether it is within max hits per window. A window starts at the
+	// first hit after the previous one ended and lasts window; hits beyond max
+	// are denied until it ends. key is opaque: callers hash it so raw
+	// identifiers (IPs) are never stored. Shared across replicas.
+	HitRateLimit(ctx context.Context, key string, now time.Time, window time.Duration, max int) (allowed bool, err error)
+
+	// Housekeeping: delete expired codes/tokens (incl. action tokens) and
+	// finished rate-limit windows, returns rows removed.
 	PurgeExpired(ctx context.Context, now time.Time) (int, error)
 }
