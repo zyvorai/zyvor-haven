@@ -420,6 +420,12 @@ func purgeLoop(ctx context.Context, st core.Store, log *slog.Logger) {
 			} else if n > 0 {
 				log.Info("purged expired rows", "count", n)
 			}
+			// Time-boxed grants: audit newly expired ones, drop old ended rows.
+			if n, err := core.PurgeGrants(ctx, st, now); err != nil {
+				log.Warn("purge expired grants failed", "error", err.Error())
+			} else if n > 0 {
+				log.Info("purged expired grants", "count", n)
+			}
 		}
 	}
 }

@@ -358,10 +358,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		ttl = defaultAccess
 	}
 	scopes := strings.Fields(scope)
-	roles := u.Roles
-	if roles == nil {
-		roles = []string{}
-	}
+	roles := p.effectiveRoles(ctx, rl, u) // permanent roles + active time-boxed grants
 	iss := p.issuer(rl.Name)
 	atClaims := core.Claims{
 		"iss": iss, "sub": u.ID, "aud": cl.ClientID, "azp": cl.ClientID,
