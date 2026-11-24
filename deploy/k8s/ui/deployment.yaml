@@ -8,13 +8,14 @@ metadata:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: haven-keycloak-admin
+  name: haven-idp-admin
   namespace: haven-ui
 type: Opaque
+# Copy of key admin-client-secret from Secret platform-idp in the plane namespace (identity).
+# This dev placeholder matches deploy/overlays/dev/idp.yaml; scripts/deploy-remote.sh replaces
+# it with the live value. Never commit a real secret here.
 stringData:
-  KEYCLOAK_URL: "http://KEYCLOAK_HOST:30180"
-  KEYCLOAK_ADMIN_USER: "admin"
-  KEYCLOAK_ADMIN_PASSWORD: "changeme"
+  HAVEN_IDP_ADMIN_CLIENT_SECRET: "CHANGE_ME_DEV_ONLY_admin_client_secret"
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -22,9 +23,11 @@ metadata:
   name: haven-console-config
   namespace: haven-ui
 data:
+  HAVEN_IDP_BACKEND: "native"
+  HAVEN_IDP_URL: "http://platform-idp.identity.svc:8081"
+  HAVEN_IDP_ADMIN_REALM: "platform"
   HAVEN_BOOTSTRAP_REALM: "platform"
   HAVEN_LAB_LOGIN: "1"
-  KEYCLOAK_ADMIN_URL: "http://KEYCLOAK_HOST:30180/admin"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -58,7 +61,7 @@ spec:
               value: "identity"
           envFrom:
             - secretRef:
-                name: haven-keycloak-admin
+                name: haven-idp-admin
             - configMapRef:
                 name: haven-console-config
           readinessProbe:
