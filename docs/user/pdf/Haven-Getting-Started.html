@@ -24,7 +24,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <section class="cover"><div class="kicker">ZyvorAI Labs · User Documentation</div>
 <h1>Ha<span>ven</span></h1>
 <div class="sub">Getting Started</div>
-<div class="badge">2026-09-04</div>
+<div class="badge">2026-11-24</div>
 <div class="foot">zyvor.dev · Zyvor Production Licence · source-available</div></section>
 <main><h2>Prerequisites</h2>
 <table>
@@ -39,21 +39,22 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <td>kubectl access</td>
 </tr>
 <tr>
-<td>Keycloak Admin URL <strong>or</strong> Haven compose operators</td>
-<td>Existing Keycloak or Deploy wizard</td>
+<td>CloudNativePG and cert-manager</td>
+<td>Installed once per cluster (<code>./deploy/operators/install.sh</code>)</td>
 </tr>
 <tr>
 <td>Browser</td>
 <td>Console NodePort (default <strong>30742</strong>)</td>
 </tr>
 </tbody></table>
-<h2>1. Lab deploy (remote)</h2>
+<h2>1. Deploy</h2>
 <pre><code class="language-bash">git clone https://github.com/zyvorai/haven.git
 cd haven
-./scripts/deploy-remote.sh &lt;host&gt; &lt;user&gt;
-./scripts/deploy-remote.sh &lt;host&gt; &lt;user&gt; --quick   # skip image rebuild
+./deploy/operators/install.sh
+make dev &amp;&amp; make wait
 </code></pre>
-<p>Open <code>http://&lt;host&gt;:30742/login</code>.</p>
+<p>This runs <code>haven-idp</code> and Postgres on your cluster; the full walkthrough, including the controller and console, is in <a href="../deploy-native.md">Deploy haven-idp (native)</a>. To try the identity server with no cluster, run <code>haven-idp dev</code>. For a console on a shared lab machine see <a href="../lab-host.md">Lab host</a>.</p>
+<p>Open the console at its host, <code>/login</code>.</p>
 <h2>2. Sign in</h2>
 <table>
 <thead>
@@ -69,9 +70,9 @@ cd haven
 <td><code>HAVEN_LAB_LOGIN</code> enabled</td>
 </tr>
 <tr>
-<td>Admin</td>
-<td>Keycloak admin user/password</td>
-<td>Synced into <code>haven-keycloak-admin</code></td>
+<td>Plane admin (OIDC)</td>
+<td><code>admin</code> in realm <code>platform</code>; password from secret <code>platform-idp</code>, key <code>admin-password</code></td>
+<td>Console OIDC sign-in against the plane</td>
 </tr>
 <tr>
 <td>Local console</td>
@@ -82,11 +83,11 @@ cd haven
 <p>Full login UX: <a href="pages/auth/login.md">Login</a>.</p>
 <h2>3. Orient yourself (UX)</h2>
 <ol>
-<li><strong>Command Deck</strong> (<code>/deck</code>) — Keycloak connected? Phase Ready?</li>
+<li><strong>Command Deck</strong> (<code>/deck</code>) — identity server connected? Phase Ready?</li>
 <li><strong>Planes</strong> — fleet card for your IdentityPlane.</li>
-<li><strong>Atlas</strong> — Console → Ingress → Keycloak → Postgres path.</li>
+<li><strong>Atlas</strong> — Console → Ingress → haven-idp → Postgres path.</li>
 <li><strong>Realm Studio</strong> — list/create realms; open detail for users/clients.</li>
-<li><strong>Settings</strong> — <strong>Test &amp; connect</strong> until the green banner appears.</li>
+<li><strong>Settings</strong> — confirm the identity-server connection is healthy.</li>
 </ol>
 <p>Command palette: <code>⌘K</code> / <code>Ctrl+K</code>.</p>
 <h2>4. First real job</h2>
@@ -102,7 +103,7 @@ cd haven
 <li><a href="passwords.md">Passwords</a></li>
 </ul>
 <hr>
-<p>Haven’s console is the day-2 identity operator surface over Keycloak (and optional CloudNativePG).</p>
+<p>Haven’s console is the day-2 identity operator surface over <code>haven-idp</code> and the CloudNativePG database behind it.</p>
 <h2>Shell chrome</h2>
 <table>
 <thead>
@@ -117,7 +118,7 @@ cd haven
 </tr>
 <tr>
 <td>Status chip</td>
-<td>Keycloak connected / version / realm count · plane phase</td>
+<td>Identity server connected / version / realm count · plane phase</td>
 </tr>
 <tr>
 <td>Command palette</td>
@@ -128,7 +129,7 @@ cd haven
 <td>Same destinations on small viewports</td>
 </tr>
 </tbody></table>
-<p>Backups / Approvals may appear as placeholders (<code>#</code>) until shipped — ignore for production recipes.</p>
+<p>Backups and Approvals are not in the nav yet (roadmap v1.1) — use Settings, Realm Studio, and Clients for day-2 work.</p>
 <h2>Operate tips</h2>
 <ol>
 <li>Always confirm <strong>Connected</strong> on Deck or Settings before realm work.</li>

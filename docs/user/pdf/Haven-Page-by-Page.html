@@ -24,10 +24,9 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <section class="cover"><div class="kicker">ZyvorAI Labs · User Documentation</div>
 <h1>Ha<span>ven</span></h1>
 <div class="sub">Page-by-Page Product Manual</div>
-<div class="badge">2026-09-04</div>
+<div class="badge">2026-11-24</div>
 <div class="foot">zyvor.dev · Zyvor Production Licence · source-available</div></section>
-<main><h2>Page-by-page guides</h2>
-<p>Each guide follows: Purpose → When to use it → How to get there → Operate from the console (UX) → Related pages.</p>
+<main><p>Each guide follows: Purpose → When to use it → How to get there → Operate from the console (UX) → Related pages.</p>
 <p>Every route is also listed in the <a href="../PAGE_INDEX.md">complete page index</a>.</p>
 <h3>Auth</h3>
 <table>
@@ -39,7 +38,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 </thead>
 <tbody><tr>
 <td><a href="auth/login.md">Login</a></td>
-<td>Sign in to the Haven identity console — lab demo, local console user, or Keycloak admin.</td>
+<td>Sign in to the Haven identity console — lab demo, local console user, or single sign-on against the plane.</td>
 </tr>
 </tbody></table>
 <h3>Console</h3>
@@ -52,7 +51,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 </thead>
 <tbody><tr>
 <td><a href="console/atlas.md">Atlas</a></td>
-<td>Traffic path to identity — Console → Ingress → Keycloak → Postgres.</td>
+<td>Traffic path to identity — Console → Ingress → haven-idp → Postgres.</td>
 </tr>
 <tr>
 <td><a href="console/clients.md">Clients</a></td>
@@ -60,11 +59,11 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 </tr>
 <tr>
 <td><a href="console/deck.md">Command Deck</a></td>
-<td>Home operations surface — Keycloak connection, IdentityPlane health cards, reconcile timeline.</td>
+<td>Home operations surface — identity-server connection, IdentityPlane health cards, reconcile timeline.</td>
 </tr>
 <tr>
 <td><a href="console/deploy.md">Deploy wizard</a></td>
-<td>Spin up an identity plane — Postgres + Keycloak via Haven compose path.</td>
+<td>Create an <code>IdentityPlane</code> when the console has cluster write RBAC, or bootstrap the first realm against the connected identity server when it does not.</td>
 </tr>
 <tr>
 <td><a href="console/planes.md">Planes</a></td>
@@ -76,11 +75,11 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 </tr>
 <tr>
 <td><a href="console/realms.md">Realm Studio</a></td>
-<td>Create and manage Keycloak realms as tenant boundaries.</td>
+<td>Create and manage realms as tenant boundaries.</td>
 </tr>
 <tr>
 <td><a href="console/settings.md">Settings</a></td>
-<td>Connect Haven to Keycloak and manage console appearance / passwords.</td>
+<td>Check the identity-server connection and manage console appearance / passwords.</td>
 </tr>
 </tbody></table>
 <h3>Public</h3>
@@ -99,14 +98,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <hr>
 <p>10 guides. Regenerate: <code>node scripts/user-docs/generate-guide-index.mjs</code>.</p>
 <hr>
-<h2>Login</h2>
 <h3>Purpose</h3>
-<p>Sign in to the Haven identity console — lab demo, local console user, or Keycloak admin.</p>
+<p>Sign in to the Haven identity console — lab demo, local console user, or single sign-on against the plane.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Login</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -116,13 +114,14 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <h3>Operate from the console (UX)</h3>
 <ol>
 <li>Open <code>http://&lt;host&gt;:30742/login</code>.</li>
-<li>Lab: <code>demo</code> / <code>demo</code> when <code>HAVEN_LAB_LOGIN</code> is enabled.</li>
-<li>Or Keycloak admin / <code>HAVEN_CONSOLE_USER</code>+<code>PASSWORD</code>.</li>
+<li>Confirm <strong>This machine</strong> context on the page (host, origin, protocol) so you know which console you are signing into.</li>
+<li>Lab / test: when <code>HAVEN_LAB_LOGIN</code> is enabled, a lab banner shows <code>demo</code> / <code>demo</code> and a one-click fill control.</li>
+<li>Or <strong>Sign in with single sign-on</strong>, or <code>HAVEN_CONSOLE_USER</code>+<code>PASSWORD</code>.</li>
 <li><strong>Sign in</strong> — failures show an inline error.</li>
-<li><strong>Empty / fail:</strong> Wrong password → check <code>haven-keycloak-admin</code> secret; lab demo cannot change its own password.</li>
-<li><strong>Success:</strong> Redirect to Command Deck; sidebar shows Keycloak connected status.</li>
+<li><strong>Empty / fail:</strong> Wrong password → check <code>HAVEN_CONSOLE_*</code> (or the plane&#39;s <code>platform-idp</code> secret for single sign-on); lab demo cannot change its own password.</li>
+<li><strong>Success:</strong> Redirect to Command Deck; sidebar shows the identity server as connected.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="../console/deck.md">Command Deck</a></li>
@@ -131,14 +130,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Atlas</h2>
 <h3>Purpose</h3>
-<p>Traffic path to identity — Console → Ingress → Keycloak → Postgres.</p>
+<p>Traffic path to identity — Console → Ingress → haven-idp → Postgres.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Atlas</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -151,9 +149,9 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li>Walk the path diagram; confirm each hop looks healthy.</li>
 <li>Use this before debugging OIDC redirect or login failures.</li>
 <li><strong>Empty / fail:</strong> Broken hop → Settings connection or ingress NodePorts.</li>
-<li><strong>Success:</strong> Path matches your deploy (console 30742 → Keycloak 30180 typical).</li>
+<li><strong>Success:</strong> Path matches your deploy (console NodePort 30742 on the lab machine → ingress → haven-idp).</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="deck.md">Command Deck</a></li>
@@ -162,14 +160,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Clients</h2>
 <h3>Purpose</h3>
 <p>OIDC clients across all realms — mint, rotate secrets, manage redirect URIs.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Clients</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -184,7 +181,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><strong>Empty / fail:</strong> Empty list → create realm first; 403 → console role.</li>
 <li><strong>Success:</strong> Client appears with correct redirect URI for your app callback.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="realms.md">Realm Studio</a></li>
@@ -193,14 +190,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Command Deck</h2>
 <h3>Purpose</h3>
-<p>Home operations surface — Keycloak connection, IdentityPlane health cards, reconcile timeline.</p>
+<p>Home operations surface — identity-server connection, IdentityPlane health cards, reconcile timeline.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Command Deck</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -210,15 +206,15 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <h3>Operate from the console (UX)</h3>
 <ol>
 <li>Land on <code>/deck</code> after sign-in.</li>
-<li>Read <strong>Connected Keycloak</strong> strip (URL, version, realm count).</li>
-<li>Scan orbit cards: Keycloak, Phase, Postgres, backup, certificate, login RPS.</li>
-<li>Follow <strong>Reconcile Timeline</strong> conditions (DatabaseReady, KeycloakReady, …).</li>
+<li>Read the connected identity-server strip (URL, version, realm count).</li>
+<li>Scan orbit cards: identity server, Phase, Postgres, backup, certificate, login RPS.</li>
+<li>Follow <strong>Reconcile Timeline</strong> conditions (DatabaseReady, CertificateReady, IdentityProviderReady).</li>
 <li>Quick links: Realm Studio, Clients, Deploy wizard, Settings.</li>
-<li>If offline: <strong>Connect Keycloak</strong> / Settings → Test &amp; connect.</li>
+<li>If offline: open Settings and check the identity-server connection.</li>
 <li><strong>Empty / fail:</strong> Not connected → Settings; external plane may show Ready with Postgres <code>external</code> — expected.</li>
 <li><strong>Success:</strong> Connected banner + Ready phase (or understood external mode).</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="planes.md">Planes</a></li>
@@ -230,14 +226,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Deploy wizard</h2>
 <h3>Purpose</h3>
-<p>Spin up an identity plane — Postgres + Keycloak via Haven compose path.</p>
+<p>Create an <code>IdentityPlane</code> when the console has cluster write RBAC, or <strong>bootstrap the first realm</strong> against the connected identity server when it does not.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Deploy wizard</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip for realm bootstrap</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -247,13 +242,21 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <h3>Operate from the console (UX)</h3>
 <ol>
 <li>Open <code>/deploy</code>.</li>
-<li>Walk profile / capacity steps in the wizard.</li>
-<li><strong>Review &amp; Deploy →</strong> when ready; watch toast and Deck reconcile timeline.</li>
-<li>Return to Planes / Deck to confirm Phase Ready.</li>
-<li><strong>Empty / fail:</strong> Deploy failed toast → operators/RBAC/storage; use external Keycloak via Settings instead.</li>
-<li><strong>Success:</strong> Plane appears Ready; Keycloak reachable from Settings.</li>
+<li>The title reflects capabilities:<ul>
+<li><strong>Deploy identity plane</strong> — console can <code>create</code> <code>IdentityPlane</code> CRs.</li>
+<li><strong>Bootstrap first realm</strong> — no create RBAC; durability/routing are informational only.</li>
+</ul>
+</li>
+<li>Walk audience / profile / hostname / admin steps.</li>
+<li>Submit:<ul>
+<li>Plane mode → <code>POST /api/v1/planes</code> → Command Deck.</li>
+<li>Realm mode → creates realm + <code>haven-console</code> client + optional admin user in the identity server.</li>
+</ul>
+</li>
+<li><strong>Empty / fail:</strong> 403/409 on plane create → apply sample CR or fix RBAC; realm mode needs the identity server connected.</li>
+<li><strong>Success:</strong> Plane appears on Deck/Planes, or Realm Studio opens the new realm.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="planes.md">Planes</a></li>
@@ -262,14 +265,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Planes</h2>
 <h3>Purpose</h3>
 <p>IdentityPlane instances — health, profile, and endpoints.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Planes</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -281,10 +283,10 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li>Open <code>/planes</code>.</li>
 <li><strong>+ Deploy plane</strong> or <strong>Deploy wizard</strong> when empty.</li>
 <li>Open a plane card → endpoints / health; jump <strong>Open Command Deck</strong>.</li>
-<li><strong>Empty / fail:</strong> No planes → Deploy wizard or connect external Keycloak in Settings.</li>
-<li><strong>Success:</strong> Fleet card shows Ready with Keycloak/Postgres endpoints.</li>
+<li><strong>Empty / fail:</strong> No planes → Deploy wizard, or point the console at an existing <code>haven-idp</code> (<code>HAVEN_IDP_URL</code>).</li>
+<li><strong>Success:</strong> Fleet card shows Ready with identity-server/Postgres endpoints.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="deck.md">Command Deck</a></li>
@@ -294,14 +296,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Realm detail</h2>
 <h3>Purpose</h3>
 <p>Users and clients inside one realm — invite, set password, mint/rotate secrets.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Realm detail</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -313,10 +314,10 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li>Open a realm from <code>/realms</code>.</li>
 <li>Users: <strong>+ Invite user</strong>; set password via dialog when offered.</li>
 <li>Clients: create/manage; <strong>Regenerate client secret</strong> with confirm; copy secret once.</li>
-<li><strong>Empty / fail:</strong> Invite fails → Keycloak permissions; secret regenerate is irreversible.</li>
+<li><strong>Empty / fail:</strong> Invite fails → admin permissions on the identity server; secret regenerate is irreversible.</li>
 <li><strong>Success:</strong> User can authenticate to the realm; client secret pasted into your app.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="realms.md">Realm Studio</a></li>
@@ -325,14 +326,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Realm Studio</h2>
 <h3>Purpose</h3>
-<p>Create and manage Keycloak realms as tenant boundaries.</p>
+<p>Create and manage realms as tenant boundaries.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Realm Studio</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -345,10 +345,10 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><strong>+ Create realm</strong> → name → Create.</li>
 <li>Open a row → <code>/realms/:realm</code> for users/clients tabs.</li>
 <li>Delete realm only with confirm (destructive).</li>
-<li><strong>Empty / fail:</strong> No realms → create one; Keycloak offline → Settings.</li>
+<li><strong>Empty / fail:</strong> No realms → create one; identity server offline → Settings.</li>
 <li><strong>Success:</strong> Realm listed and openable in detail.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="realms-realm.md">Realm detail</a></li>
@@ -358,14 +358,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Settings</h2>
 <h3>Purpose</h3>
-<p>Connect Haven to Keycloak and manage console appearance / passwords.</p>
+<p>Check the identity-server connection and manage console appearance / passwords.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Settings</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -374,14 +373,14 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 </ul>
 <h3>Operate from the console (UX)</h3>
 <ol>
-<li>Open <code>/settings</code>.</li>
-<li>Enter Keycloak URL → <strong>Test &amp; connect</strong>; expect green Connected banner.</li>
-<li>Change console password or Keycloak admin password via dialogs (persist secrets before restart).</li>
-<li>Open Keycloak SPI console link when connected.</li>
+<li>Open <code>/settings</code> (from Deck / Realm Studio when the identity server shows offline).</li>
+<li>If the identity server is offline, check the console&#39;s <code>HAVEN_IDP_URL</code> and admin client secret (see <a href="../../../console.md#authentication">Console</a>).</li>
+<li>Or enter any Admin API URL → <strong>Test &amp; connect</strong>; expect a green Connected banner.</li>
+<li>Change the console password via the dialog (persist secrets before restart).</li>
 <li><strong>Empty / fail:</strong> Connection failed → URL/network/admin creds; lab demo cannot change its password.</li>
-<li><strong>Success:</strong> <code>Connected to … · v… · N realms</code>; Deck status goes green.</li>
+<li><strong>Success:</strong> <code>Connected to … · v… · N realms</code>; Deck status goes green. OIDC SSO uses the connected URL when <code>HAVEN_OIDC_ISSUER</code> is unset.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="deck.md">Command Deck</a></li>
@@ -390,14 +389,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Landing</h2>
 <h3>Purpose</h3>
 <p>Public product landing — sign in or jump to Command Deck when already authenticated.</p>
 <h3>When to use it</h3>
 <ul>
 <li>Operate <strong>Landing</strong> when your job matches this screen</li>
 <li>Prefer <strong>Command Deck</strong> after login if you are unsure where to start</li>
-<li>Confirm Keycloak connected in the sidebar status chip</li>
+<li>Confirm the identity server shows as connected in the sidebar status chip</li>
 </ul>
 <h3>How to get there</h3>
 <ul>
@@ -408,11 +406,11 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <ol>
 <li>Open <code>http://&lt;host&gt;:30742/</code>.</li>
 <li><strong>Sign in</strong> → <code>/login</code>, or <strong>Open Command Deck</strong> if you already have a session.</li>
-<li>Read the Deploy Postgres + Keycloak story only as orientation — day-2 work lives under <code>/deck</code>.</li>
-<li><strong>Empty / fail:</strong> Page blank → console NodePort / ingress; not a substitute for Keycloak admin.</li>
+<li>Read the Deploy haven-idp + Postgres story only as orientation — day-2 work lives under <code>/deck</code>.</li>
+<li><strong>Empty / fail:</strong> Page blank → console NodePort / ingress; not a substitute for Realm Studio.</li>
 <li><strong>Success:</strong> You can reach Login or Deck without certificate/network surprises.</li>
 </ol>
-<p>Console: <code>http://&lt;host&gt;:30742/</code> · Keycloak admin often <code>http://&lt;host&gt;:30180/admin</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
+<p>Console: <code>http://&lt;host&gt;:30742/</code> · Health: <code>GET /api/v1/health</code>. Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>
 <h3>Related pages</h3>
 <ul>
 <li><a href="../auth/login.md">Login</a></li>
@@ -421,9 +419,8 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <li><a href="../../PAGE_INDEX.md">Page index</a></li>
 </ul>
 <hr>
-<h2>Haven — Complete page index</h2>
 <p>Every primary navigable dashboard route.</p>
-<p><em>Generated: 2026-09-04 · 10 routes</em></p>
+<p><em>Generated: 2026-11-24 · 10 routes</em></p>
 <p>Regenerate: <code>node scripts/user-docs/generate-page-index.mjs</code></p>
 <h3>PUBLIC</h3>
 <table>
@@ -455,7 +452,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <tbody><tr>
 <td>Login</td>
 <td><code>/login</code></td>
-<td>Sign in to the Haven identity console — lab demo, local console user, or Keycloak admin.</td>
+<td>Sign in to the Haven identity console — lab demo, local console user, or single sign-on against the plane.</td>
 <td><a href="pages/auth/login.md">Open</a></td>
 </tr>
 </tbody></table>
@@ -472,13 +469,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <tbody><tr>
 <td>Command Deck</td>
 <td><code>/deck</code></td>
-<td>Home operations surface — Keycloak connection, IdentityPlane health cards, reconcile timeline.</td>
+<td>Home operations surface — identity-server connection, IdentityPlane health cards, reconcile timeline.</td>
 <td><a href="pages/console/deck.md">Open</a></td>
 </tr>
 <tr>
 <td>Deploy wizard</td>
 <td><code>/deploy</code></td>
-<td>Spin up an identity plane — Postgres + Keycloak via Haven compose path.</td>
+<td>Create an <code>IdentityPlane</code> when the console has cluster write RBAC, or bootstrap the first realm against the connected identity server when it does not.</td>
 <td><a href="pages/console/deploy.md">Open</a></td>
 </tr>
 <tr>
@@ -490,13 +487,13 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <tr>
 <td>Atlas</td>
 <td><code>/atlas</code></td>
-<td>Traffic path to identity — Console → Ingress → Keycloak → Postgres.</td>
+<td>Traffic path to identity — Console → Ingress → haven-idp → Postgres.</td>
 <td><a href="pages/console/atlas.md">Open</a></td>
 </tr>
 <tr>
 <td>Realm Studio</td>
 <td><code>/realms</code></td>
-<td>Create and manage Keycloak realms as tenant boundaries.</td>
+<td>Create and manage realms as tenant boundaries.</td>
 <td><a href="pages/console/realms.md">Open</a></td>
 </tr>
 <tr>
@@ -514,7 +511,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <tr>
 <td>Settings</td>
 <td><code>/settings</code></td>
-<td>Connect Haven to Keycloak and manage console appearance / passwords.</td>
+<td>Check the identity-server connection and manage console appearance / passwords.</td>
 <td><a href="pages/console/settings.md">Open</a></td>
 </tr>
 </tbody></table>

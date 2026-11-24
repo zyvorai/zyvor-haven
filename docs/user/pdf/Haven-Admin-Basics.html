@@ -24,7 +24,7 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <section class="cover"><div class="kicker">ZyvorAI Labs · User Documentation</div>
 <h1>Ha<span>ven</span></h1>
 <div class="sub">Admin Basics</div>
-<div class="badge">2026-09-04</div>
+<div class="badge">2026-11-24</div>
 <div class="foot">zyvor.dev · Zyvor Production Licence · source-available</div></section>
 <main><h2>Endpoints</h2>
 <table>
@@ -43,23 +43,19 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <td><code>http://&lt;host&gt;:30742/login</code></td>
 </tr>
 <tr>
-<td>Keycloak admin</td>
-<td><code>http://&lt;host&gt;:30180/admin</code></td>
-</tr>
-<tr>
 <td>OIDC issuer</td>
-<td><code>http://&lt;host&gt;:30180/realms/master</code></td>
+<td><code>https://&lt;auth-host&gt;/realms/&lt;realm&gt;</code> (HTTP for <code>profile: dev</code>)</td>
 </tr>
 <tr>
 <td>OIDC discovery</td>
-<td><code>http://&lt;host&gt;:30180/realms/master/.well-known/openid-configuration</code></td>
+<td><code>https://&lt;auth-host&gt;/realms/&lt;realm&gt;/.well-known/openid-configuration</code></td>
 </tr>
 <tr>
 <td>API health</td>
 <td><code>curl http://&lt;host&gt;:30742/api/v1/health</code></td>
 </tr>
 </tbody></table>
-<p>Typical namespaces: console <code>haven-ui</code>, Keycloak per your chart (lab often co-located). Port <strong>8080</strong> on a shared host may be a different app — prefer documented NodePorts.</p>
+<p>Typical namespaces: console <code>haven-ui</code> on the lab machine, the plane (<code>haven-idp</code>, Postgres) in <code>identity</code>. Port <strong>8080</strong> on a shared host may be a different app — prefer documented NodePorts.</p>
 <h2>Ports (defaults)</h2>
 <table>
 <thead>
@@ -73,11 +69,6 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <td>Haven console</td>
 <td><code>30742</code></td>
 <td>NodePort — UI + <code>/api/v1</code></td>
-</tr>
-<tr>
-<td>Keycloak</td>
-<td><code>30180</code></td>
-<td>Admin / issuer NodePort (common)</td>
 </tr>
 </tbody></table>
 <h2>Auth model</h2>
@@ -97,16 +88,16 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <td><code>HAVEN_CONSOLE_USER</code> / <code>HAVEN_CONSOLE_PASSWORD</code></td>
 </tr>
 <tr>
-<td>Keycloak admin</td>
-<td>From <code>haven-keycloak-admin</code> secret</td>
+<td>Plane admin (OIDC)</td>
+<td><code>admin</code> in the plane&#39;s realm; password in secret <code>platform-idp</code>, key <code>admin-password</code></td>
 </tr>
 </tbody></table>
-<p>Lab demo cannot change its own password. Persist console / Keycloak admin changes in secrets before restart.</p>
+<p>Lab demo cannot change its own password. Persist console password changes in secrets before restart.</p>
 <h2>Operate from the console (admin)</h2>
 <ol>
-<li>Settings → <strong>Test &amp; connect</strong> to Keycloak.</li>
+<li>Settings → confirm the identity-server connection is healthy.</li>
 <li>Deck → confirm Ready / Connected.</li>
-<li>Deploy wizard only when installing a new plane; otherwise attach existing Keycloak.</li>
+<li>Deploy wizard only when installing a new plane; otherwise work in the existing one.</li>
 <li>After password rotates, update dependent apps’ client secrets / OIDC config.</li>
 </ol>
 <h2>Related</h2>

@@ -24,9 +24,9 @@ hr{border:none;border-top:1px solid #e5e7eb;margin:1.2em 0}
 <section class="cover"><div class="kicker">ZyvorAI Labs · User Documentation</div>
 <h1>Ha<span>ven</span></h1>
 <div class="sub">User Documentation Overview</div>
-<div class="badge">2026-09-04</div>
+<div class="badge">2026-11-24</div>
 <div class="foot">zyvor.dev · Zyvor Production Licence · source-available</div></section>
-<main><p><strong>Haven</strong> is identity for the private cloud — Keycloak + Postgres as one plane, operated from the Haven console.</p>
+<main><p><strong>Haven</strong> is identity for the private cloud — its own OpenID Connect identity server (<code>haven-idp</code>) + HA Postgres as one plane, operated from the Haven console.</p>
 <table>
 <thead>
 <tr>
@@ -71,8 +71,7 @@ node scripts/user-docs/build-user-pdfs.mjs
 <h2>Product at a glance</h2>
 <pre><code class="language-text">  Console   →  http://&lt;host&gt;:30742/          (NodePort UI + /api/v1)
   Login     →  http://&lt;host&gt;:30742/login
-  Keycloak  →  http://&lt;host&gt;:30180/admin     (typical NodePort)
-  Issuer    →  http://&lt;host&gt;:30180/realms/master
+  Issuer    →  https://&lt;auth-host&gt;/realms/&lt;realm&gt;   (your plane&#39;s hostname)
   Health    →  GET /api/v1/health
 </code></pre>
 <p>Never publish lab IPs — use <code>&lt;host&gt;</code>.</p>

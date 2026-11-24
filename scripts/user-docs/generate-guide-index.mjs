@@ -1,7 +1,7 @@
+#!/usr/bin/env node
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
-#!/usr/bin/env node
 // Copyright 2026 Zyvor AI Labs
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
@@ -13,8 +13,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const PAGES = resolve(ROOT, 'docs/user/pages')
 const OUT = join(PAGES, 'README.md')
 
+function frontMatter(title) {
+  return ['---', 'hero:', '  eyebrow: USER GUIDE', `  title: ${title}`, '---', '', ''].join('\n')
+}
+
+// Guides carry a `hero:` front matter block (title) or a plain `# Title` line.
 function titleOf(file) {
-  const first = readFileSync(file, 'utf8').split('\n').find((l) => l.startsWith('# '))
+  const lines = readFileSync(file, 'utf8').split('\n')
+  const fm = lines.find((l) => /^\s+title:\s*\S/.test(l))
+  if (fm) return fm.replace(/^\s+title:\s*/, '').trim()
+  const first = lines.find((l) => l.startsWith('# '))
   return first ? first.slice(2).trim() : null
 }
 
@@ -30,7 +38,7 @@ function summaryOf(file) {
 }
 
 const lines = [
-  '# Page-by-page guides',
+  frontMatter('Page-by-page guides').trimEnd(),
   '',
   'Each guide follows: Purpose → When to use it → How to get there → Operate from the console (UX) → Related pages.',
   '',

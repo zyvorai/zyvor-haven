@@ -1,7 +1,7 @@
+#!/usr/bin/env node
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
-#!/usr/bin/env node
 // Copyright 2026 Zyvor AI Labs
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
@@ -101,6 +101,11 @@ function demoteHeadings(md) {
     .join('\n')
 }
 
+// Guides carry a `hero:` front matter block for the docs site; it must not reach the PDF body.
+function stripFrontMatter(md) {
+  return md.replace(/^---\n[\s\S]*?\n---\n+/, '')
+}
+
 function stripFirstH1(md) {
   return md.replace(/^#\s+[^\n]+\n+/, '')
 }
@@ -184,10 +189,10 @@ const books = [
   },
 ]
 
-const indexLines = [`# ${PRODUCT} user PDFs`, '', `Generated: ${new Date().toISOString().slice(0, 10)}`, '', 'Rebuild: `node scripts/user-docs/build-user-pdfs.mjs`', '']
+const indexLines = ['---', 'hero:', '  eyebrow: USER GUIDE', `  title: ${PRODUCT} user PDFs`, '---', '', `Generated: ${new Date().toISOString().slice(0, 10)}`, '', 'Rebuild: `node scripts/user-docs/build-user-pdfs.mjs`', '']
 for (const book of books) {
   const parts = book.sources.filter((p) => existsSync(p)).map((p, i) => {
-    const raw = readFileSync(p, 'utf8')
+    const raw = stripFrontMatter(readFileSync(p, 'utf8'))
     if (book.demote) return demoteHeadings(raw)
     return i === 0 ? raw : stripFirstH1(raw)
   })

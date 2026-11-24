@@ -6,7 +6,7 @@ hero:
 
 Every primary navigable dashboard route.
 
-_Generated: 2026-09-04 · 10 routes_
+_Generated: 2026-11-24 · 10 routes_
 
 Regenerate: `node scripts/user-docs/generate-page-index.mjs`
 
@@ -20,14 +20,14 @@ Regenerate: `node scripts/user-docs/generate-page-index.mjs`
 
 | Page | Route | Purpose | Guide |
 |------|-------|---------|-------|
-| Login | `/login` | Sign in to the Haven identity console — lab demo, local console user, or OIDC sign-in against the plane. | [Open](pages/auth/login.md) |
+| Login | `/login` | Sign in to the Haven identity console — lab demo, local console user, or single sign-on against the plane. | [Open](pages/auth/login.md) |
 
 ## CONSOLE
 
 | Page | Route | Purpose | Guide |
 |------|-------|---------|-------|
 | Command Deck | `/deck` | Home operations surface — identity-server connection, IdentityPlane health cards, reconcile timeline. | [Open](pages/console/deck.md) |
-| Deploy wizard | `/deploy` | Spin up an identity plane — haven-idp + Postgres via the Haven dev overlay or an IdentityPlane. | [Open](pages/console/deploy.md) |
+| Deploy wizard | `/deploy` | Create an `IdentityPlane` when the console has cluster write RBAC, or bootstrap the first realm against the connected identity server when it does not. | [Open](pages/console/deploy.md) |
 | Planes | `/planes` | IdentityPlane instances — health, profile, and endpoints. | [Open](pages/console/planes.md) |
 | Atlas | `/atlas` | Traffic path to identity — Console → Ingress → haven-idp → Postgres. | [Open](pages/console/atlas.md) |
 | Realm Studio | `/realms` | Create and manage realms as tenant boundaries. | [Open](pages/console/realms.md) |

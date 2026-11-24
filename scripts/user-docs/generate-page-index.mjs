@@ -1,7 +1,7 @@
+#!/usr/bin/env node
 // Copyright 2026 Zyvor AI Labs · https://zyvor.dev
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
-#!/usr/bin/env node
 // Copyright 2026 Zyvor AI Labs
 // SPDX-License-Identifier: LicenseRef-Zyvor-Production-2.0
 
@@ -40,8 +40,12 @@ for (const r of routes) {
   byCat.get(r.category).push(r)
 }
 
+function frontMatter(title) {
+  return ['---', 'hero:', '  eyebrow: USER GUIDE', `  title: ${title}`, '---', '', ''].join('\n')
+}
+
 const lines = [
-  `# ${PRODUCT} — Complete page index`,
+  frontMatter(`${PRODUCT} — Complete page index`).trimEnd(),
   '',
   'Every primary navigable dashboard route.',
   '',
