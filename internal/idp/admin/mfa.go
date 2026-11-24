@@ -9,6 +9,7 @@ import (
 
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/ssf"
 )
 
 func isNF(err error) bool { return errors.Is(err, idp.ErrNotFound) }
@@ -99,6 +100,8 @@ func (a *api) resetUserMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.dropUserSessions(r.Context(), rl.Name, u.ID)
+	core.EmitSignal(r.Context(), a.cfg.Store, core.Signal{Realm: rl.Name, UserID: u.ID, Kind: ssf.EvCredentialChange,
+		Attrs: map[string]any{"credential_type": "app", "change_type": "delete"}})
 	a.audit(r, rl, "ACTION", "user-mfa", u.Username)
 	if rl.AuthEventsLogged {
 		err := a.cfg.Store.AppendEvent(r.Context(), core.Event{Time: a.cfg.Clock().UTC(), Realm: rl.Name,

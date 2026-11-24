@@ -101,6 +101,7 @@ nav:
       - Device login (CLI, CI): device-flow.md
       - Workload identity (no static secrets): workload-identity.md
       - Agent and MCP identities: agent-identities.md
+      - Shared signals (SSF, CAEP, RISC): shared-signals.md
       - Keep dev data across restarts: dev-persist.md
       - Time Machine undo (native): time-machine-undo.md
       - Add an app (wizard and Test login): add-an-app.md

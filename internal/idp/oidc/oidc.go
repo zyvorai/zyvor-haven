@@ -259,6 +259,7 @@ func (p *Provider) clientIP(r *http.Request) string {
 }
 
 func (p *Provider) event(ctx context.Context, rl core.Realm, typ, userID, clientID, ip, detail string) {
+	p.signalFromEvent(ctx, rl, typ, userID) // shared signals (ssf.go); independent of the audit flag
 	if !rl.AuthEventsLogged {
 		return
 	}

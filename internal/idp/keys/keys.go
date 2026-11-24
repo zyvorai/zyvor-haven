@@ -253,6 +253,11 @@ func (s *signer) Rotate(ctx context.Context, realm string) error {
 }
 
 func (s *signer) Sign(ctx context.Context, realm string, claims core.Claims) (string, error) {
+	return s.SignTyp(ctx, realm, "JWT", claims)
+}
+
+// SignTyp implements core.TypedSigner: like Sign with another JOSE typ.
+func (s *signer) SignTyp(ctx context.Context, realm, typ string, claims core.Claims) (string, error) {
 	ks, err := s.load(ctx, realm)
 	if err != nil {
 		return "", err
@@ -261,7 +266,7 @@ func (s *signer) Sign(ctx context.Context, realm string, claims core.Claims) (st
 	if a == nil {
 		return "", errors.New("keys: no active signing key for realm")
 	}
-	hdr, _ := json.Marshal(map[string]string{"alg": algES256, "typ": "JWT", "kid": a.key.KID})
+	hdr, _ := json.Marshal(map[string]string{"alg": algES256, "typ": typ, "kid": a.key.KID})
 	pl, err := json.Marshal(claims)
 	if err != nil {
 		return "", err

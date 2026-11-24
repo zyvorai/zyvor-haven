@@ -357,3 +357,24 @@ that already exists is 409 and never adopted. Pg migrations `0015_workload_ident
 Events (admin events flag): `WORKLOAD_IDENTITY_CREATE|ENABLE|DISABLE|DELETE`, `AGENT_CREATE|ENABLE|DISABLE|DELETE`,
 `AGENT_CREDENTIAL_ISSUED`, `AGENT_CREDENTIAL_REVOKED`. Token endpoint events (auth events flag):
 `WORKLOAD_TOKEN`, `WORKLOAD_TOKEN_ERROR`, `AGENT_TOKEN`, `AGENT_TOKEN_ERROR`.
+
+## Shared signals (SSF 1.0 transmitter)
+
+See `docs/shared-signals.md`. Optional store extension `core.SSFStore`; a store without it answers 501. The
+receiver-facing endpoints are not here: they live under `/realms/{realm}/ssf/` and use receiver bearer tokens.
+Pg migration `0021_shared_signals.sql`. Request bodies reject unknown fields.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/ssf/receivers` | list; never the token or its hash |
+| `POST /realms/{r}/ssf/receivers` | `{name, audience?, allSubjects?, allowEmail?, events[]?}` -> 201 with `token` (shown once); 400 bad name/audience/event URI; 409 duplicate name |
+| `DELETE /realms/{r}/ssf/receivers/{id}` | 204; deletes its streams, subjects and queued events |
+| `POST /realms/{r}/ssf/receivers/{id}/rotate-token` | 200 with the new `token`; the old one stops working |
+| `PUT /realms/{r}/ssf/receivers/{id}/disabled` | `{disabled}` -> 204; a disabled receiver gets 403 and no events |
+| `GET /realms/{r}/ssf/streams[?receiver=]` | `[{id, receiverId, status, endpointUrl, eventsDelivered, subjectFormat, hasAuthorizationHeader, createdAt}]`; never the header value |
+| `DELETE /realms/{r}/ssf/streams/{id}` | 204 |
+| `GET /realms/{r}/ssf/outbox` | `{pending, delivered, dead}` counts |
+| `POST /realms/{r}/users/{id}/ssf/credential-compromise` | `{credentialType, reasonAdmin?}` -> 204; signals only, 501 when the transmitter is not running |
+
+Admin events: `ADMIN_CREATE|DELETE|UPDATE` with resources `ssf-receiver`, `ssf-receiver-token`, `ssf-receiver-disabled`,
+`ssf-stream`, `ssf-credential-compromise`. Auth event `SSF_STREAM_CREATE` (receiver name in the detail).
