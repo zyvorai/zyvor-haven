@@ -33,6 +33,7 @@ type authzReq struct {
 	nonce     string
 	challenge string
 	promptNo  bool
+	resources []string // RFC 8707, canonical and allow-listed (resources.go)
 }
 
 func filterScope(s string) string {
@@ -117,6 +118,12 @@ func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 		fail("invalid_request", "nonce too long")
 		return
 	}
+	res, rerr := p.authzResources(name, cl.ClientID, q["resource"])
+	if rerr != nil {
+		fail("invalid_target", rerr.Error())
+		return
+	}
+	ar.resources = res
 	prompts := strings.Fields(q.Get("prompt"))
 	promptNone, promptLogin := slices.Contains(prompts, "none"), slices.Contains(prompts, "login")
 	if promptNone && promptLogin {
@@ -197,7 +204,7 @@ func (p *Provider) issueCode(w http.ResponseWriter, r *http.Request, ar *authzRe
 		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
 		return
 	}
-	code := randToken(32)
+	code := randToken(32) + encodeResources(ar.resources) // the code carries the granted resources
 	err := p.cfg.Store.PutAuthCode(ctx, core.AuthCode{
 		CodeHash: HashSecret(code), Realm: rl.Name, ClientID: ar.client.ClientID, UserID: u.ID,
 		RedirectURI: ar.redirect, Scope: ar.scope, Nonce: ar.nonce,

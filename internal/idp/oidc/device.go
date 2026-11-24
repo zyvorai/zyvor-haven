@@ -199,12 +199,17 @@ func (p *Provider) deviceAuthorize(w http.ResponseWriter, r *http.Request) {
 	if sc == "" {
 		sc = "openid"
 	}
+	res, rerr := p.authzResources(name, cl.ClientID, r.PostForm["resource"]) // resources.go
+	if rerr != nil {
+		p.deviceError(w, http.StatusBadRequest, "invalid_target", rerr.Error())
+		return
+	}
 	now := p.now()
 	ua := r.UserAgent()
 	if len(ua) > maxUALen {
 		ua = ua[:maxUALen]
 	}
-	deviceCode := randToken(32)
+	deviceCode := randToken(32) + encodeResources(res)
 	var userCode string
 	for attempt := 0; ; attempt++ {
 		userCode = newUserCode()
@@ -253,7 +258,7 @@ func (p *Provider) grantDevice(r *http.Request, rl core.Realm, cl core.Client, _
 		return nil, oerr("unauthorized_client", "client may not use this grant")
 	}
 	code := r.PostForm.Get("device_code")
-	if code == "" || len(code) > 256 {
+	if code == "" || len(code) > maxTokenLen {
 		return nil, oerr("invalid_request", "device_code is required")
 	}
 	hash := HashSecret(code)
@@ -283,6 +288,16 @@ func (p *Provider) grantDevice(r *http.Request, rl core.Realm, cl core.Client, _
 	default:
 		return nil, bad
 	}
+	// Resource check before the code is consumed, so a mistaken request does not burn it.
+	granted, rok := decodeResources(code) // resources.go
+	if !rok {
+		return nil, bad
+	}
+	aud, kept, terr := p.resolveResources(r, rl, cl, granted, false)
+	if terr != nil {
+		return nil, terr
+	}
+	r = withResources(r, aud, kept)
 	// Single use: whoever deletes the row issues the tokens.
 	d, err = ds.ConsumeDeviceCode(ctx, rl.Name, cl.ClientID, hash, now)
 	if err != nil {

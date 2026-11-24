@@ -330,6 +330,10 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		}
 	}()
 	sess := &sessions.Service{Store: st, Notifier: notifier}
+	resPolicy, err := oidc.LoadResourcePolicy(os.Getenv("HAVEN_IDP_RESOURCES_FILE")) // RFC 8707 allow-list, docs/mcp-resource-indicators.md
+	if err != nil {
+		return err
+	}
 	oidcCfg := oidc.Config{
 		Sessions: sess,
 		Actions:  act,
@@ -339,6 +343,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		SecretBox:  box,
 		WebAuthn:   oidc.WebAuthnConfig{RPID: cfg.WebAuthnRPID, Origins: cfg.WebAuthnOrigins},
 		DPoPNonce:  os.Getenv("HAVEN_IDP_DPOP_NONCE") == "1",
+		Resources:  resPolicy,
 		Federation: upstream.NewManager(safehttp.Options{AllowPrivate: cfg.FederationAllowPrivate}, nil),
 	}
 	adminCfg := admin.Config{}
@@ -365,7 +370,11 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		log.Info("admin API mounted", "path", "/admin/v1", "realm", adminRealm)
 	}
 	withObs(observer, &oidcCfg, nil)
-	mux.Handle("/realms/", oidc.New(oidcCfg))
+	oidcH := oidc.New(oidcCfg)
+	mux.Handle("/realms/", oidcH)
+	// RFC 8414 path-insertion discovery aliases (MCP clients try these first).
+	mux.Handle("/.well-known/oauth-authorization-server/realms/", oidcH)
+	mux.Handle("/.well-known/openid-configuration/realms/", oidcH)
 	if cfg.MetricsOnMain {
 		mux.Handle("/metrics", observer.Handler())
 	}

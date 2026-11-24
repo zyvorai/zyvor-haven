@@ -187,6 +187,15 @@ func (p *Provider) grantCode(r *http.Request, rl core.Realm, cl core.Client) (ma
 	if ac.SessionID != "" && !p.sessionAlive(r, rl.Name, ac.SessionID) {
 		return nil, bad
 	}
+	granted, rok := decodeResources(code) // resources.go: the set carried by the code string
+	if !rok {
+		return nil, bad
+	}
+	aud, kept, terr := p.resolveResources(r, rl, cl, granted, false)
+	if terr != nil {
+		return nil, terr
+	}
+	r = withResources(r, aud, kept)
 	family := randToken(16)
 	resp, terr := p.issue(r, rl, cl, u, ac.Scope, ac.Nonce, ac.AuthTime, family, "", true, "authorization_code", ac.SessionID, ac.SessionID != "")
 	if terr != nil {
@@ -281,6 +290,15 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 	if err != nil || !u.Enabled {
 		return nil, bad
 	}
+	granted, rok := decodeResources(raw) // resources.go
+	if !rok {
+		return nil, bad
+	}
+	aud, kept, terr := p.resolveResources(r, rl, cl, granted, false)
+	if terr != nil {
+		return nil, terr
+	}
+	r = withResources(r, aud, kept)
 	newRefresh := ""
 	if rl.RefreshTokenRotation {
 		if err := p.cfg.Store.MarkRefreshUsed(ctx, hash); err != nil {
@@ -330,13 +348,17 @@ func (p *Provider) grantClientCreds(r *http.Request, rl core.Realm, cl core.Clie
 	}
 	scope := filterScope(strings.ReplaceAll(r.PostForm.Get("scope"), "offline_access", ""))
 	scope = strings.Join(slices.DeleteFunc(strings.Fields(scope), func(s string) bool { return s == "openid" }), " ")
+	aud, _, terr := p.resolveResources(r, rl, cl, nil, true) // resources.go
+	if terr != nil {
+		return nil, terr
+	}
 	now := p.now()
 	ttl := rl.AccessTokenTTL
 	if ttl <= 0 {
 		ttl = defaultAccess
 	}
 	claims := core.Claims{
-		"iss": p.issuer(rl.Name), "sub": "service-account-" + cl.ClientID, "aud": cl.ClientID,
+		"iss": p.issuer(rl.Name), "sub": "service-account-" + cl.ClientID, "aud": audClaim(cl.ClientID, aud),
 		"azp": cl.ClientID, "exp": now.Add(ttl).Unix(), "iat": now.Unix(), "jti": randToken(16),
 		"typ": "Bearer", "scope": scope, "client_id": cl.ClientID,
 		"realm_access": map[string]any{"roles": []string{}},
@@ -370,8 +392,9 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 	scopes := strings.Fields(scope)
 	roles := p.effectiveRoles(ctx, rl, u) // permanent roles + active time-boxed grants
 	iss := p.issuer(rl.Name)
+	rg := resourcesOf(ctx) // resources.go: RFC 8707 audience / refresh-carried set
 	atClaims := core.Claims{
-		"iss": iss, "sub": u.ID, "aud": cl.ClientID, "azp": cl.ClientID,
+		"iss": iss, "sub": u.ID, "aud": audClaim(cl.ClientID, rg.aud), "azp": cl.ClientID,
 		"exp": now.Add(ttl).Unix(), "iat": now.Unix(), "jti": randToken(16),
 		"typ": "Bearer", "scope": scope, "preferred_username": u.Username,
 		"realm_access": map[string]any{"roles": roles},
@@ -426,7 +449,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		if rtl <= 0 {
 			rtl = defaultRefresh
 		}
-		raw := randToken(32)
+		raw := randToken(32) + encodeResources(rg.granted)
 		err := p.cfg.Store.PutRefreshToken(ctx, core.RefreshToken{
 			TokenHash: HashSecret(raw), FamilyID: family, Realm: rl.Name, ClientID: cl.ClientID,
 			UserID: u.ID, SessionID: sid, Scope: scope, ExpiresAt: now.Add(rtl), CreatedAt: now,

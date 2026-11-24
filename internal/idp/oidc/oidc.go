@@ -81,6 +81,10 @@ type Config struct {
 	// every DPoP proof (use_dpop_nonce). Off by default. Nonces are derived
 	// from CSRFKey, so set CSRFKey when several replicas serve one realm.
 	DPoPNonce bool
+	// Resources lists the RFC 8707 resource identifiers each client may ask
+	// for (resources.go). Nil = none: any `resource` parameter is refused with
+	// invalid_target.
+	Resources ResourceAllowList
 }
 
 // Provider is the http.Handler for all realms.
