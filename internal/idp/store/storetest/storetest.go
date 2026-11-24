@@ -298,7 +298,8 @@ func clients(t *testing.T, s core.Store) {
 		ID: "c-1", Realm: "acme", ClientID: "web", Name: "Web", Enabled: true, Public: false,
 		SecretHash: "abc123", RedirectURIs: []string{"https://a/cb", "https://b/cb"},
 		Origins: []string{"https://a"}, AuthCodeFlow: true, PasswordFlow: true,
-		ServiceAccount: true, RequirePKCE: true, CreatedAt: t0,
+		ServiceAccount: true, RequirePKCE: true, BackchannelLogoutURI: "https://a/bc-logout",
+		CreatedAt: t0,
 	}
 	ok(t, s.CreateClient(ctx, in))
 	got, err := s.GetClient(ctx, "acme", "c-1")
@@ -335,6 +336,29 @@ func clients(t *testing.T, s core.Store) {
 	ok(t, err)
 	if got.Name != "Web2" || got.RedirectURIs != nil || !got.CreatedAt.Equal(t0) {
 		t.Fatalf("after update: %+v", got)
+	}
+	eq(t, got.BackchannelLogoutURI, "https://a/bc-logout")
+	// The back-channel logout URI updates and clears.
+	up.BackchannelLogoutURI = "https://a/other"
+	ok(t, s.UpdateClient(ctx, up))
+	got, err = s.GetClient(ctx, "acme", "c-1")
+	ok(t, err)
+	eq(t, got.BackchannelLogoutURI, "https://a/other")
+	up.BackchannelLogoutURI = ""
+	ok(t, s.UpdateClient(ctx, up))
+	got, err = s.GetClient(ctx, "acme", "c-1")
+	ok(t, err)
+	eq(t, got.BackchannelLogoutURI, "")
+	up.BackchannelLogoutURI = "https://a/bc-logout"
+	ok(t, s.UpdateClient(ctx, up))
+	l, err = s.ListClients(ctx, "acme")
+	ok(t, err)
+	found := false
+	for _, c := range l {
+		found = found || c.BackchannelLogoutURI == "https://a/bc-logout"
+	}
+	if !found {
+		t.Fatalf("ListClients lost BackchannelLogoutURI: %+v", l)
 	}
 	clash := up
 	clash.ClientID = "WEB"

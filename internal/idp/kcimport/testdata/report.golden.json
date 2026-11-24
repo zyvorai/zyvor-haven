@@ -28,9 +28,11 @@
   },
   "warningCounts": {
     "client.authorization_skipped": 1,
+    "client.backchannel_logout_dropped": 1,
     "client.bearer_only_skipped": 1,
     "client.builtin_skipped": 6,
     "client.direct_grant_disabled": 1,
+    "client.frontchannel_logout_unsupported": 1,
     "client.implicit_disabled": 1,
     "client.invalid_redirect": 1,
     "client.new_secret_on_apply": 2,
@@ -71,6 +73,11 @@
       "message": "client using authorization services skipped (UMA and resource permissions are unsupported)"
     },
     {
+      "code": "client.backchannel_logout_dropped",
+      "where": "legacy-wiki",
+      "message": "back-channel logout URL dropped: back-channel logout URL must use https (http is allowed only for localhost or loopback addresses)"
+    },
+    {
       "code": "client.bearer_only_skipped",
       "where": "orders-api",
       "message": "bearer-only client skipped (resource servers validate tokens; they need no client)"
@@ -109,6 +116,11 @@
       "code": "client.direct_grant_disabled",
       "where": "legacy-wiki",
       "message": "direct access grants (password grant) turned off (unsupported)"
+    },
+    {
+      "code": "client.frontchannel_logout_unsupported",
+      "where": "billing-svc",
+      "message": "front-channel logout URL not migrated (haven-idp supports back-channel logout only)"
     },
     {
       "code": "client.implicit_disabled",

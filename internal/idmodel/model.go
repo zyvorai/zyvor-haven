@@ -50,6 +50,9 @@ type Client struct {
 
 	// PKCEMethod is the normalized code-challenge method ("" when unset).
 	PKCEMethod string
+	// BackchannelLogoutURL is the OIDC Back-Channel Logout endpoint ("" = none).
+	// Keycloak keeps it in the attribute BackchannelLogoutAttr.
+	BackchannelLogoutURL string
 	// Attrs keeps the provider attributes verbatim. Guard fingerprints hash the
 	// PKCE-related keys so existing baselines stay valid.
 	Attrs map[string]string
@@ -97,3 +100,10 @@ type UserAccess struct {
 	RealmRoles []string
 	Groups     []string
 }
+
+// BackchannelLogoutAttr and FrontchannelLogoutAttr are the Keycloak client
+// attribute names for the logout URLs. Only the back-channel one is supported.
+const (
+	BackchannelLogoutAttr  = "backchannel.logout.url"
+	FrontchannelLogoutAttr = "frontchannel.logout.url"
+)

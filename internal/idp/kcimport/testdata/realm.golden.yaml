@@ -1,6 +1,7 @@
 apiVersion: haven.zyvor.dev/v1
 clients:
-- clientId: billing-svc
+- backchannelLogoutUrl: https://billing.example.com/bc-logout
+  clientId: billing-svc
   name: Billing Service
   serviceAccount: true
 - clientId: legacy-wiki

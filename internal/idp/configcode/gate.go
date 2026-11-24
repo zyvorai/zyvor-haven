@@ -167,6 +167,7 @@ func toModel(s *Spec) (idmodel.Realm, []idmodel.Client) {
 			AuthCodeFlow:   boolOr(c.AuthCodeFlow, !c.ServiceAccount),
 			ServiceAccount: c.ServiceAccount,
 		}
+		mc.BackchannelLogoutURL = c.BackchannelLogoutURL
 		if boolOr(c.RequirePKCE, c.Public) {
 			mc.PKCEMethod = "S256"
 			mc.Attrs = map[string]string{"pkce.code.challenge.method": "S256"}

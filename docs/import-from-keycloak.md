@@ -60,6 +60,7 @@ Not migrated (no haven-idp equivalent):
   ...
 
 Warnings by code:
+  client.backchannel_logout_dropped    1
   client.saml_skipped                  1
   client.wildcard_redirect             2
   realm.policy_term_dropped            3
@@ -87,6 +88,10 @@ service-account users (haven-idp creates them with the client). Implicit flow an
 (password grant) are turned off. Wildcard redirect URIs and web origins, and anything that is not
 absolute `https` (or `http` on loopback), are dropped; a client left with no redirect URI is still
 emitted but flagged `client.no_redirect_uri`, so you can fix it before go-live.
+
+A client's `backchannel.logout.url` attribute is carried over when it is a valid logout URL
+(`https`, or `http` on loopback); otherwise it is dropped with `client.backchannel_logout_dropped`.
+`frontchannel.logout.url` is not supported and is reported as `client.frontchannel_logout_unsupported`.
 
 Not migrated, always reported with counts: identity providers and brokered identities, user
 federation (LDAP/AD), authentication flows, client scopes and protocol mappers, required-action

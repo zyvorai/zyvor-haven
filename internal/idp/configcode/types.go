@@ -73,6 +73,8 @@ type Client struct {
 	RequirePKCE    *bool    `json:"requirePKCE,omitempty"`  // default: true for public clients
 	RedirectURIs   []string `json:"redirectUris,omitempty"`
 	Origins        []string `json:"origins,omitempty"`
+	// BackchannelLogoutURL receives OIDC Back-Channel Logout tokens (https; http for loopback). Empty = not notified.
+	BackchannelLogoutURL string `json:"backchannelLogoutUrl,omitempty"`
 }
 
 // Action is what a Change does.
