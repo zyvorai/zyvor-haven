@@ -89,15 +89,14 @@ spec:
   blueprint: platform-sso
 ---
 apiVersion: identity.haven.dev/v1alpha1
-kind: OidcClient
+kind: OIDCClient
 metadata:
   name: zeus-os
   namespace: identity
 spec:
-  planeRef: platform
+  planeRef:
+    name: platform
   realm: platform
-  name: zeus-os
-  type: public
-  redirects:
-    - https://zeus.cloud.internal/*
-  secretName: oidc-zeus-os
+  public: true
+  redirectUris:
+    - https://zeus.cloud.internal/callback

@@ -392,11 +392,12 @@ metadata:
   name: oidcclients.identity.haven.dev
   labels:
     app.kubernetes.io/name: haven
+    app.kubernetes.io/part-of: haven
 spec:
   group: identity.haven.dev
   names:
-    kind: OidcClient
-    listKind: OidcClientList
+    kind: OIDCClient
+    listKind: OIDCClientList
     plural: oidcclients
     singular: oidcclient
     shortNames: [oidc]
@@ -406,12 +407,22 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
+        - name: Plane
+          type: string
+          jsonPath: .spec.planeRef.name
         - name: Realm
           type: string
-          jsonPath: .spec.realm
-        - name: Type
+          jsonPath: .status.realm
+        - name: ClientID
           type: string
-          jsonPath: .spec.type
+          jsonPath: .status.clientId
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+        - name: Reason
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].reason
+          priority: 1
         - name: Secret
           type: string
           jsonPath: .status.secretName
@@ -423,40 +434,134 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
+          description: OIDCClient registers an OIDC client with a native haven-idp plane and writes its credentials to a Secret.
           required: [spec]
           properties:
             spec:
               type: object
-              required: [planeRef, realm, name]
+              required: [planeRef]
               properties:
                 planeRef:
-                  type: string
+                  type: object
+                  required: [name]
+                  description: The IdentityPlane that hosts the client.
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                    namespace:
+                      type: string
+                      description: Defaults to the OIDCClient's namespace. Another namespace needs the plane annotation haven.zyvor.dev/allow-oidcclients-from.
                 realm:
                   type: string
-                name:
+                  description: Defaults to the plane's first realm (spec.bootstrap.firstRealm). Cannot change after creation.
+                clientId:
                   type: string
-                type:
+                  maxLength: 128
+                  pattern: '^[A-Za-z0-9][A-Za-z0-9._:/@-]*$'
+                  description: Defaults to metadata.name. Cannot change after creation. haven-admin and haven-console are reserved.
+                displayName:
                   type: string
-                  enum: [public, confidential, bearer]
-                  default: confidential
-                redirects:
+                  maxLength: 255
+                public:
+                  type: boolean
+                  default: false
+                  description: Public clients have no secret and always use PKCE.
+                redirectUris:
                   type: array
+                  maxItems: 50
                   items:
                     type: string
-                audiences:
+                    maxLength: 2048
+                  description: Exact https URLs, or http on localhost, 127.0.0.1 or ::1. No wildcards. Required when the authorization code flow is on.
+                webOrigins:
                   type: array
+                  maxItems: 50
                   items:
                     type: string
-                secretName:
+                    maxLength: 512
+                pkce:
+                  type: boolean
+                  default: true
+                  description: Require PKCE (S256, the only method). Cannot be false for a public client.
+                serviceAccount:
+                  type: boolean
+                  default: false
+                  description: Enable the client credentials grant. Same switch as flows.clientCredentials.
+                flows:
+                  type: object
+                  properties:
+                    authorizationCode:
+                      type: boolean
+                      description: Defaults to true unless serviceAccount is set and there are no redirectUris.
+                    clientCredentials:
+                      type: boolean
+                backchannelLogoutUrl:
                   type: string
+                  maxLength: 2048
+                  description: Accepted and validated, but NOT sent to the IdP yet (the Admin API client type has no such field in this release).
+                secretRef:
+                  type: object
+                  description: Where the generated client secret is written (confidential clients only).
+                  properties:
+                    name:
+                      type: string
+                      description: Defaults to <metadata.name>-oidc.
+                    keys:
+                      type: object
+                      properties:
+                        clientId:
+                          type: string
+                          default: client-id
+                        clientSecret:
+                          type: string
+                          default: client-secret
+                        issuer:
+                          type: string
+                          default: issuer
+                deletionPolicy:
+                  type: string
+                  enum: [Delete, Retain]
+                  default: Delete
+                  description: Delete removes the IdP client when the OIDCClient is deleted; Retain leaves it.
             status:
               type: object
               properties:
-                phase:
-                  type: string
-                secretName:
+                observedGeneration:
+                  type: integer
+                  format: int64
+                clientUuid:
                   type: string
                 issuer:
                   type: string
+                secretName:
+                  type: string
+                lastSyncTime:
+                  type: string
+                  format: date-time
+                plane:
+                  type: string
+                realm:
+                  type: string
                 clientId:
                   type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                      lastTransitionTime:
+                        type: string
+                        format: date-time

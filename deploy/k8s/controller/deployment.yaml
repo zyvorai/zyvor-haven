@@ -19,6 +19,11 @@ rules:
   - apiGroups: [identity.haven.dev]
     resources: [identityplanes, identityplanes/status, identityplanes/finalizers]
     verbs: [get, list, watch, create, update, patch, delete]
+  # OIDCClient: the controller registers clients and writes their Secrets; finalizers is
+  # needed for the blockOwnerDeletion owner reference on the generated Secret.
+  - apiGroups: [identity.haven.dev]
+    resources: [oidcclients, oidcclients/status, oidcclients/finalizers]
+    verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [postgresql.cnpg.io]
     resources: [clusters, backups, scheduledbackups]
     verbs: [get, list, watch, create, update, patch, delete]
@@ -31,7 +36,8 @@ rules:
   - apiGroups: [""]
     resources: [namespaces]
     verbs: [get, list, watch, create, update, patch]
-  # Secrets are generated once and never removed by the controller: no delete.
+  # Secrets (plane and OIDCClient credentials) are never deleted by the controller: no delete
+  # (OIDCClient Secrets are garbage-collected through their owner reference).
   - apiGroups: [""]
     resources: [secrets]
     verbs: [get, list, watch, create, update, patch]
@@ -48,6 +54,10 @@ rules:
   - apiGroups: [""]
     resources: [pods]
     verbs: [get, list]
+  # Event recorder (OIDCClient sync results; messages never contain secrets).
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

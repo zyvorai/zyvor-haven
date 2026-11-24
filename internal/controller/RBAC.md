@@ -34,6 +34,12 @@ are not needed. Secrets are read through the cached client, so `list` and
 Also: `deployments` and `services` are watched, so `watch` is mandatory (not
 only `get`).
 
+OIDCClient controller (see `docs/oidcclient-crd.md`), in both the chart and
+`deploy/k8s/controller/deployment.yaml`: `oidcclients`, `oidcclients/status` and
+`oidcclients/finalizers` (get/list/watch/create/update/patch/delete), Secrets with
+`update` as well (still no `delete`), and `events` create/patch for the recorder.
+`internal/deploytest` asserts all of it.
+
 Optional env on the controller Deployment: `HAVEN_IDP_IMAGE` (default
 haven-idp image, e.g. `ghcr.io/zyvorai/haven-idp:<version>`); without it new
 planes get `ghcr.io/zyvorai/haven-idp:latest` unless `spec.idp.image` or
