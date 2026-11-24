@@ -208,7 +208,7 @@ type IdentityPlaneList struct {
 }
 
 func addKnownTypes(s *runtime.Scheme) error {
-	s.AddKnownTypes(GroupVersion, &IdentityPlane{}, &IdentityPlaneList{})
+	s.AddKnownTypes(GroupVersion, &IdentityPlane{}, &IdentityPlaneList{}, &OIDCClient{}, &OIDCClientList{})
 	metav1.AddToGroupVersion(s, GroupVersion)
 	return nil
 }

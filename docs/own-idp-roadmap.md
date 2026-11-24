@@ -84,6 +84,10 @@ filter mechanism with builder and loader. Not done: a real breach corpus (none
 is shipped), wiring `CheckPolicyFor` into the handlers, and the
 `HAVEN_IDP_BREACH_FILTER` setting.
 
+#4 Kubernetes-native apps: the `OIDCClient` CRD is done (the controller creates the
+client and writes its secret to a Secret; see [oidcclient-crd.md](oidcclient-crd.md)). It has
+not been run on a real cluster. The Ingress annotation half of #4 is **not** done.
+
 Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across
 replicas); federation is not implemented on the native backend; rotated-secret

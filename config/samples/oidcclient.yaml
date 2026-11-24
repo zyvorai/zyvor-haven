@@ -1,0 +1,62 @@
+# Three OIDCClients against the IdentityPlane "platform" in namespace "identity"
+# (see identityplane-dev.yaml). They live in the "apps" namespace, so the plane
+# must allow that namespace:
+#   kubectl -n identity annotate identityplane platform haven.zyvor.dev/allow-oidcclients-from=apps
+# Docs: docs/oidcclient-crd.md
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+---
+# Public single-page app: authorization code + PKCE, no Secret is written.
+apiVersion: identity.haven.dev/v1alpha1
+kind: OIDCClient
+metadata:
+  name: shop-spa
+  namespace: apps
+spec:
+  planeRef:
+    name: platform
+    namespace: identity
+  displayName: Shop (browser app)
+  public: true
+  redirectUris:
+    - https://shop.example.com/callback
+    - http://localhost:5173/callback
+  webOrigins:
+    - https://shop.example.com
+    - http://localhost:5173
+---
+# Confidential web app: Secret "shop-web-oidc" gets client-id, client-secret and issuer.
+apiVersion: identity.haven.dev/v1alpha1
+kind: OIDCClient
+metadata:
+  name: shop-web
+  namespace: apps
+spec:
+  planeRef:
+    name: platform
+    namespace: identity
+  displayName: Shop (server-side)
+  redirectUris:
+    - https://shop.example.com/auth/callback
+  secretRef:
+    name: shop-web-oidc
+  deletionPolicy: Delete
+---
+# Service account: client credentials only, no browser flow.
+apiVersion: identity.haven.dev/v1alpha1
+kind: OIDCClient
+metadata:
+  name: nightly-export
+  namespace: apps
+spec:
+  planeRef:
+    name: platform
+    namespace: identity
+  displayName: Nightly export job
+  serviceAccount: true
+  flows:
+    authorizationCode: false
+    clientCredentials: true
+  deletionPolicy: Retain

@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: haven
 rules:
   - apiGroups: [identity.haven.dev]
-    resources: [identityplanes, identityplanes/status, realmbundles, realmbundles/status, oidcclients, oidcclients/status]
+    resources: [identityplanes, identityplanes/status, realmbundles, realmbundles/status, oidcclients, oidcclients/status, oidcclients/finalizers]
     verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [postgresql.cnpg.io]
     resources: [clusters, scheduledbackups, backups]

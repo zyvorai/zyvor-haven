@@ -104,9 +104,9 @@ status:
 
 Declarative realm (users optional, clients, roles, IdPs, theme). Applied via Keycloak Realm Import CR plus a small Haven overlay for things the import job does not cover (client secrets stored as K8s secrets, rotation).
 
-### OidcClient
+### OIDCClient
 
-A client that belongs to a realm and must exist for platform SSO. Controller ensures the client in Keycloak and writes a Secret the workload can mount (`client-id`, `client-secret`, `issuer`).
+A client that belongs to a realm and must exist for platform SSO. Controller ensures the client in Keycloak and writes a Secret the workload can mount (`client-id`, `client-secret`, `issuer`). For native planes this is implemented: see [OIDCClient CRD](oidcclient-crd.md).
 
 ## Reconciliation order
 
@@ -117,7 +117,7 @@ A client that belongs to a realm and must exist for platform SSO. Controller ens
 5. Issue TLS cert for hostname (cert-manager).
 6. Apply `Keycloak` CR: vendor postgres, TLS verify-server, pool sizes from profile, instances, metrics.
 7. Wait Keycloak StatefulSet/Deployment ready; read `-initial-admin` secret.
-8. Apply `RealmBundle` for `bootstrap.firstRealm` + platform `OidcClient` list.
+8. Apply `RealmBundle` for `bootstrap.firstRealm` + platform `OIDCClient` list.
 9. Deploy Haven console (OAuth against that realm).
 10. Mark `Ready`. Subsequent reconciles are drift-correct only.
 

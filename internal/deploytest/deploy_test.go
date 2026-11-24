@@ -594,13 +594,21 @@ var needed = []struct {
 	{"", "services", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 	{"", "serviceaccounts", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 	{"policy", "poddisruptionbudgets", []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
-	{"", "secrets", []string{"get", "list", "watch", "create", "patch"}},
+	{"", "secrets", []string{"get", "list", "watch", "create", "update", "patch"}},
 	{"", "pods", []string{"get", "list"}},
 	{"", "namespaces", []string{"get", "patch"}},
 	{"postgresql.cnpg.io", "clusters", []string{"get", "list", "watch", "create", "update", "patch"}},
 	{"cert-manager.io", "certificates", []string{"get", "list", "watch", "create", "update", "patch"}},
 	{"identity.haven.dev", "identityplanes", []string{"get", "list", "watch", "update", "patch"}},
 	{"identity.haven.dev", "identityplanes/status", []string{"get", "update", "patch"}},
+	// OIDCClient controller: finalizer add/remove is an update of the object, status goes
+	// through the subresource, and the owner reference on the generated Secret (blockOwnerDeletion)
+	// needs update on oidcclients/finalizers when the OwnerReferencesPermissionEnforcement admission
+	// plugin is on.
+	{"identity.haven.dev", "oidcclients", []string{"get", "list", "watch", "update", "patch"}},
+	{"identity.haven.dev", "oidcclients/status", []string{"get", "update", "patch"}},
+	{"identity.haven.dev", "oidcclients/finalizers", []string{"update"}},
+	{"", "events", []string{"create", "patch"}},
 }
 
 // granted reports whether the rules allow verb on group/resource.

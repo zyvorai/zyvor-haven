@@ -33,7 +33,7 @@ A production plane can mint the clients every private cloud actually needs:
 | `argocd` | GitOps | confidential |
 | `harbor` | Registry | confidential |
 
-Each becomes an `OidcClient` CR. The controller writes a Secret the workload mounts. No copy-paste of client secrets into Helm values.
+Each becomes an `OIDCClient` CR. The controller writes a Secret the workload mounts. No copy-paste of client secrets into Helm values.
 
 ## Kubernetes API OIDC
 

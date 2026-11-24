@@ -12,7 +12,7 @@ hero:
     - {label: "Zyvor Production Licence"}
   highlights:
     - {value: "v0.1.0", label: "Only tagged release today — a v0 packaging layer, not the v1 controller", footnote: "1"}
-    - {value: "3", label: "Custom resources: IdentityPlane, RealmBundle, OidcClient", footnote: "2"}
+    - {value: "3", label: "Custom resources: IdentityPlane, RealmBundle, OIDCClient", footnote: "2"}
     - {value: "10", label: "Reconciliation steps from namespace to a Ready plane", footnote: "2"}
     - {value: "21", label: "Deterministic security rules Haven Guard checks (HAVEN001–021)", footnote: "3"}
     - {value: "5", label: "CLI commands: deploy, status, doctor, admin, backup", footnote: "4"}
@@ -24,7 +24,7 @@ hero:
     - {icon: "🧩", title: "Architecture", description: "CRDs, reconcile order, profiles, trust model.", href: "architecture.md"}
 footnotes:
   - {marker: "1", text: "The README states only one tagged release exists, 0.1.0, and frames this repository as v0 — the Helm chart installs RBAC only today; the full Kubebuilder reconcile loop is v1, in progress.", href: "https://github.com/zyvorai/zyvor-haven#readme", href_label: "See the README."}
-  - {marker: "2", text: "IdentityPlane, RealmBundle, and OidcClient are the three CRDs; the controller applies them across a 10-step reconciliation order from namespace/NetworkPolicy creation through marking the plane Ready.", href: "architecture.md", href_label: "See Architecture."}
+  - {marker: "2", text: "IdentityPlane, RealmBundle, and OIDCClient are the three CRDs; the controller applies them across a 10-step reconciliation order from namespace/NetworkPolicy creation through marking the plane Ready.", href: "architecture.md", href_label: "See Architecture."}
   - {marker: "3", text: "Haven Guard's rule table lists HAVEN001 through HAVEN021 across critical/high/medium/low severity.", href: "security-posture.md", href_label: "See Security posture."}
   - {marker: "4", text: "The CLI (./cli/haven) and Makefile targets cover deploy, status, doctor, admin, and backup.", href: "cli.md", href_label: "See CLI."}
 ---
@@ -43,7 +43,7 @@ Haven turns Keycloak and PostgreSQL into one private-cloud identity product. The
   The root object. One plane ≈ one Keycloak cluster + one PostgreSQL cluster + how the world reaches them — profile, database, Keycloak version/resources, exposure, and bootstrap realm/clients all live here.
 - **RealmBundle**
   A declarative realm (users optional, clients, roles, IdPs, theme), applied via the Keycloak Realm Import CR plus a small Haven overlay for what the import job doesn't cover — client secrets stored as Kubernetes Secrets, rotation.
-- **OidcClient**
+- **OIDCClient**
   A client that belongs to a realm and must exist for platform SSO. The controller ensures the client exists in Keycloak and writes a Secret the workload can mount (`client-id`, `client-secret`, `issuer`).
 
 </div>
