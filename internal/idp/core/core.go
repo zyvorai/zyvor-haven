@@ -71,7 +71,10 @@ type Client struct {
 	// logout_token POST when a session this client took part in ends. Empty =
 	// the client is not notified. https only (http for loopback in dev).
 	BackchannelLogoutURI string
-	CreatedAt            time.Time
+	// DeviceFlow lets the client use the OAuth 2.0 Device Authorization Grant
+	// (RFC 8628). Off by default; see DeviceStore.
+	DeviceFlow bool
+	CreatedAt  time.Time
 }
 
 // Role and Group are realm-scoped names/paths.

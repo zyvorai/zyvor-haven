@@ -211,6 +211,7 @@ func mergeClient(cur idp.Client, c Client) idp.Client {
 	cur.RedirectURIs = append([]string(nil), c.RedirectURIs...)
 	cur.WebOrigins = append([]string(nil), c.Origins...)
 	cur.BackchannelLogoutURL = c.BackchannelLogoutURL
+	cur.DeviceFlowEnabled = c.DeviceFlowEnabled
 	attrs := make(map[string]string, len(cur.Attributes)+1)
 	for k, v := range cur.Attributes {
 		attrs[k] = v

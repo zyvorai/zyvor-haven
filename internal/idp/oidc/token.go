@@ -228,7 +228,7 @@ func (p *Provider) revokeForReplayedCode(r *http.Request, realm, hash string) {
 
 func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) (map[string]any, *tokenErr) {
 	ctx := r.Context()
-	if !cl.AuthCodeFlow {
+	if !cl.AuthCodeFlow && !cl.DeviceFlow { // device-flow clients refresh the tokens they were given
 		return nil, oerr("unauthorized_client", "client may not use this grant")
 	}
 	raw := r.PostForm.Get("refresh_token")

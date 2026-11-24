@@ -76,6 +76,15 @@ func normalized(s *Spec) *Spec {
 	return c
 }
 
+// flagIf renders an opt-in flag: "true" when set, "" when off, so that clients
+// that never use the flag do not grow a "deviceFlowEnabled: false" line.
+func flagIf(b bool) string {
+	if b {
+		return "true"
+	}
+	return ""
+}
+
 func bstr(p *bool) (string, bool) {
 	if p == nil {
 		return "", false
@@ -140,6 +149,7 @@ func clientFields(c Client) []kv {
 		{"redirectUris", strings.Join(c.RedirectURIs, ", ")},
 		{"origins", strings.Join(c.Origins, ", ")},
 		{"backchannelLogoutUrl", c.BackchannelLogoutURL},
+		{"deviceFlowEnabled", flagIf(c.DeviceFlowEnabled)},
 	}
 }
 

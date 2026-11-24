@@ -72,6 +72,8 @@ type Client struct {
 	Secret                    string            `json:"secret,omitempty"`
 	// BackchannelLogoutURL receives OIDC Back-Channel Logout tokens. Empty/omitted = not notified.
 	BackchannelLogoutURL string `json:"backchannelLogoutUrl,omitempty"`
+	// DeviceFlowEnabled lets the client use the OAuth 2.0 Device Authorization Grant (RFC 8628).
+	DeviceFlowEnabled bool `json:"deviceFlowEnabled,omitempty"`
 }
 
 type ClientSecret struct {

@@ -74,7 +74,7 @@ webhook, dashboards and alert rules), and #7's email transport: self-service ema
 password reset (SMTP, single-use links; see
 [email-and-password-reset.md](email-and-password-reset.md)), and SSO sessions with single logout
 (`haven_sso` cookie, `prompt`/`max_age`, `sid`, RP-initiated and back-channel logout, Admin session
-routes; see [sso-and-logout.md](sso-and-logout.md)).
+routes; see [sso-and-logout.md](sso-and-logout.md)), and the OAuth device authorization grant (RFC 8628) for terminals and CI (opt-in per client, login reuses the normal flow incl. extra auth steps; fixed TTL/interval, no admin view of pending requests; see [device-flow.md](device-flow.md)).
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:

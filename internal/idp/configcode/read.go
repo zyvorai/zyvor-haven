@@ -81,5 +81,6 @@ func fromIDPClient(c idp.Client) Client {
 		ServiceAccount: c.ServiceAccountsEnabled, AuthCodeFlow: &flow, RequirePKCE: &pkce,
 		RedirectURIs: c.RedirectURIs, Origins: c.WebOrigins,
 		BackchannelLogoutURL: idmodel.FromClient(c).BackchannelLogoutURL,
+		DeviceFlowEnabled:    c.DeviceFlowEnabled,
 	}
 }

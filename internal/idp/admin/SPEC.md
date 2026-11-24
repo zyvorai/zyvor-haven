@@ -140,3 +140,13 @@ because the server stores only a hash and `GET .../secret` is 501. The console's
 create-client handler uses it for confidential clients and returns
 `201 {"id","secret"}` with `Cache-Control: no-store`; the UI must show the secret
 once. Providers that can read secrets back (Keycloak) keep the old 201-with-no-body response.
+
+## Device authorization grant (RFC 8628)
+* Client: `DeviceFlowEnabled`=`core.Client.DeviceFlow` (`deviceFlowEnabled`, omitted
+  when false). Default false; opt-in per client. Client PUT is a full replace, so
+  omitting the key switches the flow off (like `redirectUris`). Create/update with
+  `serviceAccountsEnabled: true` and `deviceFlowEnabled: true` -> 400
+  `deviceFlowEnabled cannot be combined with serviceAccountsEnabled`.
+* Config as code: `clients[].deviceFlowEnabled` (same validation).
+* Protocol endpoints and behaviour: `docs/device-flow.md`. There is no Admin API for
+  pending device requests.

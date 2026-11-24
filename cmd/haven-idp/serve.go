@@ -420,6 +420,13 @@ func purgeLoop(ctx context.Context, st core.Store, log *slog.Logger) {
 			} else if n > 0 {
 				log.Info("purged expired rows", "count", n)
 			}
+			if ds, ok := core.StoreAs[core.DeviceStore](st); ok {
+				if n, err := ds.PurgeExpiredDeviceCodes(ctx, now); err != nil {
+					log.Warn("purge expired device codes failed", "error", err.Error())
+				} else if n > 0 {
+					log.Info("purged expired device codes", "count", n)
+				}
+			}
 		}
 	}
 }

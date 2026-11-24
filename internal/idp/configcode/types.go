@@ -75,6 +75,8 @@ type Client struct {
 	Origins        []string `json:"origins,omitempty"`
 	// BackchannelLogoutURL receives OIDC Back-Channel Logout tokens (https; http for loopback). Empty = not notified.
 	BackchannelLogoutURL string `json:"backchannelLogoutUrl,omitempty"`
+	// DeviceFlowEnabled lets the client use the OAuth 2.0 Device Authorization Grant (RFC 8628). Default false.
+	DeviceFlowEnabled bool `json:"deviceFlowEnabled,omitempty"`
 }
 
 // Action is what a Change does.

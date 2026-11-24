@@ -83,6 +83,9 @@ func (s *Spec) Validate() error {
 		if c.Public && c.RequirePKCE != nil && !*c.RequirePKCE {
 			add(p+".requirePKCE", "PKCE cannot be disabled for a public client")
 		}
+		if c.DeviceFlowEnabled && c.ServiceAccount {
+			add(p+".deviceFlowEnabled", "a service account client cannot use the device flow (it has no user to approve)")
+		}
 		if c.BackchannelLogoutURL != "" {
 			if err := idp.ValidateLogoutURI(c.BackchannelLogoutURL); err != nil {
 				add(p+".backchannelLogoutUrl", "%s", err.Error())
