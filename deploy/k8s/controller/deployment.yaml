@@ -121,6 +121,10 @@ spec:
       # in a namespace enforcing that level).
       securityContext:
         runAsNonRoot: true
+        # Numeric: the kubelet cannot verify runAsNonRoot against an image whose USER
+        # is a name ("nonroot"), and refuses to start the container.
+        runAsUser: 65532
+        runAsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       containers:

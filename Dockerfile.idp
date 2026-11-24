@@ -14,6 +14,7 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55
 COPY --from=gobuild /out/haven-idp /haven-idp
 # 8081 http (OIDC, login, admin API, /healthz, /readyz); 9100 Prometheus /metrics
 EXPOSE 8081 9100
-USER nonroot:nonroot
+# Numeric: Kubernetes cannot verify runAsNonRoot against a user name ("nonroot").
+USER 65532:65532
 ENTRYPOINT ["/haven-idp"]
 CMD ["serve"]

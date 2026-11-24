@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -60,6 +61,22 @@ func restrictedViolations(pod map[string]any) []string {
 				v = append(v, name+": runAsNonRoot must be true (container or pod)")
 			}
 		}
+		// runAsNonRoot is only enforceable when the kubelet can tell the user is
+		// not root: that needs a numeric runAsUser here, or a numeric USER in the
+		// image. Our images are distroless "nonroot" (a NAME), which the kubelet
+		// cannot verify, so a pod that relies on the image fails at start with
+		// "image has non-numeric user (nonroot), cannot verify user is non-root".
+		// An API-server dry-run does not catch this; only a real kubelet does.
+		uid := func(sc map[string]any) (float64, bool) { f, ok := sc["runAsUser"].(float64); return f, ok }
+		if u, ok := uid(sc); ok {
+			if u == 0 {
+				v = append(v, name+": runAsUser is 0 (root)")
+			}
+		} else if u, ok := uid(podSC); !ok {
+			v = append(v, name+": no numeric runAsUser (container or pod): the kubelet cannot verify runAsNonRoot against a named image user")
+		} else if u == 0 {
+			v = append(v, name+": pod runAsUser is 0 (root)")
+		}
 	}
 	return v
 }
@@ -107,17 +124,66 @@ func TestWorkloadsArePodSecurityRestricted(t *testing.T) {
 func TestRestrictedCheckCatchesViolations(t *testing.T) {
 	bad := map[string]any{"containers": []any{map[string]any{"name": "c", "securityContext": map[string]any{"privileged": true}}}}
 	got := fmt.Sprint(restrictedViolations(bad))
-	for _, want := range []string{"privileged", "allowPrivilegeEscalation", "capabilities.drop", "seccompProfile", "runAsNonRoot"} {
+	for _, want := range []string{"privileged", "allowPrivilegeEscalation", "capabilities.drop", "seccompProfile", "runAsNonRoot", "numeric runAsUser"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("violation %q not reported: %s", want, got)
 		}
 	}
 	good := map[string]any{
-		"securityContext": map[string]any{"runAsNonRoot": true, "seccompProfile": map[string]any{"type": "RuntimeDefault"}},
+		"securityContext": map[string]any{"runAsNonRoot": true, "runAsUser": float64(65532), "seccompProfile": map[string]any{"type": "RuntimeDefault"}},
 		"containers": []any{map[string]any{"name": "c", "securityContext": map[string]any{
 			"allowPrivilegeEscalation": false, "capabilities": map[string]any{"drop": []any{"ALL"}}}}},
 	}
 	if vs := restrictedViolations(good); len(vs) != 0 {
 		t.Errorf("compliant pod flagged: %v", vs)
+	}
+}
+
+// The exact mistake that shipped: runAsNonRoot true, no numeric user.
+func TestRestrictedCheckCatchesUnverifiableNonRoot(t *testing.T) {
+	pod := map[string]any{
+		"securityContext": map[string]any{"runAsNonRoot": true, "seccompProfile": map[string]any{"type": "RuntimeDefault"}},
+		"containers": []any{map[string]any{"name": "c", "securityContext": map[string]any{
+			"allowPrivilegeEscalation": false, "capabilities": map[string]any{"drop": []any{"ALL"}}}}},
+	}
+	if got := fmt.Sprint(restrictedViolations(pod)); !strings.Contains(got, "numeric runAsUser") {
+		t.Fatalf("runAsNonRoot without a numeric runAsUser was not flagged: %s", got)
+	}
+	pod["securityContext"].(map[string]any)["runAsUser"] = float64(0)
+	if got := fmt.Sprint(restrictedViolations(pod)); !strings.Contains(got, "root") {
+		t.Fatalf("runAsUser 0 was not flagged: %s", got)
+	}
+}
+
+// Images must declare a numeric USER too, so they are verifiably non-root even
+// when a manifest forgets runAsUser.
+func TestDockerfilesUseANumericUser(t *testing.T) {
+	root := repoRoot(t)
+	files, _ := filepath.Glob(filepath.Join(root, "Dockerfile.*"))
+	if len(files) == 0 {
+		t.Fatal("no Dockerfiles found")
+	}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var last string
+		for _, line := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "USER ") {
+				last = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "USER "))
+			}
+		}
+		if last == "" {
+			t.Errorf("%s: no USER instruction (the image would run as root)", filepath.Base(f))
+			continue
+		}
+		uid, _, _ := strings.Cut(last, ":")
+		if n, err := strconv.Atoi(uid); err != nil || n == 0 {
+			t.Errorf("%s: final USER %q must be a non-zero NUMERIC id", filepath.Base(f), last)
+		}
+		if strings.Contains(last, "#") {
+			t.Errorf("%s: USER line carries a trailing comment, which Dockerfiles treat as part of the value", filepath.Base(f))
+		}
 	}
 }

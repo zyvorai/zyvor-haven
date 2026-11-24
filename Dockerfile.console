@@ -21,5 +21,6 @@ RUN CGO_ENABLED=0 go build -o /out/haven-console ./cmd/haven-console
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 COPY --from=gobuild /out/haven-console /haven-console
 EXPOSE 8080
-USER nonroot:nonroot
+# Numeric: Kubernetes cannot verify runAsNonRoot against a user name ("nonroot").
+USER 65532:65532
 ENTRYPOINT ["/haven-console"]
