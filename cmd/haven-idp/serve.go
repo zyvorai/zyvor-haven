@@ -362,6 +362,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		}
 		withObs(observer, &oidcCfg, &adminCfg)
 		mux.Handle("/admin/v1/", admin.New(adminCfg))
+		mux.Handle("/realms/{r}/scim/v2/", admin.SCIM(adminCfg)) // SCIM 2.0, own bearer token; docs/scim.md
 		log.Info("admin API mounted", "path", "/admin/v1", "realm", adminRealm)
 	}
 	withObs(observer, &oidcCfg, nil)

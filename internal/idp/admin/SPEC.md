@@ -357,3 +357,18 @@ that already exists is 409 and never adopted. Pg migrations `0015_workload_ident
 Events (admin events flag): `WORKLOAD_IDENTITY_CREATE|ENABLE|DISABLE|DELETE`, `AGENT_CREATE|ENABLE|DISABLE|DELETE`,
 `AGENT_CREDENTIAL_ISSUED`, `AGENT_CREDENTIAL_REVOKED`. Token endpoint events (auth events flag):
 `WORKLOAD_TOKEN`, `WORKLOAD_TOKEN_ERROR`, `AGENT_TOKEN`, `AGENT_TOKEN_ERROR`.
+
+## SCIM token
+
+See `docs/scim.md`. The SCIM 2.0 server itself is NOT under `/admin/v1`: it is `admin.SCIM(cfg)`, mounted at
+`/realms/{r}/scim/v2/` and authenticated by the realm's SCIM bearer token, never by an Admin API token. These
+routes manage that token. Optional store extension `core.SCIMStore` (501 without it); Pg migration `0020_scim.sql`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/scim/token` | `{configured, endpoint, readOnly?, createdAt?, createdBy?}`; never the token |
+| `POST /realms/{r}/scim/token` | optional body `{readOnly?}`; issues or rotates (old token dies at once) -> 201 `{token, endpoint, readOnly, createdAt}`; the token is shown only here |
+| `DELETE /realms/{r}/scim/token` | revoke -> 204; 404 when none |
+
+Events (admin events flag): `ADMIN_ACTION scim-token issued|revoked` (no token material). SCIM writes are audited as
+`ADMIN_CREATE|UPDATE|DELETE|ACTION` with actor `scim:{realm}`.

@@ -107,3 +107,5 @@ Known gaps carried forward: authorization-code replay and refresh-reuse
 revocation of already-issued tokens is partly in-memory (not shared across
 replicas); federation (identity brokering) covers upstream OIDC only (Google, Microsoft Entra ID, generic OIDC; see [federation.md](federation.md)) and does not cover SAML, GitHub, LDAP/SCIM, an account-linking UI, storing upstream tokens or IdP-initiated login; rotated-secret
 overlap is unsupported; `--prune` removes clients only.
+
+SCIM 2.0 server (RFC 7643/7644) per realm at `/realms/{realm}/scim/v2`, with its own revocable bearer token (see [scim.md](scim.md)), is done and tested: Users and Groups (filter eq/ne/co/sw/ew/pr/and/or, pagination, PATCH, ETag/If-Match), discovery endpoints, no password sync; it is not done for bulk, sorting, group deletion/rename, nested groups, outbound provisioning, or cross-replica If-Match, and has not been run against a real Okta or Entra tenant.
