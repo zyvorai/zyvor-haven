@@ -56,7 +56,7 @@ export function FederationHubPage() {
   return (
     <ConsoleLayout>
       <div className="console-content"><div className="console-content-inner">
-        <ConsolePageHeader art="hub" eyebrow="Operate" title="Federation Hub" subtitle="Connect enterprise identity providers without dropping operators into raw Keycloak configuration." actions={<label className="ops-realm-select">Realm<select value={realm} onChange={(e: ChangeEvent<HTMLSelectElement>) => setRealm(e.target.value)}>{realms.map((r) => <option key={r.realm}>{r.realm}</option>)}</select></label>} />
+        <ConsolePageHeader art="hub" eyebrow="Operate" title="Federation Hub" subtitle="Connect enterprise identity providers without dropping operators into raw identity server configuration." actions={<label className="ops-realm-select">Realm<select value={realm} onChange={(e: ChangeEvent<HTMLSelectElement>) => setRealm(e.target.value)}>{realms.map((r) => <option key={r.realm}>{r.realm}</option>)}</select></label>} />
 
         {!loaded && <section className="ops-provider-grid" aria-busy="true">{[0, 1, 2, 3, 4].map((i) => <SkeletonBlock key={i} card rows={2} label="Loading provider catalog" />)}</section>}
         <section className="ops-provider-grid">

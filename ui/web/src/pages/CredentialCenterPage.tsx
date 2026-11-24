@@ -48,7 +48,7 @@ export function CredentialCenterPage() {
   return (
     <ConsoleLayout>
       <div className="console-content"><div className="console-content-inner">
-        <ConsolePageHeader art="key" eyebrow="Secure" title="Credential Center" subtitle="Rotate confidential OIDC client secrets, track age, and use Keycloak's overlap window when available." />
+        <ConsolePageHeader art="key" eyebrow="Secure" title="Credential Center" subtitle="Rotate confidential OIDC client secrets, track age, and use the identity server's overlap window when available." />
 
         <div className="ops-stat-grid">
           <div className="ops-stat"><span>Confidential clients</span><strong>{items.length}</strong></div>

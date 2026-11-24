@@ -133,7 +133,7 @@ export function TimeMachinePage() {
                 <div className="ops-diff-grid">
                   {(['clients','users','roles','groups','providers','access'] as const).map((k) => <div key={k} className="ops-diff-card"><strong>{k}</strong><span>+{diff[k].added.length}</span><span>−{diff[k].removed.length}</span></div>)}
                 </div>
-                {diff.nativeConfigChanged && <div className="ops-message">Advanced client/group/role configuration changed in Keycloak native export.</div>}
+                {diff.nativeConfigChanged && <div className="ops-message">Advanced client/group/role configuration changed in the native export.</div>}
                 <div className="ops-restore-box">
                   <strong>Safe restore</strong><p>Haven never overwrites the source realm. It creates an isolated recovery realm for validation first.</p>
                   <div className="ops-inline"><input value={targetRealm} onChange={(e: ChangeEvent<HTMLInputElement>) => setTargetRealm(e.target.value)} placeholder="platform-recovery" /><button className="btn btn-primary" onClick={() => void restore()} disabled={busy === 'restore'}>{busy === 'restore' ? 'Restoring…' : 'Restore to new realm'}</button></div>

@@ -30,7 +30,7 @@ export const paletteCommands: PaletteCommand[] = [
   {
     id: 'atlas',
     label: 'Open Atlas topology',
-    keywords: ['topology', 'map', 'postgres', 'keycloak'],
+    keywords: ['topology', 'map', 'postgres', 'identity server'],
     action: 'navigate',
     path: '/atlas',
   },
@@ -57,8 +57,8 @@ export const paletteCommands: PaletteCommand[] = [
   },
   {
     id: 'settings',
-    label: 'Keycloak connection settings',
-    keywords: ['keycloak', 'connect', 'credentials'],
+    label: 'Identity server connection settings',
+    keywords: ['identity server', 'connect', 'credentials'],
     action: 'navigate',
     path: '/settings?focus=keycloak',
   },

@@ -6,6 +6,7 @@ const TOKEN_KEY = 'haven-session-token';
 
 export class APIError extends Error {
   status: number;
+  // legacy wire name: backend error payloads carry this field as `keycloak`
   keycloak?: unknown;
   constructor(message: string, status: number, keycloak?: unknown) {
     super(message);
@@ -49,6 +50,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return text ? JSON.parse(text) : (undefined as T);
 }
 
+// Wire format: `keycloakUrl` is the legacy field name for the identity server URL.
 export interface KeycloakStatus {
   connected: boolean;
   version?: string;

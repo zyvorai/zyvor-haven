@@ -42,7 +42,7 @@ export function AccessReviewPage() {
   return (
     <ConsoleLayout>
       <div className="console-content"><div className="console-content-inner">
-        <ConsolePageHeader art="people" eyebrow="Govern" title="Access Review" subtitle="Find privileged and stale accounts, then record who certified or revoked each one. Haven records decisions; it never changes Keycloak access." />
+        <ConsolePageHeader art="people" eyebrow="Govern" title="Access Review" subtitle="Find privileged and stale accounts, then record who certified or revoked each one. Haven records decisions; it never changes identity server access." />
 
         <section className="ops-panel">
           <div className="ops-panel-head"><div><div className="ops-kicker">Scope</div><h3>Realm</h3></div>

@@ -319,7 +319,7 @@ export function RealmDetailPage() {
       <PasswordDialog
         open={!!pwUser}
         title={`Set password — ${pwUser?.username ?? ''}`}
-        subtitle="Updates this user's Keycloak credentials in the current realm."
+        subtitle="Updates this user's credentials in the current realm."
         confirmLabel="Set password"
         temporaryToggle
         onCancel={() => setPwUser(null)}

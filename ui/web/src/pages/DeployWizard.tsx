@@ -33,11 +33,11 @@ export function DeployWizard() {
 
   const summary = canCreatePlane
     ? durability === 'production'
-      ? 'Creates an IdentityPlane CR — controller provisions HA Postgres + Keycloak when operators are installed.'
+      ? 'Creates an IdentityPlane CR — controller provisions HA Postgres + haven-idp when operators are installed.'
       : durability === 'staging'
         ? 'Creates an IdentityPlane CR with staging profile (2 instances, NetworkPolicy).'
         : 'Creates an IdentityPlane CR with the dev profile (single instances).'
-    : 'Console cannot create IdentityPlanes — this run bootstraps a Keycloak realm + haven-console client only. Apply a sample CR or grant create RBAC for full plane deploy.';
+    : 'Console cannot create IdentityPlanes — this run bootstraps a realm + haven-console client only. Apply a sample CR or grant create RBAC for full plane deploy.';
 
   const handleDeploy = async () => {
     setBusy(true);
@@ -156,7 +156,7 @@ export function DeployWizard() {
                 <div className="wizard-options">
                   {(
                     [
-                      ['dev', 'Dev 1+1', '1 Postgres, 1 Keycloak, disposable'],
+                      ['dev', 'Dev 1+1', '1 Postgres, 1 identity server, disposable'],
                       ['staging', 'Staging 2+2', '2 instances, daily backup'],
                       ['production', 'Production 3+3', '3 pods across 3 nodes, PITR'],
                     ] as const
@@ -243,7 +243,7 @@ export function DeployWizard() {
               <div className="preview-arrow">↓</div>
               <div className="preview-node">
                 <div className="preview-node-title">
-                  Keycloak ({kcInstances} pod{kcInstances > 1 ? 's' : ''})
+                  Identity server ({kcInstances} pod{kcInstances > 1 ? 's' : ''})
                 </div>
                 <div className="preview-pods">
                   {Array.from({ length: kcInstances }).map((_, i) => (

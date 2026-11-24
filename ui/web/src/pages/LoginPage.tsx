@@ -82,8 +82,8 @@ export function LoginPage() {
           </h1>
           <p className="login-lede">
             {loginDest.host
-              ? `Operate Keycloak, realms, and OIDC on ${loginDest.host} — plane health, Atlas topology, and day-2 identity in one place.`
-              : 'Operate Keycloak, realms, and OIDC clients from one console — plane health, Atlas topology, and day-2 identity in one place.'}
+              ? `Operate your identity server, realms, and OIDC on ${loginDest.host} — plane health, Atlas topology, and day-2 identity in one place.`
+              : 'Operate your identity server, realms, and OIDC clients from one console — plane health, Atlas topology, and day-2 identity in one place.'}
           </p>
 
           <div className="login-dest" aria-label="This machine">
@@ -145,7 +145,7 @@ export function LoginPage() {
           <p className="login-eyebrow">Haven Console</p>
           <h2 className="login-card-title">Sign in to continue</h2>
           <p className="login-card-sub">
-            Use Keycloak SSO, console credentials, or a Keycloak admin account.
+            Use single sign-on, console credentials, or an identity server admin account.
           </p>
 
           {labHint && (
@@ -184,7 +184,7 @@ export function LoginPage() {
           {oidcLoginUrl && (
             <div className="login-sso">
               <a className="btn btn-ghost login-sso-btn" href={oidcLoginUrl}>
-                Sign in with Keycloak
+                Sign in with single sign-on
               </a>
               <div className="login-sso-divider">
                 <span>or use a password</span>

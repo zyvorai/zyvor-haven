@@ -78,7 +78,7 @@ export function PlanesPage() {
               <EmptyState
                 art="plane"
                 title="No IdentityPlane yet"
-                body="Deploy a plane or connect Keycloak in Settings to start operating."
+                body="Deploy a plane or connect an identity server in Settings to start operating."
                 actions={
                   <>
                     <Link to="/deploy" className="btn btn-primary">

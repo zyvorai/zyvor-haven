@@ -28,11 +28,11 @@ const quickActions: {
   { path: '/realms', icon: 'realms', label: 'Realm Studio', desc: 'Manage tenants & realms' },
   { path: '/clients', icon: 'clients', label: 'Clients', desc: 'OIDC apps across realms' },
   { path: '/deploy', icon: 'deploy', label: 'Deploy wizard', desc: 'Spin up identity plane' },
-  { path: '/settings?focus=keycloak', icon: 'settings', label: 'Settings', desc: 'Keycloak connection' },
+  { path: '/settings?focus=keycloak', icon: 'settings', label: 'Settings', desc: 'Identity server connection' },
 ];
 
 const cardIcons: Record<string, ReactNode> = {
-  Keycloak: <IconRealms size={20} />,
+  'Identity server': <IconRealms size={20} />,
   Phase: <IconPulse size={20} />,
   'Postgres primary': <IconDatabase size={20} />,
   'Last Backup': <IconBackup size={20} />,
@@ -60,7 +60,7 @@ export function CommandDeck() {
 
   const kcCard = kc
     ? {
-        label: 'Keycloak',
+        label: 'Identity server',
         value: kc.connected ? kc.version ?? 'connected' : 'offline',
         meta: kc.connected
           ? `${kc.realmCount} realm${kc.realmCount === 1 ? '' : 's'} · live`
@@ -70,14 +70,14 @@ export function CommandDeck() {
       }
     : kcErr
       ? {
-          label: 'Keycloak',
+          label: 'Identity server',
           value: 'offline',
           meta: kcErr,
           ok: false,
           variant: 'live' as const,
         }
       : {
-          label: 'Keycloak',
+          label: 'Identity server',
           value: '…',
           meta: 'checking',
           ok: true,
@@ -132,7 +132,7 @@ export function CommandDeck() {
               <p className="deck-eyebrow">Command Deck</p>
               <h1 className="deck-title">Platform at a glance</h1>
               <p className="deck-subtitle">
-                Live identity plane health, Keycloak status, and reconcile progress —
+                Live identity plane health, identity server status, and reconcile progress —
                 operate entirely from Haven.
               </p>
             </div>
@@ -168,7 +168,7 @@ export function CommandDeck() {
               <div>
                 <div className="keycloak-featured-label">
                   <span className="keycloak-live-dot" aria-hidden />
-                  Connected Keycloak
+                  Identity server
                 </div>
                 <code className="keycloak-url-chip">{kc.keycloakUrl}</code>
                 <div className="keycloak-meta">
@@ -191,18 +191,18 @@ export function CommandDeck() {
                 <Art name="offline" size={120} />
               </div>
               <div className="keycloak-offline-copy">
-                <div className="keycloak-featured-label">Keycloak offline</div>
+                <div className="keycloak-featured-label">Identity server offline</div>
                 <p className="keycloak-meta" style={{ marginTop: 0 }}>
                   {kcErr || 'Not connected — configure in Settings'}
                 </p>
               </div>
               <Link to="/settings?focus=keycloak" className="btn btn-primary deck-btn">
-                Connect Keycloak
+                Connect identity server
               </Link>
             </div>
           ) : (
             <div className="keycloak-featured keycloak-featured--loading">
-              <SkeletonBlock label="Checking Keycloak connection" rows={1} />
+              <SkeletonBlock label="Checking identity server connection" rows={1} />
             </div>
           )}
 

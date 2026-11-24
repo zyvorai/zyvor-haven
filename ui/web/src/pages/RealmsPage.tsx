@@ -57,7 +57,7 @@ export function RealmsPage() {
               art="realm"
               eyebrow="Identity"
               title="Realm Studio"
-              subtitle="Create and manage Keycloak realms as tenant boundaries."
+              subtitle="Create and manage realms as tenant boundaries."
               actions={
                 <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
                   + Create realm
@@ -68,7 +68,7 @@ export function RealmsPage() {
             <div className="settings-offline-hint settings-offline-hint--art" role="alert">
               <Art name="offline" size={110} />
               <div>
-              <strong>Keycloak unreachable</strong>
+              <strong>Identity server unreachable</strong>
               <p>{err}</p>
               <Link to="/settings?focus=keycloak" className="btn btn-primary">
                 Configure in Settings

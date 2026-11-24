@@ -51,7 +51,7 @@ export function AtlasPage() {
           <ConsolePageHeader
             eyebrow="Topology"
             title="Atlas"
-            subtitle="How traffic reaches identity — Console → Ingress → Keycloak → Postgres."
+            subtitle="How traffic reaches identity — Console → Ingress → Identity server → Postgres."
             actions={
               <Link to="/planes" className="btn btn-ghost">
                 All planes
@@ -76,7 +76,7 @@ export function AtlasPage() {
                 <div className="atlas-node-kicker">Edge</div>
                 <div className="atlas-node-title">Ingress / NodePort</div>
                 <div className="atlas-node-meta">
-                  {kc?.keycloakUrl ? new URL(kc.keycloakUrl).host : 'Keycloak host'}
+                  {kc?.keycloakUrl ? new URL(kc.keycloakUrl).host : 'Identity server host'}
                 </div>
               </div>
             </div>
@@ -87,7 +87,7 @@ export function AtlasPage() {
             <div className="atlas-row atlas-row--split">
               <div className={nodeClass(kcState)}>
                 <div className="atlas-node-kicker">Identity</div>
-                <div className="atlas-node-title">Keycloak</div>
+                <div className="atlas-node-title">Identity server</div>
                 <div className="atlas-node-meta">
                   {kc?.connected
                     ? `v${kc.version} · ${kc.realmCount} realms`

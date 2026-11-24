@@ -16,8 +16,8 @@ export function Landing() {
             <p className="hero-eyebrow">Private cloud identity</p>
             <h1 className="hero-title">Identity for the private cloud.</h1>
             <p className="hero-sub">
-              Haven turns Keycloak and PostgreSQL into one product. Declare an
-              IdentityPlane — get HA Postgres, the official Keycloak Operator,
+              Haven turns an identity server and PostgreSQL into one product. Declare an
+              IdentityPlane — get HA Postgres, the haven-idp identity server,
               certs, ingress, and your first realm.
             </p>
             <div className="btn-row" style={{ justifyContent: 'center' }}>
@@ -34,7 +34,7 @@ export function Landing() {
         <section className="section section-alt">
           <div className="wrap">
             <p className="section-eyebrow">Why Haven</p>
-            <h2 className="section-title">The gap the Keycloak Operator leaves open</h2>
+            <h2 className="section-title">The gap most identity operators leave open</h2>
             <div className="card-grid">
               {problems.map((p) => (
                 <article key={p.title} className="card">
@@ -51,7 +51,7 @@ export function Landing() {
             <p className="section-eyebrow">Architecture</p>
             <h2 className="section-title">One object. Two runtimes.</h2>
             <p className="section-sub">
-              IdentityPlane composes CloudNativePG, the Keycloak Operator, and
+              IdentityPlane composes CloudNativePG, haven-idp, and
               cert-manager — Haven owns the plane, not a fork of upstream.
             </p>
             <div className="arch-flow">
@@ -59,7 +59,7 @@ export function Landing() {
               <div className="arch-arrow">↓</div>
               <div className="arch-row">
                 <div className="arch-node">CloudNativePG</div>
-                <div className="arch-node">Keycloak CR</div>
+                <div className="arch-node">haven-idp</div>
                 <div className="arch-node">Certs + Ingress</div>
               </div>
             </div>
@@ -76,7 +76,7 @@ export function Landing() {
                 <div>
                   <h3 className="step-title">Install operators (once per cluster)</h3>
                   <p className="step-desc">
-                    CloudNativePG, Keycloak Operator, and cert-manager.
+                    CloudNativePG and cert-manager.
                   </p>
                   <pre className="code-block">
                     <span className="cmd">$</span> ./deploy/operators/install.sh
@@ -86,7 +86,7 @@ export function Landing() {
               <div className="step">
                 <div className="step-num">2</div>
                 <div>
-                  <h3 className="step-title">Deploy Postgres + Keycloak</h3>
+                  <h3 className="step-title">Deploy Postgres + identity server</h3>
                   <p className="step-desc">
                     The v0 compose path — same manifests the v1 controller will render.
                   </p>
@@ -101,7 +101,7 @@ export function Landing() {
                 <div>
                   <h3 className="step-title">Optional first realm</h3>
                   <p className="step-desc">
-                    Apply a KeycloakRealmImport sample for platform SSO clients.
+                    Apply a sample realm for platform single sign-on clients.
                   </p>
                   <pre className="code-block">
                     <span className="cmd">$</span> make realm-import

@@ -43,7 +43,7 @@ export function Sidebar() {
 
   const statusLabel = kc?.connected
     ? `Connected · v${kc.version ?? '—'}`
-    : 'Keycloak offline';
+    : 'Identity server offline';
   const statusDetail =
     kc?.connected
       ? `${kc.realmCount} realm${kc.realmCount === 1 ? '' : 's'}${plane?.phase ? ` · ${plane.phase}` : ''}`

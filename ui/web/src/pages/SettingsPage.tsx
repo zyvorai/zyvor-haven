@@ -10,6 +10,7 @@ import { useTheme, type ThemeMode } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { api, type KeycloakStatus } from '../api/client';
 
+// Lab identity server default URL.
 function labKeycloakURL(): string {
   if (typeof window === 'undefined') return 'http://localhost:30180';
   const { protocol, hostname } = window.location;
@@ -74,7 +75,7 @@ export function SettingsPage() {
       setStatus(st);
       setAdminUrl(`${keycloakUrl.replace(/\/$/, '')}/admin`);
       setPassword('');
-      setMsg(`Connected — Keycloak ${st.version ?? ''} · ${st.realmCount} realm(s)`);
+      setMsg(`Connected — identity server ${st.version ?? ''} · ${st.realmCount} realm(s)`);
       if (focusKeycloak) {
         const next = new URLSearchParams(searchParams);
         next.delete('focus');
@@ -95,7 +96,7 @@ export function SettingsPage() {
             <ConsolePageHeader
               eyebrow="Configuration"
               title="Settings"
-              subtitle="Connect Haven to Keycloak from the UI — no SSH required for day-2 reconnect."
+              subtitle="Connect Haven to your identity server from the UI — no SSH required for day-2 reconnect."
             />
 
           <section className="card settings-card">
@@ -118,7 +119,7 @@ export function SettingsPage() {
           <section className="card settings-card">
             <h2>Passwords</h2>
             <p className="settings-desc">
-              Change Haven console sign-in or the Keycloak master admin password.
+              Change Haven console sign-in or the identity server admin password.
               Realm users: open Realm Studio → Users → Set password.
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
@@ -137,13 +138,13 @@ export function SettingsPage() {
                 onClick={() => setPwMode('keycloak')}
                 disabled={!status?.connected}
               >
-                Change Keycloak admin password
+                Change identity server admin password
               </button>
             </div>
             {user?.auth === 'lab' && (
               <p style={{ marginTop: 12, fontSize: 13, color: 'var(--zy-muted)' }}>
-                Signed in as lab demo — sign in as Keycloak admin to change console password, or use
-                Keycloak admin password below.
+                Signed in as lab demo — sign in as an identity server admin to change the console password, or use
+                the identity server admin password below.
               </p>
             )}
           </section>
@@ -152,17 +153,17 @@ export function SettingsPage() {
             id="settings-keycloak"
             className={`card settings-card${focusKeycloak ? ' settings-card-focus' : ''}`}
           >
-            <h2>Keycloak connection</h2>
+            <h2>Identity server connection</h2>
             <p className="settings-desc">
-              Point Haven at any reachable Keycloak Admin API. Credentials stay on the Haven server —
+              Point Haven at any reachable identity server admin API. Credentials stay on the Haven server —
               the browser never stores your admin password.
             </p>
 
             {!status?.connected && (
               <div className="settings-offline-hint" role="status">
-                <strong>Keycloak offline</strong>
+                <strong>Identity server offline</strong>
                 <p>
-                  Realm Studio and Clients need a live Admin API. For this host, lab Keycloak is usually
+                  Realm Studio and Clients need a live admin API. For this host, the lab identity server is usually
                   on port <code>30180</code>. Fill lab defaults, enter the admin password, then connect.
                 </p>
                 <button type="button" className="btn btn-ghost" onClick={applyLabDefaults}>
@@ -178,7 +179,7 @@ export function SettingsPage() {
             )}
 
             <div className="wizard-field">
-              <label htmlFor="kc-url">Keycloak URL</label>
+              <label htmlFor="kc-url">Identity server URL</label>
               <input
                 id="kc-url"
                 value={keycloakUrl}
@@ -187,7 +188,7 @@ export function SettingsPage() {
                 autoFocus={focusKeycloak}
               />
               <span className="settings-field-hint">
-                Examples: <code>{labURL}</code> · <code>http://keycloak.identity.svc:8080</code>
+                Examples: <code>{labURL}</code> · <code>http://haven-idp.identity.svc:8080</code>
               </span>
             </div>
             <div className="wizard-field">
@@ -231,7 +232,7 @@ export function SettingsPage() {
           <section className="card settings-card">
             <h2>Advanced</h2>
             <p className="settings-desc">
-              Use the Keycloak SPI console only for low-level provider configuration and debugging.
+              Use the identity server admin console only for low-level configuration and debugging.
             </p>
             {adminUrl ? (
               <a
@@ -241,11 +242,11 @@ export function SettingsPage() {
                 className="btn btn-ghost"
                 style={{ fontSize: 13 }}
               >
-                Open Keycloak SPI console ↗
+                Open identity server admin console ↗
               </a>
             ) : (
               <span style={{ color: 'var(--zy-muted)', fontSize: 13 }}>
-                Connect Keycloak above to enable
+                Connect the identity server above to enable
               </span>
             )}
           </section>
@@ -268,15 +269,15 @@ export function SettingsPage() {
 
       <PasswordDialog
         open={pwMode === 'keycloak'}
-        title="Change Keycloak admin password"
-        subtitle={`Resets master-realm password for ${adminUser} and reconnects Haven.`}
+        title="Change identity server admin password"
+        subtitle={`Resets admin password for ${adminUser} and reconnects Haven.`}
         requireCurrent
-        confirmLabel="Update Keycloak admin"
+        confirmLabel="Update identity server admin"
         onCancel={() => setPwMode(null)}
         onSubmit={async ({ currentPassword, newPassword }) => {
           const res = await api.changeKeycloakAdminPassword(currentPassword!, newPassword);
           setPwMode(null);
-          setMsg(res.note ?? 'Keycloak admin password updated.');
+          setMsg(res.note ?? 'Identity server admin password updated.');
         }}
       />
     </ConsoleLayout>
