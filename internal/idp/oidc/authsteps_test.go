@@ -129,3 +129,60 @@ func TestAuthStepHooks(t *testing.T) {
 		t.Error("second-step form carried the password")
 	}
 }
+
+// A user with two factors is challenged by the first applicable step, so the
+// order is a security decision and must not depend on file names or init order.
+func TestAuthStepOrdering(t *testing.T) {
+	// The real registry (passkeys + TOTP are registered by init()).
+	var orders []int
+	for _, h := range authStepHooks {
+		orders = append(orders, h.order)
+	}
+	for i := 1; i < len(orders); i++ {
+		if orders[i] < orders[i-1] {
+			t.Fatalf("steps not sorted by order: %v", orders)
+		}
+	}
+	pk, tp := -1, -1
+	for i, o := range orders {
+		switch o {
+		case authOrderPasskey:
+			pk = i
+		case authOrderDefault:
+			if tp < 0 {
+				tp = i
+			}
+		}
+	}
+	if pk < 0 || tp < 0 || pk > tp {
+		t.Fatalf("the passkey step must run before the TOTP step: orders=%v", orders)
+	}
+	// The continue hooks follow the same order.
+	for i := 1; i < len(authContinueHooks); i++ {
+		if authContinueHooks[i].order < authContinueHooks[i-1].order {
+			t.Fatal("continue hooks not sorted")
+		}
+	}
+
+	// Mechanics on a scratch registry: lower first, ties keep registration order.
+	savedS, savedC := authStepHooks, authContinueHooks
+	defer func() { authStepHooks, authContinueHooks = savedS, savedC }()
+	authStepHooks, authContinueHooks = nil, nil
+	var seen []string
+	mk := func(name string) authStepHook {
+		return func(*Provider, http.ResponseWriter, *http.Request, *authzReq, core.User) bool {
+			seen = append(seen, name)
+			return false
+		}
+	}
+	registerAuthStepAt(100, mk("late-a"), nil)
+	registerAuthStepAt(50, mk("early"), nil)
+	registerAuthStepAt(100, mk("late-b"), nil)
+	registerAuthStepAt(75, mk("middle"), nil)
+	for _, h := range authStepHooks {
+		h.fn(nil, nil, nil, nil, core.User{})
+	}
+	if got := strings.Join(seen, ","); got != "early,middle,late-a,late-b" {
+		t.Errorf("order = %s", got)
+	}
+}

@@ -239,3 +239,14 @@ without support answers 501. Neither a seed nor a recovery code is ever returned
 Auth events written by the login/account flows (never contain codes): `TOTP_ENROLLED`
 (detail `login`|`account`), `TOTP_DISABLED`, `RECOVERY_USED`, `RECOVERY_REGENERATED`,
 `MFA_FAILED` (detail `invalid_code` or `reauth`).
+## Passkeys (WebAuthn)
+Needs a store implementing `core.PasskeyStore`; otherwise every route answers 501.
+- `GET /realms/{r}/users/{id}/passkeys` -> 200 `[{"id","name","createdAt","lastUsedAt"?,"backupEligible","backupState","transports":[],"aaguid","signCount"}]`
+  (empty array when none; the public key is never returned). 404 for an unknown user.
+- `DELETE /realms/{r}/users/{id}/passkeys/{credId}` -> 204; 404 when the credential does
+  not belong to that user. Does not end sessions. Ignores the realm's passkey policy
+  (admins can always remove). Audit `ADMIN_DELETE passkey <username>` (no credential id).
+- `GET /realms/{r}/passkey-policy` -> `{"requirePasskeys":bool}`;
+  `PUT` with the same body (unknown fields -> 400). When true, the account page refuses to
+  remove a user's last passkey. Audit `ADMIN_UPDATE passkey-policy <realm>`.
+Metrics: `AdminOp(realm,"passkey","delete",ok)` and `AdminOp(realm,"passkey-policy","update",ok)`.

@@ -35,17 +35,55 @@ type (
 	authContinueHook func(p *Provider, w http.ResponseWriter, r *http.Request, ar *authzReq) (handled bool)
 )
 
-var (
-	authStepHooks     []authStepHook
-	authContinueHooks []authContinueHook
+// Step ordering. A user is challenged by the FIRST step that applies to them,
+// so the order decides which factor they actually get. Lower runs first.
+// Passkeys (phishing resistant) go before TOTP: a user who has both is asked
+// for the passkey, because a phished one-time code must not be enough.
+const (
+	authOrderPasskey = 50
+	authOrderDefault = 100 // TOTP and anything not ordered explicitly
 )
 
+type orderedStep struct {
+	order int
+	fn    authStepHook
+}
+
+type orderedContinue struct {
+	order int
+	fn    authContinueHook
+}
+
+var (
+	authStepHooks     []orderedStep
+	authContinueHooks []orderedContinue
+)
+
+// registerAuthStep registers at the default order.
 func registerAuthStep(step authStepHook, cont authContinueHook) {
+	registerAuthStepAt(authOrderDefault, step, cont)
+}
+
+// registerAuthStepAt registers at an explicit order. Equal orders keep their
+// registration order.
+func registerAuthStepAt(order int, step authStepHook, cont authContinueHook) {
 	if step != nil {
-		authStepHooks = append(authStepHooks, step)
+		i := len(authStepHooks)
+		for i > 0 && authStepHooks[i-1].order > order {
+			i--
+		}
+		authStepHooks = append(authStepHooks, orderedStep{})
+		copy(authStepHooks[i+1:], authStepHooks[i:])
+		authStepHooks[i] = orderedStep{order, step}
 	}
 	if cont != nil {
-		authContinueHooks = append(authContinueHooks, cont)
+		i := len(authContinueHooks)
+		for i > 0 && authContinueHooks[i-1].order > order {
+			i--
+		}
+		authContinueHooks = append(authContinueHooks, orderedContinue{})
+		copy(authContinueHooks[i+1:], authContinueHooks[i:])
+		authContinueHooks[i] = orderedContinue{order, cont}
 	}
 }
 

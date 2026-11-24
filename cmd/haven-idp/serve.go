@@ -84,6 +84,11 @@ type Config struct {
 	// features that need it are off.
 	SecretKey string
 
+	// WebAuthn overrides the passkey relying party (HAVEN_IDP_WEBAUTHN_RPID,
+	// HAVEN_IDP_WEBAUTHN_ORIGINS comma separated). Empty = derive from BaseURL.
+	WebAuthnRPID    string
+	WebAuthnOrigins []string
+
 	// Hooks (optional).
 	PostBootstrap func(ctx context.Context, st core.Store, h core.PasswordHasher) error
 	Mount         func(mux *http.ServeMux)
@@ -116,6 +121,9 @@ func configFromEnv() (Config, error) {
 		AuditWebhookSecret: os.Getenv("HAVEN_IDP_AUDIT_WEBHOOK_SECRET"),
 		BreachFilter:       os.Getenv("HAVEN_IDP_BREACH_FILTER"),
 		SecretKey:          os.Getenv("HAVEN_IDP_SECRET_KEY"),
+
+		WebAuthnRPID:    os.Getenv("HAVEN_IDP_WEBAUTHN_RPID"),
+		WebAuthnOrigins: splitList(os.Getenv("HAVEN_IDP_WEBAUTHN_ORIGINS")),
 	}
 	c.SMTPHost = os.Getenv("HAVEN_IDP_SMTP_HOST")
 	c.SMTPUser = os.Getenv("HAVEN_IDP_SMTP_USER")
@@ -307,6 +315,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		TrustProxy: cfg.TrustProxy,
 		CSRFKey:    []byte(cfg.CSRFKey),
 		SecretBox:  box,
+		WebAuthn:   oidc.WebAuthnConfig{RPID: cfg.WebAuthnRPID, Origins: cfg.WebAuthnOrigins},
 	}
 	adminCfg := admin.Config{}
 
