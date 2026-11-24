@@ -170,6 +170,7 @@ func (s *Store) DeleteRealm(_ context.Context, name string) error {
 	s.pkDrop(n, "")
 	s.fedDropRealm(n)    // federation.go
 	s.stepUpDropRealm(n) // stepup.go
+	s.scimDropRealm(n)   // scim.go
 	for k, v := range s.sess {
 		if v.Realm == n {
 			delete(s.sess, k)
@@ -336,6 +337,7 @@ func (s *Store) DeleteUser(_ context.Context, realm, id string) error {
 	s.pkDrop(realm, id)
 	s.fedDropUser(realm, id)    // federation.go
 	s.stepUpDropUser(realm, id) // stepup.go
+	s.scimDropUser(realm, id)   // scim.go
 	for k, v := range s.sess {
 		if v.Realm == realm && v.UserID == id {
 			delete(s.sess, k)
