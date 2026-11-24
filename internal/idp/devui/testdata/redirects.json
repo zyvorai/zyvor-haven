@@ -1,0 +1,37 @@
+{
+  "ok": [
+    "https://app.example.com/callback",
+    "https://app.example.com:8443/cb?x=1",
+    "HTTPS://App.Example.com/cb",
+    "http://localhost:3000/callback",
+    "http://localhost/cb",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8000/",
+    "http://[::1]:5173/cb",
+    "http://LOCALHOST:3000/cb"
+  ],
+  "bad": [
+    "",
+    "http://app.example.com/callback",
+    "http://localhost.evil.com/cb",
+    "http://127.0.0.1.nip.io/cb",
+    "http://127.1/cb",
+    "http://0.0.0.0/cb",
+    "https://*.example.com/cb",
+    "https://app.example.com/*",
+    "https://app.example.com/cb#frag",
+    "https://app.example.com/cb#",
+    "https://user:pw@app.example.com/cb",
+    "https://app.example.com/a b",
+    "https://app.example.com/a\nb",
+    "javascript:alert(1)",
+    "data:text/html,hi",
+    "ftp://app.example.com/cb",
+    "myapp://callback",
+    "/relative/path",
+    "app.example.com/cb",
+    "https:///nohost",
+    "https://app.example.com:99999/cb",
+    "https://exa%mple.com/cb"
+  ]
+}

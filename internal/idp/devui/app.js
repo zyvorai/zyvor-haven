@@ -234,6 +234,18 @@
     $('btn-clear').addEventListener('click', clearAll);
     renderTimeline();
     const p = new URLSearchParams(location.search);
+    if ((p.has('code') || p.has('error')) && (p.get('state') || '').startsWith('wz.')) {
+      // A "Test login" run from the add-an-app wizard: hand the response to the
+      // opener (same origin only) and leave the playground's own state alone.
+      history.replaceState(null, '', location.pathname);
+      if (window.opener) {
+        window.opener.postMessage({ type: 'haven-wz', search: '?' + p.toString() }, location.origin);
+        window.close();
+      } else {
+        renderDiag(['This is a Test login callback but no wizard window opened it. Start Test login again from the Add an app section.']);
+      }
+      return;
+    }
     if (p.has('code') || p.has('error')) {
       await guard(() => handleCallback(p))();
     } else if (S.tokens) {

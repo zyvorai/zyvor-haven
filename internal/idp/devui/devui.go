@@ -9,24 +9,30 @@ import (
 	"strings"
 )
 
-//go:embed index.html app.js lib.js style.css
+//go:embed index.html app.js lib.js snippets.js wizard.js style.css
 var assets embed.FS
 
 // Config injects deployment values into the page via /dev/config.json.
 type Config struct {
 	Issuer   string
 	ClientID string
+	// AdminSecret returns the secret of the haven-admin client. It is called
+	// per request and its value never leaves the server. nil disables the
+	// add-an-app backend (POST /dev/api/clients answers 503).
+	AdminSecret func() (string, error)
 }
 
 const csp = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
 	"img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
 var files = map[string]struct{ name, ctype string }{
-	"/":           {"index.html", "text/html; charset=utf-8"},
-	"/index.html": {"index.html", "text/html; charset=utf-8"},
-	"/app.js":     {"app.js", "text/javascript; charset=utf-8"},
-	"/lib.js":     {"lib.js", "text/javascript; charset=utf-8"},
-	"/style.css":  {"style.css", "text/css; charset=utf-8"},
+	"/":            {"index.html", "text/html; charset=utf-8"},
+	"/index.html":  {"index.html", "text/html; charset=utf-8"},
+	"/app.js":      {"app.js", "text/javascript; charset=utf-8"},
+	"/lib.js":      {"lib.js", "text/javascript; charset=utf-8"},
+	"/snippets.js": {"snippets.js", "text/javascript; charset=utf-8"},
+	"/wizard.js":   {"wizard.js", "text/javascript; charset=utf-8"},
+	"/style.css":   {"style.css", "text/css; charset=utf-8"},
 }
 
 // New returns a handler meant to be mounted at /dev/. It accepts paths with
@@ -40,6 +46,15 @@ func New(cfg Config) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Cache-Control", "no-store")
+		if strings.TrimPrefix(r.URL.Path, "/dev") == "/api/clients" {
+			if r.Method != http.MethodPost {
+				h.Set("Allow", "POST")
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			cfg.createClient(w, r)
+			return
+		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			h.Set("Allow", "GET, HEAD")
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

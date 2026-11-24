@@ -25,3 +25,9 @@ details>summary{cursor:pointer}
 .tok{border:1px solid var(--line);border-radius:6px;padding:.6rem;margin-bottom:.6rem}
 .diag-item{border-left:4px solid var(--warn);background:var(--card);padding:.5rem .75rem;margin:.4rem 0}
 @media (max-width:480px){main{padding:0 .75rem}button{flex:1 1 auto}th,td{font-size:.9rem}}
+.secret{border:2px solid var(--warn);border-radius:6px;padding:.6rem;margin:.6rem 0;background:var(--card)}
+[role=tab][aria-selected=true]{border-color:var(--accent);font-weight:700}
+textarea,input[type=text],input[type=password]{font:inherit;max-width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:.3rem}
+textarea{width:100%}
+.snippet{max-height:30rem}
+h3{font-size:1.05rem}h4{font-size:1rem;margin:.2rem 0}

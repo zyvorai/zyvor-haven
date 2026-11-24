@@ -13,6 +13,45 @@
   <h1>Haven OIDC playground</h1>
   <p class="muted">Issuer <code id="issuer">…</code> · client <code id="client">…</code> · redirect URI <code id="redirect">…</code></p>
 
+  <section aria-labelledby="h-wizard" id="wizard">
+    <h2 id="h-wizard">Add an app</h2>
+    <form id="wz-form" novalidate>
+      <fieldset>
+        <legend>App type</legend>
+        <label><input type="radio" name="wz-type" value="spa" checked> Single-page app (public, PKCE)</label>
+        <label><input type="radio" name="wz-type" value="web"> Web server (confidential)</label>
+        <label><input type="radio" name="wz-type" value="native"> CLI or native (loopback redirect)</label>
+        <label><input type="radio" name="wz-type" value="m2m"> Machine-to-machine</label>
+      </fieldset>
+      <p><label>Name <input id="wz-name" type="text" maxlength="100" autocomplete="off" required></label></p>
+      <p id="wz-redirects-row"><label>Redirect URI(s), one per line<br>
+        <textarea id="wz-redirects" rows="3" cols="60" spellcheck="false"></textarea></label></p>
+      <p id="wz-cb-row"><label><input id="wz-cb" type="checkbox" checked> Also register this page (<code id="wz-cb-uri">…</code>) so Test login can come back here</label></p>
+      <div id="wz-errors" role="alert" aria-live="assertive"></div>
+      <div class="row"><button id="wz-create" type="submit">Register app</button></div>
+    </form>
+
+    <div id="wz-result" hidden>
+      <h3>App registered</h3>
+      <p class="muted">Client <code id="wz-client">…</code> · issuer <code id="wz-issuer">…</code> · redirect URI(s) <code id="wz-redirs">…</code></p>
+      <div id="wz-secret-box" class="secret" hidden>
+        <p><strong>Client secret: shown once.</strong> It is not stored by this page or the dev server and cannot be shown again. Copy it now.</p>
+        <pre id="wz-secret"></pre>
+        <div class="row"><button id="wz-copy-secret" type="button">Copy secret</button><button id="wz-hide-secret" type="button">Discard secret from this page</button></div>
+      </div>
+      <h3>Snippets</h3>
+      <div id="wz-tabs" class="row" role="tablist" aria-label="Snippets"></div>
+      <div id="wz-snippet-pane"></div>
+      <h3>Test login</h3>
+      <p id="wz-secret-ask" hidden><label>Client secret (kept in memory only) <input id="wz-secret-in" type="password" autocomplete="off"></label></p>
+      <div class="row"><button id="wz-test" type="button">Test login</button></div>
+      <p id="wz-test-status" class="muted" role="status"></p>
+      <div id="wz-summary"></div>
+      <table id="wz-checks" hidden><thead><tr><th scope="col">Result</th><th scope="col">Check</th><th scope="col">What we saw</th><th scope="col">Fix</th></tr></thead><tbody></tbody></table>
+      <div id="wz-tokens"></div>
+    </div>
+  </section>
+
   <section aria-labelledby="h-signin">
     <h2 id="h-signin">1. Sign in</h2>
     <fieldset>
@@ -54,6 +93,8 @@
   </section>
 </main>
 <script src="lib.js"></script>
+<script src="snippets.js"></script>
 <script src="app.js"></script>
+<script src="wizard.js"></script>
 </body>
 </html>

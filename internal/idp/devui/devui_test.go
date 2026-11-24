@@ -92,7 +92,7 @@ func TestJS(t *testing.T) {
 	if err != nil {
 		t.Skip("node not installed")
 	}
-	cmd := exec.Command(node, "--test", "lib.test.js")
+	cmd := exec.Command(node, "--test", "lib.test.js", "snippets.test.js", "wizard.test.js")
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("node tests failed: %v", err)
