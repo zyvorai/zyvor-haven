@@ -4,9 +4,8 @@
 
 [![CI](https://github.com/zyvorai/zyvor-haven/actions/workflows/ci.yml/badge.svg)](https://github.com/zyvorai/zyvor-haven/actions/workflows/ci.yml)
 [![License: Zyvor Production](https://img.shields.io/badge/license-Zyvor%20Production%20Licence%20v2.0-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-controller%20%C2%B7%20console-00ADD8?style=flat-square&labelColor=1d1d1f&logo=go&logoColor=white)](go.mod)
+[![Go](https://img.shields.io/badge/Go-identity%20server%20%C2%B7%20controller%20%C2%B7%20console-00ADD8?style=flat-square&labelColor=1d1d1f&logo=go&logoColor=white)](go.mod)
 [![Docs](https://img.shields.io/badge/docs-live-0071e3?style=flat-square&labelColor=1d1d1f)](https://zyvorai.github.io/zyvor-haven/)
-[![Keycloak Operator](https://img.shields.io/badge/Keycloak_Operator-26.8.2-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
 [![CloudNativePG](https://img.shields.io/badge/CloudNativePG-1.30.2-0071e3?style=flat-square&labelColor=1d1d1f)](versions.env)
 [![Version](https://img.shields.io/badge/version-0.1.0-0071e3?style=flat-square&labelColor=1d1d1f)](CHANGELOG.md)
 
@@ -14,13 +13,13 @@
 [![30-day PoC](https://img.shields.io/badge/30--day_PoC-000000?style=for-the-badge)](https://zyvor.dev/poc?utm_source=github&utm_medium=haven&utm_campaign=readme_hero)
 [![Quickstart](https://img.shields.io/badge/Quickstart_with_make_dev-a78bfa?style=for-the-badge)](#quickstart)
 
-<img src="docs/social/haven-hero-dark.jpg" alt="Haven - One intent. One console. Keycloak + HA Postgres." width="100%">
+<img src="docs/social/haven-hero-dark.jpg" alt="Haven: one intent, one console, your own identity server." width="100%">
 
 ### Identity for the private cloud.
 
-**One intent. One console. Official Keycloak + HA Postgres that actually ship together.** A small packaging and operations layer over the official Keycloak Operator and CloudNativePG — not a replacement IdP, not managed SaaS, not a Keycloak fork.
+**One intent. One console. Your own OpenID Connect identity server with HA Postgres, built to run on Kubernetes.** `haven-idp` is a small Go identity server with secure defaults. A controller turns one `IdentityPlane` resource into the server, a CloudNativePG database, certificates and ingress.
 
-**Official Keycloak Operator** · **CloudNativePG HA Postgres** · **0 Keycloak forks** · **One console** · **Zyvor Production Licence**
+**Own Go identity server** · **CloudNativePG HA Postgres** · **Passkeys, DPoP, SCIM, MCP-ready** · **One console** · **Zyvor Production Licence**
 
 [Console](docs/console.md) · [Docs](https://zyvorai.github.io/zyvor-haven/) · [Production](#production-overlay) · [License](#license)
 
@@ -28,101 +27,114 @@
 
 ---
 
-## What's new
+## What's in the box
 
-On `main`, not yet in a tagged release (see [CHANGELOG.md](CHANGELOG.md)):
+`haven-idp` is built in Go, stores everything in PostgreSQL, and runs as stateless replicas. Dev mode needs no database at all (`haven-idp dev`).
+
+| | |
+|---|---|
+| **Standards-based core** | Authorization code with PKCE (S256 only), refresh rotation with reuse detection, `client_credentials`, discovery, JWKS with key rotation, introspection and revocation, ES256 tokens, Argon2id passwords |
+| **Sign-in your users want** | Passkeys (WebAuthn), TOTP with recovery codes, a "use another method" fallback, risk-based step-up (new device, network change, idle, sensitive scope), email verification, password reset and self-service email change |
+| **Sessions and logout** | SSO sessions with idle and absolute limits, RP-initiated and back-channel single logout, `prompt` and `max_age` |
+| **Built for CLIs and agents** | Device flow and the `haven` CLI (kubectl plugin included), CIBA for out-of-band human approval, agent identities with delegated `act` tokens, workload identity from Kubernetes service-account tokens, resource indicators (RFC 8707) for MCP |
+| **Sender-constrained tokens and FAPI building blocks** | DPoP (RFC 9449), pushed authorization requests, signed request objects, rich authorization requests, per-client "require PAR / DPoP" |
+| **Apps register themselves** | `OIDCClient` CRD and Ingress annotations, dynamic client registration (RFC 7591/7592), client ID metadata documents, consent screen with revocable grants and a hash-chained receipt log |
+| **Enterprise plumbing** | Federation to Google, Microsoft Entra ID and any OIDC provider, SCIM 2.0 user and group provisioning, Shared Signals (CAEP/RISC) so other systems hear about revoked sessions and compromised credentials |
+| **Safe to operate** | Guard blocks risky config changes at the door (off, warn or enforce, with audited overrides), Time Machine recovery points with undo, time-boxed role grants, config as code (`plan`, `apply`, `diff`), Prometheus metrics and an audit stream |
+| **Runs where you do** | Kubernetes (controller, Helm, CRDs, NetworkPolicies, Pod Security `restricted`), a single binary on Linux, and macOS with a launchd service and Keychain-backed secrets |
+
+Every feature has its own page in the [docs](https://zyvorai.github.io/zyvor-haven/own-idp-roadmap/), with its security properties and an honest "not yet" list.
+
+### Haven Guard, Time Machine and friends
+
+These work on the identity server's own data, from the console, the API and the `haven-audit` CLI.
 
 | Feature | What it does |
 |---|---|
-| **Haven Guard** | Deterministic OIDC/Keycloak security posture scoring and drift detection: a live `/api/v1/security/posture` + SARIF API, an offline `haven-audit` CI CLI, and a console Guard page |
-| **Time Machine** | Immutable per-realm recovery points with drift diff (clients, users, roles, groups, IdPs, access bindings) and safe restore into a new realm |
+| **Haven Guard** | Deterministic OIDC security posture scoring (23 rules) and drift detection: a live `/api/v1/security/posture` + SARIF API, an offline `haven-audit` CI CLI, and a console Guard page |
+| **Time Machine** | Immutable per-realm recovery points with drift diff (clients, users, roles, groups, IdPs, access bindings), safe restore into a new realm, and a previewable undo |
 | **Credential Center** | Confidential-client secret inventory, rotation with overlap detection, and explicit retirement, never exposing the previous secret |
-| **Federation Hub** | Guided onboarding for Microsoft Entra ID, Google Workspace, GitHub, generic OIDC and SAML 2.0, with secret/certificate redaction on every response |
-| **Realm hardening rules** | Guard grows from 13 to 23 rules (HAVEN014-023): TLS requirement, password policy, token and session lifetimes, event recording and refresh-token rotation |
+| **Federation Hub** | Guided onboarding for upstream identity providers, with secret and certificate redaction on every response |
 | **Policy as code** | `haven-audit --policy` evaluates your own declarative rules (no code execution, bounded input, credential paths refused) next to the built-in ones |
-| **Access Review** | Privileged and stale account report, break-glass coverage check and recertification campaigns with an append-only decision ledger, via API, `haven-audit access-review` and a console page |
-| **Waivers and known-findings gate** | `haven-audit --waivers` records accepted risks with a reason, approver and expiry (expired waivers reopen the finding); `--known` / `--write-known` fail CI only on findings that are new since a saved baseline |
+| **Access Review** | Privileged and stale account report, break-glass coverage check and recertification campaigns with an append-only decision ledger |
+| **Waivers and known-findings gate** | Accepted risks with a reason, approver and expiry; CI fails only on findings that are new since a saved baseline |
 | **Realm diff** | `haven-audit diff` compares two realm exports field by field with credential values redacted |
-| **Console persistence** | Optional persistent console volume (`console.persistence`) for durable Time Machine history, restricted to `console.replicas=1` |
+
+![Capabilities at a glance: Compose, Operate, Protect, Federate](docs/ux/readme-capabilities.jpg)
 
 <a id="why-haven"></a>
 
 ## Why Haven
 
-The official Keycloak Operator runs Keycloak well. It **does not** manage the database. That gap is where production identity dies.
+Running identity yourself is easy to start and hard to keep safe. Haven makes the safe path the default one.
 
 | When this happens… | Haven gives you… |
 |---|---|
-| The database is "bring your own": a Bitnami chart, a random StatefulSet, a forgotten RDS URL | A CloudNativePG cluster owned by the same plane |
+| The database is "bring your own": a random StatefulSet, a forgotten RDS URL | A CloudNativePG cluster owned by the same plane |
 | Secrets are tribal knowledge, `kubectl create secret` pasted in Slack | Secrets generated, rotated and referenced automatically |
-| First boot is a scavenger hunt: hunt `-initial-admin`, guess the hostname, fight TLS | A wizard, a ready URL and the operator bootstrap secret |
-| Day 2 is two UIs and a prayer: kubectl plus Keycloak admin, no backup story | One console: plane health, DB, realms, clients, backups |
-| A multi-tenant private cloud runs one Keycloak with many undocumented realms | Realms as first-class tenants with platform OIDC clients |
+| First boot is a scavenger hunt: find the admin password, guess the hostname, fight TLS | One command, a ready URL and a generated admin secret |
+| Day 2 is two UIs and a prayer: kubectl plus an admin console, no backup story | One console: plane health, DB, realms, clients, backups |
+| A multi-tenant private cloud runs many undocumented realms | Realms as first-class tenants, with config as code |
 | Nobody can say whether the realms are configured safely | Haven Guard posture scoring, drift detection and SARIF for CI |
+| An app team wants a client, a CLI wants a login, an AI agent wants delegated access | A CRD, a device flow, agent identities and consent: no tickets |
 
-![Capabilities at a glance: Compose, Operate, Protect, Federate](docs/ux/readme-capabilities.jpg)
-
-<a id="is-this-for-you"></a>Haven composes the **official** CloudNativePG and the **official** Keycloak Operator. No forks. No custom Keycloak image required for v0. More: [docs/why-haven.md](docs/why-haven.md).
+More: [docs/why-haven.md](docs/why-haven.md).
 
 ---
 
 ## How it fits together
 
-![You state the intent; official operators do the work](docs/ux/readme-how-it-works.jpg)
+![You state the intent; the controller does the work](docs/ux/readme-how-it-works.jpg)
 
-<a id="what-you-get"></a>
+```text
+  you ──► IdentityPlane CR ──► haven-controller
+                                   │
+                    ┌──────────────┼──────────────┐
+                    ▼              ▼              ▼
+              CloudNativePG     haven-idp      Certs + Ingress
+              (HA Postgres)     (2+ replicas)  (cert-manager)
 
-<a id="console"></a>
+  haven-console ──► Admin API of haven-idp   ·   haven / haven-audit ──► CLI
+```
 
 <table>
 <tr>
 <td valign="top" width="33%">
 <b>IdentityPlane</b><br>
-One CR for Postgres + Keycloak + certs + ingress (controller path in v1).<br>
+One CR for Postgres + identity server + certs + ingress.<br>
 <a href="docs/architecture.md">Architecture</a>
 </td>
 <td valign="top" width="33%">
-<b>Compose today</b><br>
-<code>deploy/overlays/{dev,prod}</code> are the exact manifests the controller will render.<br>
-<a href="docs/what-you-get.md">Components</a>
+<b>OIDCClient</b><br>
+Apps get a client and a Secret from a manifest or an Ingress annotation.<br>
+<a href="docs/oidcclient-crd.md">OIDCClient CRD</a>
 </td>
 <td valign="top" width="33%">
 <b>Command Deck</b><br>
-Live plane and Keycloak health in one glass.<br>
+Live plane health in one glass.<br>
 <a href="docs/console.md">Console: routes and auth</a>
 </td>
 </tr>
 <tr>
 <td valign="top" width="33%">
 <b>Realm Studio</b><br>
-Realms, users, clients and IdPs without living in the Keycloak admin UI.<br>
+Realms, users, clients and IdPs, with Guard in the loop.<br>
 <a href="docs/console.md">Console</a>
 </td>
 <td valign="top" width="33%">
 <b>CLI</b><br>
-<code>deploy</code>, <code>status</code>, <code>doctor</code>, <code>admin</code>, <code>backup</code>.<br>
-<a href="docs/cli.md">CLI</a>
+<code>haven</code> for login and tokens, <code>haven-audit</code> for CI, <code>haven-idp</code> for the server.<br>
+<a href="docs/cli.md">CLI</a> · <a href="docs/haven-cli.md">haven login</a>
 </td>
 <td valign="top" width="33%">
 <b>Private-cloud defaults</b><br>
-NetworkPolicies, TLS and metrics on in <code>production</code>.<br>
+NetworkPolicies, Pod Security <code>restricted</code>, TLS and metrics on in <code>production</code>.<br>
 <a href="docs/security-posture.md">Security posture</a>
 </td>
 </tr>
 </table>
 
-```text
-  you ──► IdentityPlane CR ──► Haven controller (v1)
-                                   │
-                    ┌──────────────┼──────────────┐
-                    ▼              ▼              ▼
-              CloudNativePG   Keycloak CR    Certs + Gateway
-              (HA Postgres)   (official op)  (cert-manager)
-
-  v0 compose path: deploy/overlays/{dev,prod}  (no controller required)
-```
-
-**Scope:** Haven deploys and operates Keycloak + PostgreSQL (CloudNativePG). It is **not** an AI agent or app-data tool — the Postgres cluster is Keycloak’s store, not your app OLTP. Pinned versions: [`versions.env`](versions.env). Design principles: [docs/what-you-get.md](docs/what-you-get.md).
+**Scope:** Haven deploys and operates its identity server and the PostgreSQL cluster behind it (CloudNativePG). It is **not** an AI agent or app-data tool: the Postgres cluster is the identity store, not your app OLTP. Pinned versions: [`versions.env`](versions.env). Design principles: [docs/what-you-get.md](docs/what-you-get.md).
 
 ---
 
@@ -130,14 +142,24 @@ NetworkPolicies, TLS and metrics on in <code>production</code>.<br>
 
 ## Quickstart
 
+Just want to try the identity server? No cluster needed:
+
+```bash
+go build -o haven-idp ./cmd/haven-idp
+./haven-idp dev            # prints an issuer URL, a test user and an admin secret
+./haven-idp dev --persist ~/.haven-dev   # keep the data between restarts
+```
+
+On Kubernetes:
+
 ```bash
 git clone https://github.com/zyvorai/zyvor-haven.git
 cd zyvor-haven
 
-# 1. Operators (once per cluster)
+# 1. Operators (once per cluster): CloudNativePG and cert-manager
 ./deploy/operators/install.sh
 
-# 2. Postgres + haven-idp (native identity server; Keycloak is deprecated)
+# 2. Postgres + haven-idp
 make dev
 make wait
 make doctor
@@ -148,9 +170,8 @@ make admin
 |---|---|
 | Issuer | `http://auth.127.0.0.1.nip.io/realms/platform` |
 | Admin password | `make admin` prints the `kubectl` command to read secret `platform-idp` (key `admin-password`) |
-| Keycloak (deprecated) | `INSTALL_KEYCLOAK_OPERATOR=1`, see [docs/migrate-from-keycloak.md](docs/migrate-from-keycloak.md) |
 
-Requirements: a Kubernetes cluster you can install operators into; pinned versions of CloudNativePG and cert-manager (and the legacy Keycloak Operator) are in [`versions.env`](versions.env). Remote lab console and the local UI: [docs/quick-start.md](docs/quick-start.md). First deploy in depth: [docs/getting-started.md](docs/getting-started.md). Native engine on your own cluster: [docs/deploy-native.md](docs/deploy-native.md).
+Requirements: a Kubernetes cluster you can install operators into. Pinned versions of CloudNativePG and cert-manager are in [`versions.env`](versions.env). Remote lab console and the local UI: [docs/quick-start.md](docs/quick-start.md). First deploy in depth: [docs/getting-started.md](docs/getting-started.md). Native engine on your own cluster: [docs/deploy-native.md](docs/deploy-native.md). On a Mac: [docs/macos.md](docs/macos.md).
 
 <a id="install-with-helm"></a>
 
@@ -170,10 +191,9 @@ Images: `ghcr.io/zyvorai/haven-console:0.1.0` · `ghcr.io/zyvorai/haven-controll
 
 `deploy/overlays/prod` is a shape, not a one-liner. Read [docs/production-overlay.md](docs/production-overlay.md) before apply:
 
-1. `./hack/gen-prod-secrets.sh` — do not use the placeholder password
-2. Wait for CNPG, then `./hack/sync-cnpg-ca.sh` (only for the deprecated Keycloak engine, which verifies DB TLS)
-3. Issue `platform-tls` from your ClusterIssuer
-4. Configure backups separately ([docs/backups.md](docs/backups.md))
+1. `./hack/gen-prod-secrets.sh`: do not use the placeholder password (it also generates the key that seals TOTP seeds and federation secrets)
+2. Issue `platform-tls` from your ClusterIssuer
+3. Configure backups separately ([docs/backups.md](docs/backups.md))
 
 <a id="documentation"></a>
 
@@ -182,11 +202,12 @@ Images: `ghcr.io/zyvorai/haven-console:0.1.0` · `ghcr.io/zyvorai/haven-controll
 | Doc | When to read |
 |---|---|
 | [zyvorai.github.io/zyvor-haven](https://zyvorai.github.io/zyvor-haven/) | Product docs |
+| [docs/own-idp-roadmap.md](docs/own-idp-roadmap.md) | Every identity-server feature, how far it is tested, and what is not done |
 | [docs/faq.md](docs/faq.md) | Deciding whether to adopt |
 | [docs/getting-started.md](docs/getting-started.md) | First deploy |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Real operational issues |
 | [docs/architecture.md](docs/architecture.md) | CRDs, reconcile order |
-| [docs/roadmap.md](docs/roadmap.md) | v0 / v1 / v2 scope |
+| [docs/roadmap.md](docs/roadmap.md) | Scope by version |
 
 Every page, with the design principles: [docs/documentation-map.md](docs/documentation-map.md). Social assets: [docs/social/](docs/social/).
 
@@ -194,14 +215,16 @@ Every page, with the design principles: [docs/documentation-map.md](docs/documen
 
 ## Maturity
 
-> **Maturity (honest):** repository framed as **v0** — compose overlays, CLI, and CRDs are defined; Helm today “installs RBAC only (controller/console images unpublished)” until you opt in. Full Kubebuilder reconcile is v1, in progress. Production overlay is “a shape, not a one-command install.” Tagged release: `0.1.0`. See [docs/roadmap.md](docs/roadmap.md).
+> **Maturity (honest):** Haven is young. The identity server, controller and console are implemented and covered by unit, handler and store-conformance tests (the store suite runs against real PostgreSQL), and the native stack has been deployed and exercised end to end on a k3s cluster. Newer features (for example SCIM, Shared Signals, CIBA, PAR/JAR/RAR, consent, agent and workload identities) have been run against the dev binary but not against third-party production systems, and FAPI 2.0 is a set of building blocks, **not** a certified profile. The production overlay is "a shape, not a one-command install." Tagged release: `0.1.0`. Per-feature status and "not yet" lists: [docs/own-idp-roadmap.md](docs/own-idp-roadmap.md) and [docs/roadmap.md](docs/roadmap.md).
 
 | | Status |
 |---|---|
-| Compose overlays (CNPG + official Keycloak Operator), CLI, CRDs, `KeycloakRealmImport` sample | v0, in this repository |
-| Controller, console (Command Deck, Planes, Atlas, Realm Studio, Clients, Settings), console OIDC | v1, in progress |
-| Full Kubebuilder reconcile of CNPG + Keycloak Operator + cert-manager; `reclaimPolicy` finalizer | v1, remaining |
-| Guard, Time Machine, Credential Center, Federation Hub | On `main`, unreleased |
+| Identity server (`haven-idp`), Admin API, OIDC core, MFA, sessions, federation, SCIM | On `main`, tested; core deployed on k3s |
+| Controller, `IdentityPlane`, `OIDCClient`, database NetworkPolicy | On `main`; deployed on k3s |
+| Console (Command Deck, Planes, Atlas, Realm Studio, Clients, Settings), console OIDC | On `main` |
+| Guard, Time Machine, Credential Center, Federation Hub, Access Review | On `main`, unreleased |
+| macOS service and Keychain support | On `main`; unsigned, user LaunchAgent run for real |
+| SAML, LDAP, organizations, i18n, mTLS client authentication | Not started |
 | Multi-site status, backup restore wizard, Zeus OS Identity Center embed | v2 roadmap |
 
 ---
@@ -210,7 +233,7 @@ Every page, with the design principles: [docs/documentation-map.md](docs/documen
 
 | Product | Role next to Haven |
 |---|---|
-| **Haven** | Private-cloud identity: Keycloak + HA Postgres as one plane |
+| **Haven** | Private-cloud identity: its own identity server + HA Postgres as one plane |
 | **[Zorvia](https://github.com/zyvorai/zyvor-zorvia)** | Pairs with Haven on the same private-cloud Kubernetes: KubeVirt VMs next to the identity plane |
 | **[Kairo](https://github.com/zyvorai/kairo)** | Pairs with Haven on the same clusters: previews the blast radius of Kubernetes manifest changes before deploy |
 | **[Zeus OS](https://zyvor.dev/zeus-os?utm_source=github&utm_medium=haven&utm_campaign=readme_suite)** | An Identity Center embed (shared OIDC session) is on Haven's v2 roadmap |

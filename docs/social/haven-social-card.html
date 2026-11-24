@@ -62,29 +62,29 @@
   </div>
 
   <h1>Identity for the <em>private cloud.</em></h1>
-  <p class="sub">One intent. One console. Official Keycloak + HA Postgres that actually ship together — no forks, no scavenger-hunt first boot.</p>
+  <p class="sub">One intent. One console. Our own identity server and HA Postgres that ship together — passkeys, DPoP, SCIM, and no scavenger-hunt first boot.</p>
 
   <div class="flow">
     <div class="step"><span class="lane">COMPOSE</span><span class="n">1</span>
-      <h3>One plane</h3><p>CloudNativePG and the Keycloak Operator under one lifecycle. Database is not “bring your own.”</p></div>
+      <h3>One plane</h3><p>CloudNativePG and haven-idp under one lifecycle. Database is not “bring your own.”</p></div>
     <div class="step"><span class="lane">DEPLOY</span><span class="n">2</span>
-      <h3>Overlays today</h3><p><b>deploy/overlays/{dev,prod}</b> now; <b>IdentityPlane</b> CR when the controller ships in v1.</p></div>
+      <h3>Overlays or a CR</h3><p><b>deploy/overlays/{dev,prod}</b>, or an <b>IdentityPlane</b> CR and the controller.</p></div>
     <div class="step"><span class="lane">BOOTSTRAP</span><span class="n">3</span>
-      <h3>Ready URL</h3><p>Wizard, generated secrets, operator bootstrap — not hunting <code>-initial-admin</code> in Slack.</p></div>
+      <h3>Ready URL</h3><p>Generated secrets and an admin secret from one command — not a password hunt in Slack.</p></div>
     <div class="step"><span class="lane">OPERATE</span><span class="n">4</span>
-      <h3>One console</h3><p>Command Deck, Realm Studio, Atlas — plane health, DB, realms, clients without two UIs.</p></div>
+      <h3>One console</h3><p>Command Deck, Realm Studio, Atlas — plane health, DB, realms and clients in one UI.</p></div>
     <div class="step"><span class="lane">DAY-2</span><span class="n">5</span>
       <h3>Tenants &amp; backups</h3><p>Realms as first-class tenants. Platform OIDC clients. Backups and private-cloud defaults.</p></div>
   </div>
 
-  <div class="attr"><span class="tag"><i></i>PLANE</span><span>IdentityPlane &nbsp;→&nbsp; CloudNativePG &nbsp;+&nbsp; Keycloak CR &nbsp;+&nbsp; Certs / Gateway</span><span class="why">Illustrative</span></div>
+  <div class="attr"><span class="tag"><i></i>PLANE</span><span>IdentityPlane &nbsp;→&nbsp; CloudNativePG &nbsp;+&nbsp; haven-idp &nbsp;+&nbsp; Certs / Ingress</span><span class="why">Illustrative</span></div>
 
   <div class="chips">
-    <span class="chip">Official operators</span><span class="chip">HA Postgres</span>
-    <span class="chip g">CLI doctor</span><span class="chip g">NetworkPolicies</span><span class="chip g">Zyvor Production Licence</span>
+    <span class="chip">Own identity server</span><span class="chip">HA Postgres</span>
+    <span class="chip g">Passkeys &amp; DPoP</span><span class="chip g">NetworkPolicies</span><span class="chip g">Zyvor Production Licence</span>
   </div>
 
-  <div class="foot"><span><b>zyvorai.github.io/haven</b></span><span class="r">v0.1.0 &middot; Zyvor Production Licence &middot; packaging layer, not a Keycloak fork</span></div>
+  <div class="foot"><span><b>zyvorai.github.io/zyvor-haven</b></span><span class="r">v0.1.0 &middot; Zyvor Production Licence &middot; identity server + HA Postgres</span></div>
 </div>
 </body>
 </html>
