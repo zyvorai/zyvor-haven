@@ -13,9 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Time Machine: immutable per-realm recovery points with drift diff (clients, users, roles, groups, IdPs, access bindings) and safe restore into a new realm
 - Credential Center: confidential-client secret inventory, rotation with overlap detection, and explicit retirement, never exposing the previous secret
 - Federation Hub: guided onboarding templates for Microsoft Entra ID, Google Workspace, GitHub, generic OIDC, and SAML 2.0, with secret/certificate redaction on every response
-- Haven Guard realm hardening rules HAVEN014-021 (TLS requirement, password policy, token and session lifetimes, user and admin events, refresh-token rotation); settings a source omits produce no finding and the baseline fingerprint is unchanged
+- Haven Guard realm hardening rules HAVEN014-023 (TLS requirement, password policy, token and session lifetimes including SSO max and offline idle, user and admin events, refresh-token rotation); settings a source omits produce no finding and the baseline fingerprint is unchanged
 - Policy as code: `haven-audit --policy` evaluates declarative organisation rules (JSON, RE2 patterns, size caps, credential-bearing paths rejected) and merges them into text, JSON and SARIF output
 - Access Review: privileged/stale account report, break-glass coverage check and recertification campaigns (`/api/v1/access-review`, `haven-audit access-review`, console page); decisions are recorded, Keycloak is never changed
+- `haven-audit --waivers`: accepted-risk waivers with mandatory reason, approver and expiry; expired waivers reopen their finding and unused waivers are reported
+- `haven-audit --known` / `--write-known`: gate CI on findings that are new since a saved baseline
 - `haven-audit diff`: secret-redacting, field-level comparison of two realm exports for GitOps review
 - docs/RESEARCH.md: identity-platform research and ranked ideas
 - Optional persistent console volume (`console.persistence`) for durable Time Machine history, restricted to `console.replicas=1`
@@ -38,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unverified action pins left as is: golangci/golangci-lint-action v9, golang/govulncheck-action v1, softprops/action-gh-release v3
 
 ### Fixed
+
+- CI: gosec v2.29.0 could not read Go 1.27 export data ("export data version 5") and failed every run; pinned to v2.30.0
 
 - Console API request bodies are capped at 4 MiB (handlers decoded JSON straight from the request body without a limit)
 - Time Machine and Access Review capture return an error instead of dereferencing a nil client when Keycloak is not connected

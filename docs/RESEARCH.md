@@ -111,7 +111,7 @@ that was not re-read from a fetched page; verify before relying on it.
 
 | Rank | Idea | Why | Fit | Decision |
 |---|---|---|---|---|
-| 1 | Realm hardening rules in Guard (HAVEN014-021) | Cheapest, deterministic, standards-backed (RFC 9700, NIST 800-63B-4); closes the biggest blind spot | Same engine, same CI | Built |
+| 1 | Realm hardening rules in Guard (HAVEN014-023) | Cheapest, deterministic, standards-backed (RFC 9700, NIST 800-63B-4); closes the biggest blind spot | Same engine, same CI | Built |
 | 2 | Policy as code (`haven-audit --policy`) | Lets each tenant encode its own baseline; no code execution, bounded input | Offline, deterministic, no secrets | Built |
 | 3 | Access Review campaigns + break-glass check | Recertification and emergency-access hygiene are the governance gap vs Entra; reuses Time Machine data | Records decisions only, never mutates Keycloak | Built (API, CLI, console page) |
 | 4 | Secret-safe realm diff (`haven-audit diff`) | Makes realm JSON in Git reviewable; complements fingerprint drift | Pure function, redaction by construction | Built |

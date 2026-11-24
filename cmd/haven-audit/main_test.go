@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zyvorai/haven/internal/posture"
 )
 
 func write(t *testing.T, name, body string) string {
@@ -68,4 +70,16 @@ func (infinite) Read(p []byte) (int, error) {
 		p[i] = ' '
 	}
 	return len(p), nil
+}
+
+func TestShouldFailUsesGivenCounts(t *testing.T) {
+	if shouldFail(posture.Counts{Medium: 2}, "high") {
+		t.Error("medium must not trip high")
+	}
+	if !shouldFail(posture.Counts{High: 1}, "high") {
+		t.Error("high must trip high")
+	}
+	if shouldFail(posture.Counts{Critical: 3}, "none") {
+		t.Error("none never fails")
+	}
 }

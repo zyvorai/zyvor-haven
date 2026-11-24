@@ -15,7 +15,7 @@ All commands default to plane **`platform`** in namespace **`identity`**.
 `go run ./cmd/haven-audit` runs offline against realm exports and needs no cluster:
 
 ```bash
-go run ./cmd/haven-audit --input realm.json [--policy policy.json] [--format text|json|sarif] [--fail-on high]
+go run ./cmd/haven-audit --input realm.json [--policy policy.json] [--waivers waivers.json] [--known known.json | --write-known known.json] [--format text|json|sarif] [--fail-on high]
 go run ./cmd/haven-audit diff before.json after.json [--format text|json]
 go run ./cmd/haven-audit access-review --input snapshot.json [--break-glass RE2] [--fail-on high|none]
 ```

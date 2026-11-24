@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/zyvorai/haven/internal/keycloak"
 	"github.com/zyvorai/haven/internal/policy"
@@ -35,11 +36,14 @@ func main() {
 			return
 		}
 	}
-	var input, format, baseline, failOn, policyPath string
+	var input, format, baseline, failOn, policyPath, waiversPath, knownPath, writeKnownPath string
 	flag.StringVar(&input, "input", "-", "Keycloak realm export JSON file, or - for stdin")
 	flag.StringVar(&format, "format", "text", "text, json, or sarif")
 	flag.StringVar(&baseline, "baseline", "", "expected Haven Guard sha256 fingerprint")
 	flag.StringVar(&policyPath, "policy", "", "policy-as-code JSON file evaluated in addition to the built-in rules")
+	flag.StringVar(&waiversPath, "waivers", "", "accepted-risk waivers JSON (reason, approver, expiry per waiver); expired waivers reopen their findings")
+	flag.StringVar(&knownPath, "known", "", "known-findings baseline JSON; --fail-on then gates on findings not in it")
+	flag.StringVar(&writeKnownPath, "write-known", "", "write the current findings to this file as a known-findings baseline")
 	flag.StringVar(&failOn, "fail-on", "high", "critical, high, medium, low, or none")
 	flag.Parse()
 
@@ -66,6 +70,40 @@ func main() {
 		report.AddFindings(extra)
 	}
 
+	if waiversPath != "" {
+		raw, err := readCapped(waiversPath)
+		if err != nil {
+			fatal(err)
+		}
+		ws, err := posture.ParseWaivers(raw, time.Now())
+		if err != nil {
+			fatal(err)
+		}
+		report.ApplyWaivers(ws, time.Now())
+	}
+	gate := report.Counts
+	if knownPath != "" {
+		raw, err := readCapped(knownPath)
+		if err != nil {
+			fatal(err)
+		}
+		known, err := posture.ParseKnownFindings(raw)
+		if err != nil {
+			fatal(err)
+		}
+		gate = report.MarkNew(known)
+	}
+	if writeKnownPath != "" {
+		out, err := posture.KnownFindings(report)
+		if err != nil {
+			fatal(err)
+		}
+		// #nosec G306 -- baseline holds rule ids and realm/client names, no secrets
+		if err := os.WriteFile(writeKnownPath, append(out, 10), 0o644); err != nil {
+			fatal(err)
+		}
+	}
+
 	switch strings.ToLower(format) {
 	case "text":
 		printText(report)
@@ -77,7 +115,7 @@ func main() {
 		fatal(fmt.Errorf("unsupported --format %q", format))
 	}
 
-	if shouldFail(report, failOn) {
+	if shouldFail(gate, failOn) {
 		os.Exit(2)
 	}
 }
@@ -158,7 +196,20 @@ func printText(r posture.Report) {
 	if r.Baseline != "" {
 		fmt.Printf("drift       %t\n", r.Drifted)
 	}
-	fmt.Printf("findings    critical=%d high=%d medium=%d low=%d\n\n", r.Counts.Critical, r.Counts.High, r.Counts.Medium, r.Counts.Low)
+	fmt.Printf("findings    critical=%d high=%d medium=%d low=%d\n", r.Counts.Critical, r.Counts.High, r.Counts.Medium, r.Counts.Low)
+	if r.KnownApplied {
+		fmt.Printf("new         %d finding(s) not in the known-findings baseline\n", len(r.NewFindings))
+	}
+	if n := len(r.Waived); n > 0 {
+		fmt.Printf("waived      %d finding(s) under active waivers\n", n)
+	}
+	for _, w := range r.ExpiredWaivers {
+		fmt.Printf("expired     waiver %s %s %s (expired %s, approver %s): finding reopened\n", w.RuleID, w.Realm, w.ClientID, w.Expires, w.Approver)
+	}
+	for _, w := range r.UnusedWaivers {
+		fmt.Printf("unused      waiver %s %s %s matches no finding: remove it\n", w.RuleID, w.Realm, w.ClientID)
+	}
+	fmt.Println()
 	for _, f := range r.Findings {
 		scope := f.Realm
 		if f.ClientID != "" {
@@ -182,18 +233,18 @@ func writeJSON(v any) {
 	}
 }
 
-func shouldFail(r posture.Report, threshold string) bool {
+func shouldFail(r posture.Counts, threshold string) bool {
 	switch strings.ToLower(threshold) {
 	case "none", "off":
 		return false
 	case "critical":
-		return r.Counts.Critical > 0
+		return r.Critical > 0
 	case "high":
-		return r.Counts.Critical+r.Counts.High > 0
+		return r.Critical+r.High > 0
 	case "medium":
-		return r.Counts.Critical+r.Counts.High+r.Counts.Medium > 0
+		return r.Critical+r.High+r.Medium > 0
 	case "low":
-		return r.Counts.Critical+r.Counts.High+r.Counts.Medium+r.Counts.Low > 0
+		return r.Critical+r.High+r.Medium+r.Low > 0
 	default:
 		fatal(fmt.Errorf("unsupported --fail-on %q", threshold))
 		return true
