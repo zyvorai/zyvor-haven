@@ -393,6 +393,12 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 		p.errorPage(w, http.StatusForbidden, "Your session expired or the request was invalid. Go back and try again.")
 		return
 	}
+	// Follow-up posts of extra steps (CSRF already verified above).
+	for _, h := range authContinueHooks {
+		if h(p, w, r, ar) {
+			return
+		}
+	}
 	ctx := r.Context()
 	ip := p.clientIP(r)
 	username := strings.TrimSpace(r.PostForm.Get("username"))
@@ -478,13 +484,27 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 		}
 	}
 
-	sess, err := p.startSession(w, r, rl, u)
+	// Extra authentication steps (second factors...). A hook that needs the
+	// user to do something renders its page and returns true; it finishes the
+	// login later with p.completeLogin from an authContinueHook.
+	for _, h := range authStepHooks {
+		if h(p, w, r, ar, u) {
+			return
+		}
+	}
+	p.completeLogin(w, r, ar, u, "")
+}
+
+// completeLogin is where every interactive login ends: all required factors
+// have been satisfied, so start the SSO session and issue the code.
+func (p *Provider) completeLogin(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, detail string) {
+	sess, err := p.startSession(w, r, ar.realm, u)
 	if err != nil {
 		p.cfg.Logger.Error("oidc: start session", "err", err)
 		p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
 		return
 	}
-	p.issueCode(w, r, ar, u, sess, "")
+	p.issueCode(w, r, ar, u, sess, detail)
 }
 
 func methFor(ch string) string {
