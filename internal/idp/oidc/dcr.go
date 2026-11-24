@@ -152,8 +152,8 @@ func dcrValidate(m dcrMeta, allowed []string) (dcrNormalized, *dcrErr) {
 	}
 	var gs []string
 	for _, g := range grants {
-		if !slices.Contains(core.DCRGrantTypes, g) {
-			return n, metaErr("grant_types may only contain authorization_code, refresh_token and client_credentials")
+		if !slices.Contains(core.DCRGrantTypes, g) && g != core.DCRDeviceGrant {
+			return n, metaErr("grant_types may only contain authorization_code, refresh_token, client_credentials and the device_code grant")
 		}
 		if !slices.Contains(allowed, g) {
 			return n, metaErr("a requested grant type is not allowed by this realm's registration policy")
@@ -163,11 +163,15 @@ func dcrValidate(m dcrMeta, allowed []string) (dcrNormalized, *dcrErr) {
 		}
 	}
 	hasCode, hasRefresh, hasCC := slices.Contains(gs, "authorization_code"), slices.Contains(gs, "refresh_token"), slices.Contains(gs, "client_credentials")
-	if hasRefresh && !hasCode {
-		return n, metaErr("refresh_token requires authorization_code")
+	hasDevice := slices.Contains(gs, core.DCRDeviceGrant)
+	if hasRefresh && !hasCode && !hasDevice {
+		return n, metaErr("refresh_token requires authorization_code or the device_code grant")
 	}
-	if !hasCode && !hasCC {
-		return n, metaErr("grant_types needs authorization_code or client_credentials")
+	if !hasCode && !hasCC && !hasDevice {
+		return n, metaErr("grant_types needs authorization_code, client_credentials or the device_code grant")
+	}
+	if hasDevice && hasCC { // a service account has no user to approve a device
+		return n, metaErr("the device_code grant cannot be combined with client_credentials")
 	}
 	if public && hasCC {
 		return n, metaErr("a public client (token_endpoint_auth_method none) cannot use client_credentials")
@@ -243,7 +247,7 @@ func dcrValidate(m dcrMeta, allowed []string) (dcrNormalized, *dcrErr) {
 
 	n.client = core.Client{
 		Name: m.ClientName, Enabled: true, Public: public, RedirectURIs: uris,
-		AuthCodeFlow: hasCode, ServiceAccount: hasCC,
+		AuthCodeFlow: hasCode, ServiceAccount: hasCC, DeviceFlow: hasDevice,
 		// Every code-flow client must use PKCE S256, confidential or not.
 		RequirePKCE:          hasCode,
 		BackchannelLogoutURI: m.BackchannelLogoutURI,
@@ -669,6 +673,7 @@ func (p *Provider) dcrUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	next := cl
 	next.Name, next.RedirectURIs, next.AuthCodeFlow, next.ServiceAccount = n.client.Name, n.client.RedirectURIs, n.client.AuthCodeFlow, n.client.ServiceAccount
+	next.DeviceFlow = n.client.DeviceFlow
 	next.RequirePKCE, next.BackchannelLogoutURI = n.client.RequirePKCE, n.client.BackchannelLogoutURI
 	if err := p.cfg.Store.UpdateClient(ctx, next); err != nil {
 		p.cfg.Logger.Error("oidc: dcr update client", "err", err)

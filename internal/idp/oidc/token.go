@@ -110,6 +110,10 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 		p.tokenFail(w, terr, basic, rl.Name, grant)
 		return
 	}
+	if r, terr = p.dpopToken(w, r, rl); terr != nil { // DPoP (dpop.go): validate the proof
+		p.tokenFail(w, terr, basic, rl.Name, grant)
+		return
+	}
 	var resp map[string]any
 	switch g := r.PostForm.Get("grant_type"); g {
 	case "authorization_code":
@@ -124,6 +128,9 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 		} else {
 			terr = oerr("unsupported_grant_type", "grant_type not supported")
 		}
+	}
+	if terr == nil {
+		terr = p.dpopTokenDone(w, r, rl, cl, resp) // DPoP: bind the refresh token
 	}
 	if terr != nil {
 		p.tokenFail(w, terr, basic, rl.Name, grant)
@@ -334,13 +341,16 @@ func (p *Provider) grantClientCreds(r *http.Request, rl core.Realm, cl core.Clie
 		"typ": "Bearer", "scope": scope, "client_id": cl.ClientID,
 		"realm_access": map[string]any{"roles": []string{}},
 	}
+	dpopBindClaims(r.Context(), claims)
 	at, err := p.cfg.Signer.Sign(r.Context(), rl.Name, claims)
 	if err != nil {
 		p.cfg.Logger.Error("oidc: sign access token", "err", err)
 		return nil, &tokenErr{http.StatusInternalServerError, "server_error", "temporary error"}
 	}
 	p.cfg.Obs.TokenIssued(rl.Name, "client_credentials", "access")
-	return map[string]any{"access_token": at, "token_type": "Bearer", "expires_in": int(ttl.Seconds()), "scope": scope}, nil
+	resp := map[string]any{"access_token": at, "token_type": "Bearer", "expires_in": int(ttl.Seconds()), "scope": scope}
+	dpopTokenType(r.Context(), resp)
+	return resp, nil
 }
 
 // issue builds the token response for a user. When newFamily is true a
@@ -369,12 +379,14 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 	if sid != "" && sidLive {
 		atClaims["sid"] = sid
 	}
+	dpopBindClaims(ctx, atClaims)
 	at, err := p.cfg.Signer.Sign(ctx, rl.Name, atClaims)
 	if err != nil {
 		p.cfg.Logger.Error("oidc: sign access token", "err", err)
 		return nil, &tokenErr{http.StatusInternalServerError, "server_error", "temporary error"}
 	}
 	resp := map[string]any{"access_token": at, "token_type": "Bearer", "expires_in": int(ttl.Seconds()), "scope": scope}
+	dpopTokenType(ctx, resp)
 
 	if slices.Contains(scopes, "openid") {
 		sum := sha256.Sum256([]byte(at))

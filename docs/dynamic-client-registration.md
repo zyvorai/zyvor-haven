@@ -75,7 +75,7 @@ store supports DCR. Advertising it does not make registration open: a call still
 | `client_name` | up to 255 characters, no control characters. Shown on the login page, always HTML-escaped. |
 | `redirect_uris` | **Required** for `authorization_code`. At most 10, each at most 2048 characters. `https`, or `http` for `localhost` / loopback IPs only. No `*` anywhere, no fragments, no userinfo, no `javascript:` `data:` `vbscript:` `file:` `blob:`. `application_type: native` may also use a reverse-domain custom scheme (it must contain a dot, for example `com.example.app:/cb`). |
 | `application_type` | `web` (default) or `native` |
-| `grant_types` | any of `authorization_code` (default), `refresh_token`, `client_credentials`. `refresh_token` needs `authorization_code`. Not `password`, not `implicit`, and not the device grant (clients have no device-flow field in this tree, so it is rejected). A public client cannot have `client_credentials`. Narrowed by the realm policy. |
+| `grant_types` | any of `authorization_code` (default), `refresh_token`, `client_credentials`, and `urn:ietf:params:oauth:grant-type:device_code` (see below). `refresh_token` needs `authorization_code` or the device grant. Not `password`, not `implicit`. A public client cannot have `client_credentials`; the device grant cannot be combined with `client_credentials` (a service account has no user to approve a device). Narrowed by the realm policy. |
 | `response_types` | `code` only (derived from the grants when omitted) |
 | `token_endpoint_auth_method` | `client_secret_basic` (default), `client_secret_post`, or `none`. `none` makes a public client; PKCE S256 is then mandatory. |
 | `scope` | space-separated, from `openid profile email roles offline_access` (default `openid profile email`). `offline_access` needs `refresh_token`. |
@@ -83,6 +83,23 @@ store supports DCR. Advertising it does not make registration open: a call still
 | `contacts`, `logo_uri`, `client_uri`, `policy_uri`, `tos_uri` | stored and returned. Contacts: at most 10 short strings. The URIs must be `https` (`http` for loopback). They are not used for anything else. |
 
 Every code-flow client created through DCR, confidential or public, requires PKCE S256.
+
+### The device grant (RFC 8628 clients)
+
+A client that lists `urn:ietf:params:oauth:grant-type:device_code` is created with the device flow switched on
+(`core.Client.DeviceFlow`, the same switch as `deviceFlowEnabled` in the Admin API; see [device-flow.md](device-flow.md)).
+The usual DCR safety rules apply unchanged: an initial access token is needed and spent, the realm cap counts the
+client, secrets and registration access tokens are shown once and stored hashed, and `PUT` re-validates everything
+(dropping the grant switches the flow off again, adding it back is checked against the policy again).
+
+- **Opt-in per realm.** The grant is *not* in the default policy and is not added to existing policies. An
+  operator allows it with `PUT /registration-policy` and `allowedGrantTypes` containing the URN; until then a
+  registration that asks for it is refused with `400 invalid_client_metadata`.
+- A device-only client needs no `redirect_uris`, has no authorization-code flow (no login can be started for it at
+  `/auth`) and cannot use `client_credentials`. `response_types` stays empty for it.
+- Public (`token_endpoint_auth_method: none`) and confidential device clients are both allowed. Combined with
+  `authorization_code` the code-flow rules (redirect URIs, PKCE S256) apply as always.
+- `refresh_token` and `offline_access` work for device clients on their own.
 
 Unknown fields are ignored and never echoed. `jwks`, `jwks_uri`, `software_statement` and the rest of the
 RFC 7591 client metadata that haven-idp does not implement are not stored; `software_statement` is
@@ -158,5 +175,5 @@ tokens stay in the list until you delete them.
 - `scope` is validated and stored, and returned, but it is not enforced per client at the authorization
   endpoint: authorization requests are filtered against the realm's known scopes for every client.
 - No registration access token rotation, and no way to ask for one.
-- The device flow grant is not available through DCR.
+- A device client registered through DCR gets the same fixed code lifetime and poll interval as any device client; there is no per-client override.
 - Expired initial access tokens are not purged automatically.

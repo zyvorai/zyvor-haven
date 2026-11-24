@@ -311,3 +311,10 @@ Responses always show every config key explicitly (defaults filled in) plus `iss
 
 Tables (pg migration `0011_federation.sql`): `fed_providers`, `fed_links (realm, alias, subject)
 unique`, `fed_login_states`.
+
+## DPoP and the device grant in registration policy (`docs/dpop.md`)
+* `PUT /realms/{r}/registration-policy` `allowedGrantTypes` may now also contain
+  `urn:ietf:params:oauth:grant-type:device_code` (each once). It is never part of the default policy: a realm
+  must opt in, after which dynamic registration may create device-flow clients (`DeviceFlow`).
+* The Admin API rejects any access token that carries a `cnf` claim (a DPoP-bound token) with `401`: it does not
+  verify proofs, so a bound token is never accepted as a plain bearer token.

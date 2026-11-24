@@ -43,6 +43,9 @@ func (a *api) authenticate(r *http.Request) (actor string, status int, msg strin
 	if t, _ := cl["typ"].(string); t != "Bearer" {
 		return "", http.StatusUnauthorized, msgUnauth
 	}
+	if _, bound := cl["cnf"]; bound { // sender-constrained (DPoP) tokens are not accepted as bearer tokens here
+		return "", http.StatusUnauthorized, msgUnauth
+	}
 	exp, ok := numClaim(cl["exp"])
 	if !ok || !a.cfg.Clock().Before(time.Unix(exp, 0)) {
 		return "", http.StatusUnauthorized, msgUnauth

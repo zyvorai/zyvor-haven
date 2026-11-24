@@ -210,8 +210,8 @@ func (a *api) putRegPolicy(w http.ResponseWriter, r *http.Request) {
 		}
 		seen := map[string]bool{}
 		for _, g := range allowed {
-			if !slices.Contains(core.DCRGrantTypes, g) || seen[g] {
-				a.fail(w, r, bad("allowedGrantTypes may contain authorization_code, refresh_token and client_credentials, each once"))
+			if (!slices.Contains(core.DCRGrantTypes, g) && g != core.DCRDeviceGrant) || seen[g] {
+				a.fail(w, r, bad("allowedGrantTypes may contain authorization_code, refresh_token, client_credentials and urn:ietf:params:oauth:grant-type:device_code, each once"))
 				return
 			}
 			seen[g] = true

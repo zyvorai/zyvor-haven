@@ -77,6 +77,10 @@ type Config struct {
 	// builds one with the default SSRF policy (federation.go); dev and tests
 	// pass one with AllowPrivate / test RootCAs.
 	Federation *upstream.Manager
+	// DPoPNonce makes the server demand an RFC 9449 server-provided nonce in
+	// every DPoP proof (use_dpop_nonce). Off by default. Nonces are derived
+	// from CSRFKey, so set CSRFKey when several replicas serve one realm.
+	DPoPNonce bool
 }
 
 // Provider is the http.Handler for all realms.

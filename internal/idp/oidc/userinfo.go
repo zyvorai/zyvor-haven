@@ -94,13 +94,17 @@ func (p *Provider) userinfo(w http.ResponseWriter, r *http.Request) {
 	}
 	h := r.Header.Get("Authorization")
 	scheme, tok, _ := strings.Cut(h, " ")
-	if !strings.EqualFold(scheme, "Bearer") || strings.TrimSpace(tok) == "" {
+	if !(strings.EqualFold(scheme, "Bearer") || strings.EqualFold(scheme, "DPoP")) || strings.TrimSpace(tok) == "" {
 		p.bearerErr(w, http.StatusUnauthorized, "invalid_request")
 		return
 	}
-	c, ok := p.verifyAccess(r, name, strings.TrimSpace(tok))
+	tok = strings.TrimSpace(tok)
+	c, ok := p.verifyAccess(r, name, tok)
 	if !ok {
 		p.bearerErr(w, http.StatusUnauthorized, "invalid_token")
+		return
+	}
+	if !p.dpopResource(w, r, name, c, scheme, tok, p.endpoint(name, "userinfo")) { // sender constraint (dpop.go)
 		return
 	}
 	scopes := strings.Fields(claimStr(c, "scope"))
@@ -186,6 +190,9 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{"active": true, "token_type": "Bearer", "client_id": claimStr(c, "azp"),
 			"scope": claimStr(c, "scope"), "sub": claimStr(c, "sub"), "iss": claimStr(c, "iss"),
 			"aud": c["aud"], "jti": claimStr(c, "jti"), "username": claimStr(c, "preferred_username")}
+		if cnf, ok := c["cnf"]; ok { // DPoP-bound: the resource server checks the proof against cnf.jkt
+			out["cnf"], out["token_type"] = cnf, "DPoP"
+		}
 		if v, ok := claimNum(c, "exp"); ok {
 			out["exp"] = v
 		}
@@ -201,9 +208,19 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = cl
-	writeJSON(w, http.StatusOK, map[string]any{"active": true, "token_type": "refresh_token", "client_id": rt.ClientID,
+	cnf, cerr := p.dpopRefreshCnf(r.Context(), tok)
+	if cerr != nil { // cannot tell whether it is key-bound: fail closed
+		p.cfg.Logger.Error("oidc: introspect dpop binding", "err", cerr)
+		writeJSON(w, http.StatusOK, inactive)
+		return
+	}
+	out := map[string]any{"active": true, "token_type": "refresh_token", "client_id": rt.ClientID,
 		"scope": rt.Scope, "sub": rt.UserID, "exp": rt.ExpiresAt.Unix(), "iat": rt.CreatedAt.Unix(),
-		"iss": p.issuer(name)})
+		"iss": p.issuer(name)}
+	if cnf != nil {
+		out["cnf"] = cnf
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func unix(n int64) time.Time { return time.Unix(n, 0) }
