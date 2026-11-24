@@ -140,3 +140,15 @@ because the server stores only a hash and `GET .../secret` is 501. The console's
 create-client handler uses it for confidential clients and returns
 `201 {"id","secret"}` with `Cache-Control: no-store`; the UI must show the secret
 once. Providers that can read secrets back (Keycloak) keep the old 201-with-no-body response.
+
+## Passkeys (WebAuthn)
+Needs a store implementing `core.PasskeyStore`; otherwise every route answers 501.
+- `GET /realms/{r}/users/{id}/passkeys` -> 200 `[{"id","name","createdAt","lastUsedAt"?,"backupEligible","backupState","transports":[],"aaguid","signCount"}]`
+  (empty array when none; the public key is never returned). 404 for an unknown user.
+- `DELETE /realms/{r}/users/{id}/passkeys/{credId}` -> 204; 404 when the credential does
+  not belong to that user. Does not end sessions. Ignores the realm's passkey policy
+  (admins can always remove). Audit `ADMIN_DELETE passkey <username>` (no credential id).
+- `GET /realms/{r}/passkey-policy` -> `{"requirePasskeys":bool}`;
+  `PUT` with the same body (unknown fields -> 400). When true, the account page refuses to
+  remove a user's last passkey. Audit `ADMIN_UPDATE passkey-policy <realm>`.
+Metrics: `AdminOp(realm,"passkey","delete",ok)` and `AdminOp(realm,"passkey-policy","update",ok)`.

@@ -74,7 +74,7 @@ webhook, dashboards and alert rules), and #7's email transport: self-service ema
 password reset (SMTP, single-use links; see
 [email-and-password-reset.md](email-and-password-reset.md)), and SSO sessions with single logout
 (`haven_sso` cookie, `prompt`/`max_age`, `sid`, RP-initiated and back-channel logout, Admin session
-routes; see [sso-and-logout.md](sso-and-logout.md)).
+routes; see [sso-and-logout.md](sso-and-logout.md)), and WebAuthn passkeys (first factor and second factor, account page, Admin API; hand-rolled verifier, attestation `none`/`packed` self only, tested with software authenticators and a headless-Chrome virtual authenticator, not with real hardware; see [passkeys.md](passkeys.md)).
 
 Item 9 (offline weak/leaked-password checks) is partially done;
 see [password-policy.md](password-policy.md). Shipped in the policy engine:
