@@ -4,10 +4,12 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zyvorai/haven/internal/idp"
@@ -138,7 +140,8 @@ func (a *api) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in idp.User
-	if _, err := decode(r, &in); err != nil {
+	present, err := decode(r, &in)
+	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -147,12 +150,48 @@ func (a *api) updateUser(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	// A changed address is unproven until its owner clicks a link, unless the
+	// admin explicitly asserts emailVerified:true in this request.
+	oldMail, newMail := strings.TrimSpace(cur.Email), strings.TrimSpace(in.Email)
+	changed := !strings.EqualFold(oldMail, newMail)
+	if changed {
+		next.EmailVerified = present["emailVerified"] && in.EmailVerified && newMail != ""
+	}
 	if err := a.cfg.Store.UpdateUser(r.Context(), next); err != nil {
 		a.fail(w, r, err)
 		return
 	}
+	if changed {
+		a.emailChanged(rl, next)
+	}
 	a.audit(r, rl, "UPDATE", "user", next.Username)
 	noContent(w)
+}
+
+// emailChanged runs after the address on u was changed. Links sent to the old
+// address are already unusable (tokens are bound to the address); deleting
+// them also resets the rate-limit counters so the new address is not blocked.
+// If the new address is unverified and email is configured, a verification
+// link is sent to it, best effort and in the background: failures are logged
+// and never fail the update.
+func (a *api) emailChanged(rl core.Realm, u core.User) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	for _, purpose := range []string{core.ActionVerifyEmail, core.ActionResetPassword} {
+		if _, err := a.cfg.Store.DeleteActionTokens(ctx, rl.Name, u.ID, purpose); err != nil {
+			a.cfg.Logger.Error("admin: delete action tokens after email change", "purpose", purpose, "err", err.Error())
+		}
+	}
+	if u.EmailVerified || strings.TrimSpace(u.Email) == "" || !u.Enabled || !a.cfg.Actions.Enabled() {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := a.cfg.Actions.Send(ctx, rl, u, core.ActionVerifyEmail, actions.SendOpts{}); err != nil {
+			a.cfg.Logger.Error("admin: send verification after email change", "err", err.Error())
+		}
+	}()
 }
 
 func (a *api) deleteUser(w http.ResponseWriter, r *http.Request) {
