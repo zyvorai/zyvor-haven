@@ -96,7 +96,7 @@ The OIDC issuer is `https://<spec.hostname>/realms/<realm>` (HTTP for `profile: 
 
 | Secret | Keys |
 |---|---|
-| `platform-idp` | `csrf-key`, `admin-password`, `admin-client-secret` |
+| `platform-idp` | `csrf-key`, `secret-key`, `admin-password`, `admin-client-secret` |
 | `platform-idp-db` | `username`, `password`, `dsn` |
 | `platform-db-app` | CNPG bootstrap login, username `haven_idp` |
 
@@ -112,7 +112,7 @@ kubectl -n identity scale deployment/platform-idp --replicas=3   # or spec.idp.r
 ```
 
 Replicas above 1 get a PodDisruptionBudget (`maxUnavailable: 1`) and spread across nodes. All
-replicas must share the same `csrf-key` (they do: it comes from the Secret). Size the CNPG
+replicas must share the same `csrf-key` and `secret-key` (they do: both come from the Secret). Size the CNPG
 connection pool for the replica count.
 
 ## 7. Upgrade

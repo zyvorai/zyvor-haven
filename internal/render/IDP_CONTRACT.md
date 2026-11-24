@@ -14,7 +14,7 @@ for migration and is deprecated; it is removed in a later release.
 | Object | Name |
 |---|---|
 | Deployment, Service, ServiceAccount, PodDisruptionBudget | `<plane>-idp` |
-| Secret (app secrets) | `<plane>-idp` keys: `csrf-key`, `admin-password`, `admin-client-secret` |
+| Secret (app secrets) | `<plane>-idp` keys: `csrf-key`, `secret-key`, `admin-password`, `admin-client-secret` |
 | Secret (database) | `<plane>-idp-db` keys: `username`, `password`, `dsn` |
 | CNPG Cluster | `<plane>-db` (unchanged), database and owner `haven_idp` |
 | CNPG bootstrap secret | `<plane>-db-app` (unchanged name), username `haven_idp` |
@@ -41,6 +41,7 @@ anti-affinity / topology spread across nodes.
 | `HAVEN_IDP_LISTEN` | `:8081` |
 | `HAVEN_IDP_DSN` | secret `<plane>-idp-db` key `dsn` |
 | `HAVEN_IDP_CSRF_KEY` | secret `<plane>-idp` key `csrf-key` |
+| `HAVEN_IDP_SECRET_KEY` | secret `<plane>-idp` key `secret-key` (encrypts TOTP seeds and upstream IdP secrets; generated once like the others and **never regenerated**: losing it makes those secrets unreadable) |
 | `HAVEN_IDP_TRUST_PROXY` | `1` (it always sits behind the ingress/gateway) |
 | `HAVEN_IDP_BOOTSTRAP_REALM` | `spec.bootstrap.firstRealm` (default `platform`) |
 | `HAVEN_IDP_BOOTSTRAP_USER` | `admin` |

@@ -41,4 +41,4 @@ spec:
 # (or External Secrets / Sealed Secrets):
 #   platform-db-app   (basic-auth: username haven_idp, password)  CNPG bootstrap secret
 #   platform-idp-db   (username, password, dsn)                   read by haven-idp
-#   platform-idp      (csrf-key, admin-password, admin-client-secret)
+#   platform-idp      (csrf-key, secret-key, admin-password, admin-client-secret)

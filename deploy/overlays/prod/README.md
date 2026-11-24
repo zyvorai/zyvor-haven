@@ -4,7 +4,7 @@
 
 This overlay is a **shape**, not a one-command install. It will not become Ready until you supply three things the compose path cannot invent:
 
-1. **Secrets** — run `./hack/gen-prod-secrets.sh` (or External Secrets) before applying. It creates `platform-db-app`, `platform-idp-db` (username, password, dsn) and `platform-idp` (csrf-key, admin-password, admin-client-secret); it never overwrites and never prints values. The overlay commits no secrets, so applying it cannot clobber real ones.
+1. **Secrets** — run `./hack/gen-prod-secrets.sh` (or External Secrets) before applying. It creates `platform-db-app`, `platform-idp-db` (username, password, dsn) and `platform-idp` (csrf-key, secret-key, admin-password, admin-client-secret); it never overwrites and never prints values. The overlay commits no secrets, so applying it cannot clobber real ones.
 2. **TLS secret `platform-tls`** — see `tls.yaml.example`. Apply after a ClusterIssuer exists.
 3. **CNPG CA ConfigMap `platform-db-ca`** — only for the deprecated Keycloak engine (`keycloak.yaml`, no longer referenced). haven-idp uses `sslmode=require`.
 

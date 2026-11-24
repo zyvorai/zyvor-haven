@@ -76,14 +76,14 @@ func TestInitWritesPrivateFileAndRefusesToOverwrite(t *testing.T) {
 	if err := password.CheckPolicy("length(12)", kv["HAVEN_IDP_BOOTSTRAP_PASSWORD"]); err != nil {
 		t.Errorf("generated admin password must satisfy the default realm policy: %v", err)
 	}
-	if len(kv["HAVEN_IDP_ADMIN_CLIENT_SECRET"]) < 43 || len(kv["HAVEN_IDP_CSRF_KEY"]) < 43 {
+	if len(kv["HAVEN_IDP_ADMIN_CLIENT_SECRET"]) < 43 || len(kv["HAVEN_IDP_CSRF_KEY"]) < 43 || len(kv["HAVEN_IDP_SECRET_KEY"]) < 43 {
 		t.Error("secrets must be at least 256 bits")
 	}
 	if kv["HAVEN_IDP_DSN"] == "" || kv["HAVEN_IDP_DEV"] != "" {
 		t.Error("default init must require a database, not the in-memory store")
 	}
 	// Secrets never reach the terminal.
-	for _, k := range []string{"HAVEN_IDP_BOOTSTRAP_PASSWORD", "HAVEN_IDP_ADMIN_CLIENT_SECRET", "HAVEN_IDP_CSRF_KEY"} {
+	for _, k := range []string{"HAVEN_IDP_BOOTSTRAP_PASSWORD", "HAVEN_IDP_ADMIN_CLIENT_SECRET", "HAVEN_IDP_CSRF_KEY", "HAVEN_IDP_SECRET_KEY"} {
 		if strings.Contains(out.String(), kv[k]) {
 			t.Errorf("%s was printed to the terminal", k)
 		}

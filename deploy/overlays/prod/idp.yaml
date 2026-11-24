@@ -132,6 +132,9 @@ spec:
             - name: HAVEN_IDP_CSRF_KEY
               valueFrom:
                 secretKeyRef: {name: platform-idp, key: csrf-key}
+            - name: HAVEN_IDP_SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: platform-idp, key: secret-key}
             - name: HAVEN_IDP_TRUST_PROXY
               value: "1"
             - name: HAVEN_IDP_BOOTSTRAP_REALM

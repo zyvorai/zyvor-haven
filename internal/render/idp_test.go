@@ -135,6 +135,7 @@ func TestIdPEnvMapping(t *testing.T) {
 	secrets := map[string][2]string{
 		"HAVEN_IDP_DSN":                 {"platform-idp-db", "dsn"},
 		"HAVEN_IDP_CSRF_KEY":            {"platform-idp", "csrf-key"},
+		"HAVEN_IDP_SECRET_KEY":          {"platform-idp", "secret-key"},
 		"HAVEN_IDP_BOOTSTRAP_PASSWORD":  {"platform-idp", "admin-password"},
 		"HAVEN_IDP_ADMIN_CLIENT_SECRET": {"platform-idp", "admin-client-secret"},
 	}

@@ -4,7 +4,7 @@
 # Generate the secrets the prod overlay expects for the native haven-idp engine:
 #   platform-db-app   basic-auth haven_idp + password        (CNPG bootstrap, name unchanged)
 #   platform-idp-db   username, password, dsn                (read by haven-idp)
-#   platform-idp      csrf-key, admin-password, admin-client-secret
+#   platform-idp      csrf-key, secret-key, admin-password, admin-client-secret
 # Contract: internal/render/IDP_CONTRACT.md.
 #
 # Safety: never prints a secret value, never overwrites (exits if any target exists),
@@ -49,6 +49,7 @@ put db-username "$DB_NAME"
 put db-password "$DBPASS"
 put db-dsn "postgres://${DB_NAME}:${DBPASS}@${DB_HOST}:5432/${DB_NAME}?sslmode=require"
 put csrf-key "$(rand)"
+put secret-key "$(rand)"   # HAVEN_IDP_SECRET_KEY: encrypts TOTP seeds and upstream IdP secrets; back it up, losing it loses those
 put admin-password "$(rand)"
 put admin-client-secret "$(rand)"
 unset DBPASS
@@ -65,6 +66,7 @@ kubectl -n "$NS" create secret generic "${PLANE}-idp-db" \
 
 kubectl -n "$NS" create secret generic "${PLANE}-idp" \
   --from-file=csrf-key="$WORK/csrf-key" \
+  --from-file=secret-key="$WORK/secret-key" \
   --from-file=admin-password="$WORK/admin-password" \
   --from-file=admin-client-secret="$WORK/admin-client-secret"
 

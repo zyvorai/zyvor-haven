@@ -45,7 +45,7 @@ identity:
 
 # haven-idp run directly by the chart. Leave disabled when the controller manages it
 # from an IdentityPlane (the normal path). Requires Secrets <plane.name>-idp
-# (csrf-key, admin-password, admin-client-secret) and <plane.name>-idp-db (dsn) to exist.
+# (csrf-key, secret-key, admin-password, admin-client-secret) and <plane.name>-idp-db (dsn) to exist.
 idp:
   enabled: false
   baseUrl: ""                # public https URL, e.g. https://auth.example.com (required when enabled)

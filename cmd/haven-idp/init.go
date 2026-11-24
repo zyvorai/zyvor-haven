@@ -125,6 +125,10 @@ func renderEnv(baseURL, realm, user string, memory bool) string {
 	}
 	w("# Shared by every replica so the login form works behind a load balancer.\n")
 	w("HAVEN_IDP_CSRF_KEY=%s\n\n", secret(32))
+	w("# Encrypts what haven-idp must read back: TOTP seeds and upstream identity-provider secrets.\n")
+	w("# BACK THIS UP. If it is lost those secrets cannot be decrypted (users must re-enrol TOTP).\n")
+	w("# Without it TOTP and federation stay off. Rotate by listing the new key first: NEW,OLD.\n")
+	w("HAVEN_IDP_SECRET_KEY=%s\n\n", secret(32))
 	w("# First realm, admin user and the Admin API client (used by haven-console).\n")
 	w("HAVEN_IDP_BOOTSTRAP_REALM=%s\n", realm)
 	w("HAVEN_IDP_BOOTSTRAP_USER=%s\n", user)

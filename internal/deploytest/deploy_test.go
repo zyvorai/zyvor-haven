@@ -421,6 +421,7 @@ func checkIdpDeployment(t *testing.T, objs []obj, plane string, wantReplicasPDB 
 	wantRef := map[string][2]string{
 		"HAVEN_IDP_DSN":                 {plane + "-idp-db", "dsn"},
 		"HAVEN_IDP_CSRF_KEY":            {plane + "-idp", "csrf-key"},
+		"HAVEN_IDP_SECRET_KEY":          {plane + "-idp", "secret-key"},
 		"HAVEN_IDP_BOOTSTRAP_PASSWORD":  {plane + "-idp", "admin-password"},
 		"HAVEN_IDP_ADMIN_CLIENT_SECRET": {plane + "-idp", "admin-client-secret"},
 	}
@@ -451,7 +452,7 @@ func checkIdpDeployment(t *testing.T, objs []obj, plane string, wantReplicasPDB 
 
 var idpExternals = func(plane string) map[string][]string {
 	return map[string][]string{
-		plane + "-idp":    {"csrf-key", "admin-password", "admin-client-secret"},
+		plane + "-idp":    {"csrf-key", "secret-key", "admin-password", "admin-client-secret"},
 		plane + "-idp-db": {"username", "password", "dsn"},
 	}
 }

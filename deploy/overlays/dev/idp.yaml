@@ -35,6 +35,8 @@ metadata:
 type: Opaque
 stringData:
   csrf-key: CHANGE_ME_DEV_ONLY_csrf_key_0123456789abcdef
+  # base64url of 32 bytes (haven-idp refuses to start on an unparseable key) that still reads as a placeholder.
+  secret-key: CHANGE_ME_DEV_ONLY_secret_key_0123456789abc
   admin-password: CHANGE_ME_DEV_ONLY
   admin-client-secret: CHANGE_ME_DEV_ONLY_admin_client_secret
 ---
@@ -138,6 +140,9 @@ spec:
             - name: HAVEN_IDP_CSRF_KEY
               valueFrom:
                 secretKeyRef: {name: platform-idp, key: csrf-key}
+            - name: HAVEN_IDP_SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: platform-idp, key: secret-key}
             - name: HAVEN_IDP_TRUST_PROXY
               value: "1"
             - name: HAVEN_IDP_BOOTSTRAP_REALM

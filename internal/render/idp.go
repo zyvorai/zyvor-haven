@@ -32,6 +32,7 @@ const (
 	AnnotationConfigHash = "haven.identity/config-hash"
 
 	SecretKeyCSRF        = "csrf-key"
+	SecretKeySecret      = "secret-key" // HAVEN_IDP_SECRET_KEY: encrypts TOTP seeds and upstream IdP secrets
 	SecretKeyAdminPass   = "admin-password"
 	SecretKeyAdminClient = "admin-client-secret"
 	DBSecretKeyUsername  = "username"
@@ -48,7 +49,7 @@ const (
 )
 
 // IdPSecretKeys lists every key the <plane>-idp Secret must carry.
-var IdPSecretKeys = []string{SecretKeyCSRF, SecretKeyAdminPass, SecretKeyAdminClient}
+var IdPSecretKeys = []string{SecretKeyCSRF, SecretKeySecret, SecretKeyAdminPass, SecretKeyAdminClient}
 
 func IdPName(plane string) string         { return plane + "-idp" }
 func IdPDBSecretName(plane string) string { return plane + "-idp-db" }
@@ -148,6 +149,7 @@ func idpEnv(plane string, spec *v1alpha1.IdentityPlaneSpec) []corev1.EnvVar {
 		plain("HAVEN_IDP_LISTEN"),
 		secretEnv("HAVEN_IDP_DSN", db, DBSecretKeyDSN),
 		secretEnv("HAVEN_IDP_CSRF_KEY", app, SecretKeyCSRF),
+		secretEnv("HAVEN_IDP_SECRET_KEY", app, SecretKeySecret),
 		plain("HAVEN_IDP_TRUST_PROXY"),
 		plain("HAVEN_IDP_BOOTSTRAP_REALM"),
 		plain("HAVEN_IDP_BOOTSTRAP_USER"),

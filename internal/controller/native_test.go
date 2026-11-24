@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"github.com/zyvorai/haven/internal/idp/secretbox"
 	"sort"
 	"strings"
 	"testing"
@@ -380,6 +381,58 @@ func TestMissingIdPSecretKeyIsAddedWithoutTouchingOthers(t *testing.T) {
 	}
 	if string(got.Data["csrf-key"]) != csrf || string(got.Data["admin-password"]) != pass {
 		t.Fatal("existing keys were rewritten")
+	}
+}
+
+// A plane created before secret-key existed must gain it on the next reconcile
+// without any other value changing, and the generated key must be one haven-idp
+// accepts (an unparseable HAVEN_IDP_SECRET_KEY stops the pod from starting).
+func TestSecretKeyIsAddedToAnOlderPlaneSecret(t *testing.T) {
+	e := newEnv(t, false, plane(nil))
+	e.reconcile()
+	var s corev1.Secret
+	e.mustGet(&s, "platform-idp")
+	before := map[string]string{}
+	for k, v := range s.Data {
+		before[k] = string(v)
+	}
+	delete(s.Data, "secret-key") // what a pre-secret-key plane looks like
+	if err := e.c.Update(context.Background(), &s); err != nil {
+		t.Fatal(err)
+	}
+
+	e.reconcile()
+	var got corev1.Secret
+	e.mustGet(&got, "platform-idp")
+	key := string(got.Data["secret-key"])
+	if key == "" {
+		t.Fatal("secret-key was not added to the existing Secret")
+	}
+	for _, k := range []string{"csrf-key", "admin-password", "admin-client-secret"} {
+		if string(got.Data[k]) != before[k] {
+			t.Errorf("%s was rewritten while adding secret-key", k)
+		}
+	}
+	if k, err := secretbox.ParseKey(key); err != nil || len(k) != 32 {
+		t.Fatalf("generated secret-key is not a valid HAVEN_IDP_SECRET_KEY: %v", err)
+	}
+	// And it is stable: a third reconcile must not regenerate it (that would
+	// make every stored TOTP seed unreadable).
+	e.reconcile()
+	e.mustGet(&got, "platform-idp")
+	if string(got.Data["secret-key"]) != key {
+		t.Fatal("secret-key changed on a later reconcile")
+	}
+	// The pod gets it from the Secret, never inline.
+	found := false
+	for _, ev := range e.deploy().Spec.Template.Spec.Containers[0].Env {
+		if ev.Name == "HAVEN_IDP_SECRET_KEY" {
+			found = ev.Value == "" && ev.ValueFrom != nil && ev.ValueFrom.SecretKeyRef != nil &&
+				ev.ValueFrom.SecretKeyRef.Name == "platform-idp" && ev.ValueFrom.SecretKeyRef.Key == "secret-key"
+		}
+	}
+	if !found {
+		t.Error("HAVEN_IDP_SECRET_KEY is not wired from the plane Secret")
 	}
 }
 
