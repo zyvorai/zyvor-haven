@@ -48,9 +48,9 @@ echo "=== B. database (CloudNativePG)"
 DBP=$($SK get pods --no-headers | awk '/platform-db-1/{print $1; exit}')
 MIG=$($SK exec $DBP -c postgres -- psql -U postgres -d haven_idp -tAc "select string_agg(version::text, ',' order by version) from schema_migrations" 2>&1 | tr -d ' ')
 echo "  migrations applied by haven-idp at start-up: $MIG"
-ok "all 21 migrations applied in the real CNPG database" $(b "$MIG" "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21") "$MIG"
+ok "all 26 migrations applied in the real CNPG database" $(b "$MIG" "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26") "$MIG"
 NT=$($SK exec $DBP -c postgres -- psql -U postgres -d haven_idp -tAc "select count(*) from information_schema.tables where table_schema='public'" 2>&1 | tr -d ' ')
-ok "database holds the 52 tables (51 haven-idp tables + the migration ledger)" $(b "$NT" 52) "$NT"
+ok "database holds the 62 tables (61 haven-idp tables + the migration ledger)" $(b "$NT" 62) "$NT"
 
 echo "=== C. interactive flows and features through the deployed service (PostgreSQL-backed)"
 pf svc/platform-idp 18401 8081 && echo "  port-forward up" || ok "port-forward to svc/platform-idp" 0 "$(cat pf-18401.log)"
