@@ -179,7 +179,7 @@ func (p *Provider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
-	p.mux.ServeHTTP(w, r)
+	p.mux.ServeHTTP(&uiWriter{ResponseWriter: w, r: r}, r) // ui.go: language and branding of pages
 }
 
 // HashSecret returns the sha256 hex digest used to store client secrets and

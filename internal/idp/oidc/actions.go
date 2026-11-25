@@ -18,6 +18,7 @@ import (
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/i18n"
 	"github.com/zyvorai/haven/internal/idp/mail"
 	"github.com/zyvorai/haven/internal/idp/password"
 )
@@ -62,7 +63,8 @@ func (p *Provider) Drain() { p.bg.Wait() }
 
 // sendAsync emails an action link without making the HTTP response depend on
 // whether (or how fast) mail was sent. It reports whether a send was started.
-func (p *Provider) sendAsync(rl core.Realm, u core.User, purpose string) bool {
+// lang, when given, is the language of the request that asked for it.
+func (p *Provider) sendAsync(rl core.Realm, u core.User, purpose string, lang ...string) bool {
 	if !p.actionsOn() || u.Email == "" || !u.Enabled {
 		return false
 	}
@@ -71,6 +73,9 @@ func (p *Provider) sendAsync(rl core.Realm, u core.User, purpose string) bool {
 		defer p.bg.Done()
 		ctx, cancel := context.WithTimeout(context.Background(), mailTimeout)
 		defer cancel()
+		if len(lang) > 0 {
+			ctx = i18n.WithLang(ctx, lang[0])
+		}
 		err := p.cfg.Actions.Send(ctx, rl, u, purpose, actions.SendOpts{})
 		switch {
 		case err == nil:
@@ -97,10 +102,11 @@ func (p *Provider) actionPage(w http.ResponseWriter, rl core.Realm, status int, 
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)
 	p.pageHeaders(w, nonce)
+	l := p.loc(w)
 	w.WriteHeader(status)
 	slug := map[string]string{"forgot": "forgot-password", "reset": "reset-password", "verify": "verify-email"}[form]
-	_ = pageTmpl.Execute(w, pageData{Title: title, Nonce: nonce, Form: form, Message: msg, Error: errMsg,
-		Token: token, CSRF: csrf, Action: p.actionBase(rl.Name) + "/" + slug})
+	_ = pageTmpl.Execute(w, pageData{Title: l.T(title), Nonce: nonce, Form: form, Message: l.T(msg), Error: l.T(errMsg),
+		Token: token, CSRF: csrf, Action: keepUILocales(w, p.actionBase(rl.Name)+"/"+slug), L: l})
 }
 
 func (p *Provider) checkActionCSRF(r *http.Request, realm string) bool {
@@ -177,7 +183,7 @@ func (p *Provider) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if u, found := p.findForReset(ctx, rl.Name, id); found {
-		if p.sendAsync(rl, u, core.ActionResetPassword) {
+		if p.sendAsync(rl, u, core.ActionResetPassword, p.reqLang(w)) {
 			p.event(ctx, rl, "RESET_PASSWORD_REQUEST", u.ID, "", ip, "")
 		}
 	}
@@ -220,7 +226,8 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := password.CheckPolicy(rl.PasswordPolicy, pw); err != nil {
-		again("That password is not allowed: " + err.Error())
+		l := p.loc(w)
+		again(l.T("That password is not allowed: %s", l.PolicyError(err)))
 		return
 	}
 	t, u, err := p.cfg.Actions.Redeem(ctx, rl.Name, tok, core.ActionResetPassword)
@@ -241,7 +248,8 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 		if perr := p.cfg.Store.PutActionToken(ctx, t); perr != nil {
 			p.cfg.Logger.Error("oidc: restore reset token", "err", perr)
 		}
-		again("That password is not allowed: " + err.Error())
+		l := p.loc(w)
+		again(l.T("That password is not allowed: %s", l.PolicyError(err)))
 		return
 	}
 	h, err := p.cfg.Hasher.Hash(pw)
@@ -274,7 +282,7 @@ func (p *Provider) resetPassword(w http.ResponseWriter, r *http.Request) {
 	// Best-effort security notification; never carries a link or the password.
 	if p.actionsOn() && u.Email != "" {
 		p.bg.Add(1)
-		detached := context.WithoutCancel(ctx) // outlives the response, keeps request values
+		detached := i18n.WithLang(context.WithoutCancel(ctx), p.reqLang(w)) // outlives the response, keeps request values
 		go func(rl core.Realm, u core.User) {
 			defer p.bg.Done()
 			nctx, cancel := context.WithTimeout(detached, mailTimeout)
