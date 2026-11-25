@@ -64,6 +64,10 @@ At the authorization endpoint (also inside a pushed request or a signed request 
   some level is reached. Other members of `claims` are ignored.
 * `max_age`: as before; the sign-in must be that recent.
 
+A demand sent in the browser's address bar can be removed or changed by whoever controls the browser. The client
+must therefore check the `acr` and `auth_time` it gets back; a [pushed or signed request](fapi-par-jar-rar.md)
+keeps the demand out of the browser's reach.
+
 **Every named value is binding**, essential or not (RFC 9470 section 5). When several of these are present, all
 must be met. A stronger sign-in satisfies a weaker demand, and the `acr` claim then reports the **requested** value
 (the first met value of the `claims` entry, else of `acr_values`); with no demand it reports the highest level
