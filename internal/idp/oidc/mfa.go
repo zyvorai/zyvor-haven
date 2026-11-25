@@ -217,13 +217,10 @@ func (p *Provider) mfaPage(w http.ResponseWriter, r *http.Request, rl core.Realm
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)
 	p.pageHeaders(w, nonce)
-	disp := rl.DisplayName
-	if disp == "" {
-		disp = rl.Name
-	}
+	l := p.loc(w)
 	w.WriteHeader(status)
-	_ = stepTemplate(body).Execute(w, StepData{Title: title, Nonce: nonce, CSRF: csrf, Realm: disp,
-		Error: errMsg, Action: r.URL.Path, Data: data})
+	_ = stepTemplate(body).Execute(w, StepData{Title: l.T(title), Nonce: nonce, CSRF: csrf, Realm: l.RealmName(rl),
+		Error: l.T(errMsg), Action: keepUILocales(w, r.URL.Path), Data: data, L: l})
 }
 
 // checkFormCSRF is the double-submit check used by the account page.

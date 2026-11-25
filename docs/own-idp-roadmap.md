@@ -86,7 +86,8 @@ most features also run live against the dev binary and the store suite run again
 | SCIM 2.0, Shared Signals (CAEP/RISC) | live-tested; no real Okta/Entra/receiver | [scim.md](scim.md), [shared-signals.md](shared-signals.md) |
 | Federation (OIDC upstreams), time-boxed access, Guard gate, Time Machine undo | tested | [federation.md](federation.md), [time-boxed-access.md](time-boxed-access.md), [guard-gate.md](guard-gate.md), [time-machine-undo.md](time-machine-undo.md) |
 | macOS: launchd service, Keychain, pkg/Homebrew templates | user LaunchAgent run for real; unsigned | [macos.md](macos.md) |
-| Not started | SAML, LDAP, organizations, i18n, mTLS client auth | |
+| Per-realm branding, email templates, English/German/Hindi (translations machine-generated, unreviewed; no bitmap logos, per-user language or config-as-code support) | live-tested against the dev binary; no real mail client or native-speaker review | [branding-and-i18n.md](branding-and-i18n.md) |
+| Not started | SAML, LDAP, organizations, mTLS client auth | |
 Done and verified end to end: parity (OIDC core, Admin API v1, native Provider,
 selectable console backend), #1 `haven-idp init` / `dev` (with a browser OIDC
 playground, the first slice of #2; the add-an-app wizard and Test login debugger are in [add-an-app.md](add-an-app.md)), #3 config as code (`validate`/`plan`/`apply`/

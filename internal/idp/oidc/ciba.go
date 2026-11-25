@@ -382,28 +382,21 @@ func (p *Provider) cibaNotify(rl core.Realm, cl core.Client, u core.User, row co
 			p.cfg.Logger.Info("oidc: ciba approval email suppressed by rate limit", "realm", rl.Name)
 			return
 		}
-		disp := rl.DisplayName
-		if disp == "" {
-			disp = rl.Name
-		}
 		name := cibaDisplay(cl.Name, 80)
 		if name == "" {
 			name = cibaDisplay(cl.ClientID, 80)
 		}
-		link := p.cibaURL(rl.Name) + "/approve?req=" + url.QueryEscape(approval)
-		var b strings.Builder
-		fmt.Fprintf(&b, "%s is asking for your approval to act on your behalf in %s.\n\n", name, disp)
-		if row.Binding != "" {
-			fmt.Fprintf(&b, "Message from the application (Haven cannot verify it): %q\n\n", row.Binding)
+		// The realm's own template and default language apply: no browser of
+		// the addressee asked for this email.
+		msg, err := p.cfg.Actions.Compose(ctx, rl, mail.KindCIBAApproval, mail.TemplateData{
+			Username: u.Username, Link: p.cibaURL(rl.Name) + "/approve?req=" + url.QueryEscape(approval),
+			Client: name, Binding: row.Binding, Scope: row.Scope, Resources: row.Resources,
+			Minutes: max(1, int(row.ExpiresAt.Sub(row.CreatedAt)/time.Minute))})
+		if err != nil {
+			p.cfg.Logger.Error("oidc: ciba approval email failed", "realm", rl.Name, "err", err)
+			return
 		}
-		fmt.Fprintf(&b, "Access requested: %s\n", row.Scope)
-		for _, res := range row.Resources {
-			fmt.Fprintf(&b, "Resource: %s\n", res)
-		}
-		mins := max(1, int(row.ExpiresAt.Sub(row.CreatedAt)/time.Minute))
-		fmt.Fprintf(&b, "\nReview and approve or deny it here (you will be asked to sign in):\n\n%s\n\n", link)
-		fmt.Fprintf(&b, "This request expires in %d minute(s). If you were not expecting it, do not approve it; you can open the link and press Deny.\n", mins)
-		msg := mail.Message{To: strings.TrimSpace(u.Email), Subject: "Approval request from " + name, Text: b.String()}
+		msg.To = strings.TrimSpace(u.Email)
 		if err := p.cfg.Actions.Mailer.Send(ctx, msg); err != nil {
 			p.cfg.Logger.Error("oidc: ciba approval email failed", "realm", rl.Name, "err", err)
 		}
@@ -497,41 +490,41 @@ type cibaView struct {
 	Scopes, Resources                        []string
 	IP, When, Ago                            string
 	Approved                                 bool
+	L                                        Loc // ui.go
 }
 
 var cibaTmpl = template.Must(template.New("ciba").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
 <!--theme--></head><body><main>
 {{if eq .Mode "done"}}{{if .Approved}}<!--hero:check-->{{else}}<!--hero:compass-->{{end}}{{else}}<!--hero:bell-->{{end}}
 <h1>{{.Title}}</h1>
 {{if eq .Mode "approve"}}
-<p><strong>{{.Client}}</strong> is asking to act for <strong>{{.User}}</strong> in {{.Realm}}.</p>
-{{if .Binding}}<p class="sub">Message from the application (Haven cannot verify it):</p><blockquote>{{.Binding}}</blockquote>{{end}}
-<p class="sub">If you approve, it will be able to:</p>
+<p>{{.L.H "%s is asking to act for %s in %s." (.L.B .Client) (.L.B .User) .Realm}}</p>
+{{if .Binding}}<p class="sub">{{.L.T "Message from the application (Haven cannot verify it):"}}</p><blockquote>{{.Binding}}</blockquote>{{end}}
+<p class="sub">{{.L.T "If you approve, it will be able to:"}}</p>
 <ul>{{range .Scopes}}<li>{{.}}</li>{{end}}</ul>
-{{if .Resources}}<p class="sub">It says it wants to use these resources:</p><ul>{{range .Resources}}<li>{{.}}</li>{{end}}</ul>{{end}}
-<dl><dt>Request came from</dt><dd>{{.IP}}</dd>
-<dt>Requested</dt><dd>{{.When}} ({{.Ago}})</dd></dl>
-<p class="warn"><strong>Only approve if you (or an agent you set up) just asked for this.</strong> If you did not, deny it: someone may be trying to use your account.</p>
+{{if .Resources}}<p class="sub">{{.L.T "It says it wants to use these resources:"}}</p><ul>{{range .Resources}}<li>{{.}}</li>{{end}}</ul>{{end}}
+<dl><dt>{{.L.T "Request came from"}}</dt><dd>{{.IP}}</dd>
+<dt>{{.L.T "Requested"}}</dt><dd>{{.When}} ({{.Ago}})</dd></dl>
+<p class="warn"><strong>{{.L.T "Only approve if you (or an agent you set up) just asked for this."}}</strong> {{.L.T "If you did not, deny it: someone may be trying to use your account."}}</p>
 <div class="row">
-<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="req" value="{{.Token}}"><input type="hidden" name="decision" value="approve"><button type="submit">Approve</button></form>
-<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="req" value="{{.Token}}"><input type="hidden" name="decision" value="deny"><button type="submit" class="deny">Deny</button></form>
+<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="req" value="{{.Token}}"><input type="hidden" name="decision" value="approve"><button type="submit">{{.L.T "Approve"}}</button></form>
+<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="req" value="{{.Token}}"><input type="hidden" name="decision" value="deny"><button type="submit" class="deny">{{.L.T "Deny"}}</button></form>
 </div>
 {{else}}
-{{if .Approved}}<p>You approved the request. You can close this window.</p>
-{{else}}<p>You denied the request. Nothing was shared. You can close this window.</p>{{end}}
+{{if .Approved}}<p>{{.L.T "You approved the request. You can close this window."}}</p>
+{{else}}<p>{{.L.T "You denied the request. Nothing was shared. You can close this window."}}</p>{{end}}
 {{end}}
 </main></body></html>`)))
 
 func (p *Provider) cibaRender(w http.ResponseWriter, rl core.Realm, status int, v cibaView) {
 	nonce := randToken(16)
 	v.Nonce = nonce
-	v.Realm = rl.DisplayName
-	if v.Realm == "" {
-		v.Realm = rl.Name
-	}
-	v.Action = p.cibaURL(rl.Name) + "/approve"
+	v.L = p.loc(w)
+	v.Realm = v.L.RealmName(rl)
+	v.Title = v.L.T(v.Title)
+	v.Action = keepUILocales(w, p.cibaURL(rl.Name)+"/approve")
 	if v.Mode == "approve" {
 		csrf := p.newCSRF(rl.Name)
 		v.CSRF = csrf
@@ -646,7 +639,7 @@ func (p *Provider) cibaLogin(w http.ResponseWriter, r *http.Request, rl core.Rea
 		"code_challenge_method": {"S256"},
 	}
 	noStore(w)
-	http.Redirect(w, r, p.endpoint(rl.Name, "auth")+"?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, keepUILocales(w, p.endpoint(rl.Name, "auth")+"?"+q.Encode()), http.StatusSeeOther)
 }
 
 func (p *Provider) cibaApprovePage(w http.ResponseWriter, rl core.Realm, row core.CIBARequest, cl core.Client, u core.User, token string) {
@@ -654,20 +647,21 @@ func (p *Provider) cibaApprovePage(w http.ResponseWriter, rl core.Realm, row cor
 	if name == "" {
 		name = cibaDisplay(cl.ClientID, 80)
 	}
+	l := p.loc(w)
 	var scopes []string
 	for _, s := range strings.Fields(row.Scope) {
-		if w, ok := scopeWords[s]; ok {
-			scopes = append(scopes, w)
+		if words, ok := scopeWords[s]; ok {
+			scopes = append(scopes, l.T(words))
 		}
 	}
 	ago := p.now().Sub(row.CreatedAt).Round(time.Minute)
-	agoS := "just now"
+	agoS := l.T("just now")
 	if ago >= time.Minute {
-		agoS = fmt.Sprintf("%d min ago", int(ago.Minutes()))
+		agoS = l.T("%d min ago", int(ago.Minutes()))
 	}
 	ip := row.RequestIP
 	if ip == "" {
-		ip = "unknown"
+		ip = l.T("unknown")
 	}
 	p.cibaRender(w, rl, http.StatusOK, cibaView{Title: "Approve this request?", Mode: "approve", Token: token,
 		Client: name, User: u.Username, Binding: row.Binding, Scopes: scopes, Resources: row.Resources, IP: ip,

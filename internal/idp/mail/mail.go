@@ -30,6 +30,14 @@ const (
 	KindResetPassword Kind = "reset_password"
 	// KindPasswordChanged is a security notification. It never carries a link.
 	KindPasswordChanged Kind = "password_changed"
+	// KindChangeEmail is the confirmation link sent to a new address.
+	KindChangeEmail Kind = "change_email"
+	// KindEmailChangeRequested and KindEmailChanged are notices to the old
+	// address. They never carry a link.
+	KindEmailChangeRequested Kind = "email_change_requested"
+	KindEmailChanged         Kind = "email_changed"
+	// KindCIBAApproval asks a user to approve a decoupled (CIBA) request.
+	KindCIBAApproval Kind = "ciba_approval"
 )
 
 // TemplateData is everything a template may use.
@@ -40,4 +48,14 @@ type TemplateData struct {
 	Hours    int    // validity in whole hours (minimum 1)
 	When     string // notifications: UTC timestamp text; optional
 	Via      string // notifications: "reset link" or "an administrator"; optional
+
+	Lang     string // catalogue language; "" or unsupported is English
+	NewEmail string // email change notices: the new address, masked
+
+	// Decoupled approval requests only.
+	Client    string
+	Binding   string // message chosen by the client; shown quoted
+	Scope     string
+	Resources []string
+	Minutes   int
 }

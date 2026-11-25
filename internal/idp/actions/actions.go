@@ -143,13 +143,9 @@ func (s *Service) Send(ctx context.Context, rl core.Realm, u core.User, purpose 
 	if err != nil {
 		return err
 	}
-	disp := rl.DisplayName
-	if disp == "" {
-		disp = rl.Name
-	}
 	hours := int(ttl(purpose) / time.Hour)
-	msg, err := mail.Render(kindFor(purpose), mail.TemplateData{
-		Realm: disp, Username: u.Username, Link: s.Link(rl.Name, purpose, raw), Hours: hours})
+	msg, err := s.Compose(ctx, rl, kindFor(purpose), mail.TemplateData{
+		Username: u.Username, Link: s.Link(rl.Name, purpose, raw), Hours: hours})
 	if err != nil {
 		return err
 	}
@@ -174,11 +170,7 @@ func (s *Service) Notify(ctx context.Context, rl core.Realm, u core.User, kind m
 	if email == "" || strings.ContainsAny(email, "\r\n") {
 		return ErrNoEmail
 	}
-	disp := rl.DisplayName
-	if disp == "" {
-		disp = rl.Name
-	}
-	msg, err := mail.Render(kind, mail.TemplateData{Realm: disp, Username: u.Username,
+	msg, err := s.Compose(ctx, rl, kind, mail.TemplateData{Username: u.Username,
 		When: s.now().UTC().Format("2006-01-02 15:04:05 UTC"), Via: via})
 	if err != nil {
 		return err
