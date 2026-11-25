@@ -105,10 +105,12 @@ ignored on read and replaced on insert; `PurgeExpiredDPoP` deletes them (nothing
 * A realm-wide "DPoP required" and the `dpop_bound_access_tokens` client metadata of dynamic registration.
   A per-client "require DPoP" and `dpop_jkt` at the authorization endpoint exist now, see
   [fapi-par-jar-rar.md](fapi-par-jar-rar.md).
-* DPoP on the revocation endpoint, on dynamic client registration and for client authentication (`private_key_jwt`
-  is not implemented at all).
+* DPoP on the revocation endpoint and on dynamic client registration. DPoP is not a client authentication method;
+  for key-based client authentication use `private_key_jwt` or mutual TLS
+  ([client-authentication.md](client-authentication.md)).
 * Resource servers other than userinfo must verify proofs themselves (use introspection `cnf`).
-* Bound refresh tokens of a confidential client (not required by the RFC), and mTLS certificate binding (RFC 8705).
+* Bound refresh tokens of a confidential client (not required by the RFC). mTLS certificate binding (RFC 8705)
+  exists separately, see [client-authentication.md](client-authentication.md); a token may carry both bindings.
 * A scheduled purge of expired replay-cache rows; algorithms other than ES256, RS256, EdDSA (no PS256, ES384).
 * Live check with an independent DPoP client library: all proofs in the tests and the live run were produced by
   hand-written code in this repository.

@@ -107,6 +107,8 @@ type Config struct {
 	FederationAllowPrivate bool
 
 	OnMetricsReady func(addr string) // called once the metrics listener is bound
+
+	TLS TLSSettings // HTTPS and client certificates (mtls.go)
 }
 
 // configFromEnv reads the HAVEN_IDP_* environment (see the usage text).
@@ -139,6 +141,7 @@ func configFromEnv() (Config, error) {
 	c.SMTPPassword = os.Getenv("HAVEN_IDP_SMTP_PASSWORD")
 	c.SMTPFrom = os.Getenv("HAVEN_IDP_SMTP_FROM")
 	c.SMTPTLS = os.Getenv("HAVEN_IDP_SMTP_TLS")
+	c.TLS = tlsSettingsFromEnv()
 	var err error
 	if c.SecretKey, err = fromFile(c.SecretKey, os.Getenv("HAVEN_IDP_SECRET_KEY_FILE"), "secret key"); err != nil {
 		return c, err
@@ -194,6 +197,10 @@ func buildMailer(cfg Config) (mail.Sender, error) {
 func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	if cfg.BaseURL == "" {
 		return errors.New("HAVEN_IDP_BASE_URL is required")
+	}
+	mtls, tlsConf, err := cfg.TLS.build()
+	if err != nil {
+		return err
 	}
 	var st core.Store
 	switch {
@@ -369,6 +376,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		DPoPNonce:  os.Getenv("HAVEN_IDP_DPOP_NONCE") == "1",
 		Resources:  resPolicy,
 		Federation: upstream.NewManager(safehttp.Options{AllowPrivate: cfg.FederationAllowPrivate}, nil),
+		MTLS:       mtls,
 	}
 	oidcCfg.GroupsClaim = groupsClaim
 	adminCfg := admin.Config{}
@@ -432,6 +440,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
 		WriteTimeout: 30 * time.Second, IdleTimeout: 120 * time.Second,
 		MaxHeaderBytes: 64 << 10,
+		TLSConfig:      tlsConf,
 	}
 
 	go purgeLoop(ctx, st, log)
@@ -460,7 +469,13 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	}
 
 	errc := make(chan error, 1)
-	go func() { errc <- srv.Serve(ln) }()
+	go func() {
+		if tlsConf != nil {
+			errc <- srv.ServeTLS(ln, "", "")
+			return
+		}
+		errc <- srv.Serve(ln)
+	}()
 	log.Info("haven-idp listening", "addr", ln.Addr().String(), "baseURL", cfg.BaseURL)
 	if cfg.OnReady != nil {
 		cfg.OnReady(ln.Addr().String())
@@ -507,6 +522,12 @@ func purgeLoop(ctx context.Context, st core.Store, log *slog.Logger) {
 					log.Warn("purge agent credentials failed", "error", err.Error())
 				} else if n > 0 {
 					log.Info("purged agent credentials", "count", n)
+				}
+			}
+			// Client assertion replay cache: drop entries that can no longer replay.
+			if cs, ok := core.StoreAs[core.ClientAuthStore](st); ok {
+				if _, err := cs.PurgeExpiredClientAssertions(ctx, now); err != nil {
+					log.Warn("purge client assertions failed", "error", err.Error())
 				}
 			}
 			if ds, ok := core.StoreAs[core.DeviceStore](st); ok {

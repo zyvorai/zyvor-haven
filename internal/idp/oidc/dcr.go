@@ -96,12 +96,14 @@ type dcrMeta struct {
 	ClientURI               string   `json:"client_uri"`
 	PolicyURI               string   `json:"policy_uri"`
 	TosURI                  string   `json:"tos_uri"`
+	dcrAuthMeta                      // client authentication (clientauth_dcr.go)
 }
 
 // dcrNormalized is validated metadata mapped onto the core types.
 type dcrNormalized struct {
 	client core.Client
 	reg    core.RegisteredClient
+	auth   *core.ClientAuth // nil = no per-client authentication settings
 }
 
 func dcrReadMeta(w http.ResponseWriter, r *http.Request) (dcrMeta, *dcrErr) {
@@ -141,10 +143,15 @@ func dcrValidate(m dcrMeta, allowed []string) (dcrNormalized, *dcrErr) {
 	if method == "" {
 		method = "client_secret_basic"
 	}
-	if !slices.Contains([]string{"none", "client_secret_basic", "client_secret_post"}, method) {
-		return n, metaErr("token_endpoint_auth_method must be none, client_secret_basic or client_secret_post")
+	if !slices.Contains(dcrAuthMethods, method) {
+		return n, metaErr("token_endpoint_auth_method must be none, client_secret_basic, client_secret_post, private_key_jwt, tls_client_auth or self_signed_tls_client_auth")
 	}
 	public := method == "none"
+	auth, aerr := dcrClientAuth(m.dcrAuthMeta, method)
+	if aerr != nil {
+		return n, aerr
+	}
+	n.auth = auth
 
 	grants := m.GrantTypes
 	if len(grants) == 0 {
@@ -500,6 +507,9 @@ func (p *Provider) dcrRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n, verr := dcrValidate(meta, pol.AllowedGrantTypes)
+	if verr == nil {
+		verr = p.dcrAuthAvailable(n.auth)
+	}
 	if verr != nil {
 		fail(verr)
 		return
@@ -519,7 +529,7 @@ func (p *Provider) dcrRegister(w http.ResponseWriter, r *http.Request) {
 	cl := n.client
 	cl.Realm = rl.Name
 	cl.CreatedAt = p.now().UTC()
-	if !cl.Public {
+	if !cl.Public && !core.StrongClientAuth(n.reg.TokenAuthMethod) { // key and certificate clients get no secret
 		secret = randToken(32)
 		cl.SecretHash = HashSecret(secret)
 	}
@@ -545,6 +555,13 @@ func (p *Provider) dcrRegister(w http.ResponseWriter, r *http.Request) {
 	rc.RegTokenHash, rc.CreatedVia, rc.InitialTokenID = HashSecret(regTok), core.DCRCreatedVia, iat.ID
 	rc.CreatedAt, rc.UpdatedAt = stored.CreatedAt, stored.CreatedAt
 	rollback := func() { _ = p.cfg.Store.DeleteClient(ctx, rl.Name, stored.ID) }
+	if n.auth != nil {
+		if err := p.dcrApplyAuth(ctx, rl.Name, stored, n.auth); err != nil {
+			rollback()
+			srvFail("store client authentication", err)
+			return
+		}
+	}
 	if err := st.PutRegisteredClient(ctx, rc); err != nil {
 		rollback()
 		srvFail("store registration", err)
@@ -565,6 +582,7 @@ func (p *Provider) dcrRegister(w http.ResponseWriter, r *http.Request) {
 	created = true
 
 	v := p.dcrView(rl, stored, rc)
+	dcrAuthView(v, n.auth)
 	v["registration_access_token"] = regTok
 	if secret != "" {
 		v["client_secret"] = secret
@@ -630,7 +648,17 @@ func (p *Provider) dcrRead(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, p.dcrView(rl, cl, rc))
+	v := p.dcrView(rl, cl, rc)
+	cur, found, err := p.clientAuthConfig(r.Context(), rl.Name, cl)
+	if err != nil {
+		p.cfg.Logger.Error("oidc: dcr client authentication", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "server_error"})
+		return
+	}
+	if found {
+		dcrAuthView(v, &cur)
+	}
+	writeJSON(w, http.StatusOK, v)
 }
 
 // dcrUpdate replaces the client's metadata (RFC 7592 section 2.2). Nothing is
@@ -671,10 +699,37 @@ func (p *Provider) dcrUpdate(w http.ResponseWriter, r *http.Request) {
 		fail(metaErr("the client cannot switch between public and confidential"))
 		return
 	}
+	cur, found, err := p.clientAuthConfig(ctx, rl.Name, cl)
+	if err != nil {
+		p.cfg.Logger.Error("oidc: dcr client authentication", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "server_error"})
+		return
+	}
+	if found && core.StrongClientAuth(cur.Method) && !core.StrongClientAuth(n.reg.TokenAuthMethod) {
+		fail(metaErr("a client that authenticates with a key or certificate cannot switch to a secret"))
+		return
+	}
+	if found && cur.CertBoundTokens && (n.auth == nil || !n.auth.CertBoundTokens) {
+		fail(metaErr("certificate-bound access tokens cannot be switched off through registration management"))
+		return
+	}
+	if e := p.dcrAuthAvailable(n.auth); e != nil {
+		fail(e)
+		return
+	}
 	next := cl
 	next.Name, next.RedirectURIs, next.AuthCodeFlow, next.ServiceAccount = n.client.Name, n.client.RedirectURIs, n.client.AuthCodeFlow, n.client.ServiceAccount
 	next.DeviceFlow = n.client.DeviceFlow
 	next.RequirePKCE, next.BackchannelLogoutURI = n.client.RequirePKCE, n.client.BackchannelLogoutURI
+	if core.StrongClientAuth(n.reg.TokenAuthMethod) {
+		next.SecretHash = "" // no secret is left behind to fall back to
+	}
+	// Settings first: if the next write fails the stricter method already holds.
+	if err := p.dcrApplyAuth(ctx, rl.Name, cl, n.auth); err != nil {
+		p.cfg.Logger.Error("oidc: dcr update client authentication", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "server_error"})
+		return
+	}
 	if err := p.cfg.Store.UpdateClient(ctx, next); err != nil {
 		p.cfg.Logger.Error("oidc: dcr update client", "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "server_error"})
@@ -689,7 +744,9 @@ func (p *Provider) dcrUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.dcrEvent(r, rl, "CLIENT_UPDATE_REGISTRATION", cl.ClientID, "")
-	writeJSON(w, http.StatusOK, p.dcrView(rl, next, rc))
+	v := p.dcrView(rl, next, rc)
+	dcrAuthView(v, n.auth)
+	writeJSON(w, http.StatusOK, v)
 }
 
 // dcrDelete removes the client and its registration record. Codes and tokens
