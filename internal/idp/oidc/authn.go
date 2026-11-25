@@ -43,7 +43,7 @@ const (
 	maxACRValues  = 10
 	maxClaimsLen  = 4096
 	maxACRBytes   = 1024 // all requested values together: they ride in token strings
-	maxAuthnBytes = 4096 // decoded token context
+	maxAuthnBytes = 8192 // decoded token context (JSON may escape each value byte sixfold)
 )
 
 func init() {

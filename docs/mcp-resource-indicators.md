@@ -64,7 +64,8 @@ other client of the realm uses `resources`; a realm that is not listed allows no
 ## How the grant is remembered (security properties)
 
 No schema change: the granted set rides inside the code strings themselves. An authorization code, device code
-and refresh token is `<random>~<base64url(resources)>` and **only the sha256 of the whole string is stored**.
+and refresh token is `<random>~<base64url(resources)>` (codes and refresh tokens add `~<context>`, the authentication
+context of [step-up-acr.md](step-up-acr.md)) and **only the sha256 of the whole string is stored**.
 Consequences:
 
 * The set cannot be altered: changing the suffix changes the hash, so a forged code or refresh token is just an

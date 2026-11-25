@@ -78,7 +78,7 @@ A request object is a compact JWS in `request` (at `/par`, or directly at `/auth
 | `iss` | equals the client_id; a `client_id` member must match too |
 | `aud` | contains the issuer URL of the realm (`BaseURL/realms/{realm}`) |
 | `exp`, `nbf` | **both required**; `exp` not in the past (60 s skew), `nbf` not in the future (60 s skew), `exp - nbf` at most 1 hour, `exp` after `nbf` |
-| content | no `request` or `request_uri` member; only the usual authorization parameters are read; values must be strings (numbers only for `max_age`, an array only for `authorization_details`); duplicate member names are refused |
+| content | no `request` or `request_uri` member; only the usual authorization parameters are read; values must be strings (numbers only for `max_age`; an array only for `authorization_details` and `resource`; an object only for `claims`); `acr_values`, `claims` ([step-up-acr.md](step-up-acr.md)) and `resource` ([mcp-resource-indicators.md](mcp-resource-indicators.md)) are carried as at `/auth`; duplicate member names are refused |
 | failure | always the same opaque `invalid_request_object` (PAR) or an HTML error page (`/auth`); the reason is never given to the caller |
 
 Not done for JAR: `jwks_uri` (no remote key fetch, so no SSRF surface), encrypted request objects (JWE), a `jti`
