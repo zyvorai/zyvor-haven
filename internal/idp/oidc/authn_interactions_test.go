@@ -419,6 +419,13 @@ func TestInteractionUntickingGroupsRemovesTheClaim(t *testing.T) {
 	if st != 400 || o["error"] != "invalid_scope" {
 		t.Fatalf("groups added on refresh: %d %v", st, o)
 	}
+	// The line about groups is translated like every other one.
+	for lang, want := range map[string]string{"de": "zu welchen Gruppen", "hi": "किन समूहों"} {
+		l := authQuery(map[string]string{"scope": "openid groups", "prompt": "consent", "ui_locales": lang})
+		if body := b.authorize(l).Body.String(); !strings.Contains(body, want) || strings.Contains(body, "read which groups") {
+			t.Fatalf("%s: %s", lang, body)
+		}
+	}
 	// Ticked: shared, and withdrawing it later ends the tokens that carry it.
 	all := appToken(t, e.h, consentCodeOf(t, consentFlow(t, b, q, "groups", "offline_access")))
 	if fmt.Sprint(claimsOf(t, all["id_token"].(string))["groups"]) != "[ops]" {

@@ -351,4 +351,6 @@ var catalogDE = map[string]string{ // #nosec G101 -- translated page text; no cr
 	"(required)": "(erforderlich)",
 	"Tick at least one permission, or press Deny.":                                                           "Wählen Sie mindestens eine Berechtigung aus oder drücken Sie auf Ablehnen.",
 	"This request asks for a stronger sign-in than your account can provide here, so it cannot be approved.": "Diese Anfrage verlangt eine stärkere Anmeldung, als Ihr Konto hier bieten kann, und kann daher nicht zugelassen werden.",
+	"read which groups you belong to":                                                                        "lesen, zu welchen Gruppen Sie gehören",
+	"See which groups you belong to":                                                                         "Sehen, zu welchen Gruppen Sie gehören",
 }

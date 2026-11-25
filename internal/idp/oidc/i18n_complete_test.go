@@ -49,7 +49,7 @@ var localizedFiles = []string{
 	"fallback.go", "fapi.go", "federation.go", "logout.go", "mfa.go", "mfa_account.go", "mfa_login.go",
 	"passkeys.go", "passkeys_account.go", "stepup.go", "ui.go", "../mail/templates.go",
 	"frontchannel.go", "passkeyonly.go", "sessioncontrols.go",
-	"authn.go",
+	"authn.go", "groupsclaim.go",
 }
 
 func walk(n parse.Node, f func(parse.Node)) {
