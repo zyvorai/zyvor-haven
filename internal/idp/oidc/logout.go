@@ -25,6 +25,7 @@ var logoutTmpl = template.Must(template.New("logout").Parse(withTheme(`<!doctype
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 {{range .Hidden}}<input type="hidden" name="{{.K}}" value="{{.V}}">
 {{end}}<button type="submit">{{.L.T "Sign out"}}</button></form>
+<p class="sub"><a href="../../account">{{.L.T "Manage your account instead"}}</a></p>
 </main></body></html>`)))
 
 type hiddenField struct{ K, V string }

@@ -339,4 +339,10 @@ var catalogHI = map[string]string{ // #nosec G101 -- translated page text; no cr
 	"Your sign-in is older than 10 minutes. Confirm your password, or use a passkey, to add or remove passkeys.": "आपका साइन इन 10 मिनट से पुराना है। पासकी जोड़ने या हटाने के लिए पासवर्ड की पुष्टि करें या पासकी का उपयोग करें।",
 	"That passkey could not confirm it is you. Try again.":                                                       "यह पासकी पुष्टि नहीं कर सकी कि यह आप ही हैं। दोबारा कोशिश करें।",
 	"This account confirms with a passkey, not with a password.":                                                 "यह खाता पासवर्ड से नहीं, पासकी से पुष्टि करता है।",
+
+	// ---- links to the account console and its notice (the console itself is English) ----
+	"Back to your account":         "अपने खाते पर वापस जाएँ",
+	"Manage your account instead":  "इसके बजाय अपना खाता प्रबंधित करें",
+	"Review your account activity": "अपने खाते की गतिविधि देखें",
+	"your account page":            "आपका खाता पेज",
 }

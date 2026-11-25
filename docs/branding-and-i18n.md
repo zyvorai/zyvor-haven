@@ -211,6 +211,7 @@ Included in `haven-idp dev --persist` snapshots.
 ## Not yet
 
 * Review of the German and Hindi text by native speakers; further languages; a per-user language.
+* The [account console](account-console.md) is branded but not translated (the links to it are).
 * PNG or other bitmap logos, SVG gradients or text, a favicon, background images, custom fonts or CSS.
 * The authenticator-app (TOTP) issuer name and the passkey relying-party name still use the realm's own names.
 * Only the accent colour is configurable; the hero gradient and background are not.

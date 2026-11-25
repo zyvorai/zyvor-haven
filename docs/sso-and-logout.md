@@ -68,7 +68,8 @@ login creates a session, after every factor has been satisfied.
   logout sent, a Shared Signals `session-revoked` event, and a `LOGOUT` audit event with detail
   `session_limit`. There is no front-channel logout (that browser is not there).
 - `deny_new`: the new login is refused with a "Too many sessions" page and nothing existing is
-  touched. The user has to sign out elsewhere, wait for a session to expire, or ask an administrator.
+  touched. The user has to sign out elsewhere (also on the [account page](account-console.md), from a
+  browser that is still signed in), wait for a session to expire, or ask an administrator.
   Combined with "keep me signed in" this can keep a user out for days.
 - A browser signing in again replaces its own session and does not count against itself.
 - The count and the insert are one atomic step in the store (in PostgreSQL a transaction-level
@@ -86,8 +87,11 @@ both bounded as above, and the cookie expires with the session. Unticked, nothin
   to the authorization request, and also applies to the passkey button and passkey autofill.
 - Turning the option off, or shortening the maximum, applies **at once** to existing remembered
   sessions: they stop working for single sign-on and for their (non-offline) refresh tokens. A
-  shorter idle window applies from their next use. (They may still be listed by the Admin API until
-  purged or until a new login of that user clears them under a session limit.)
+  shorter idle window applies from their next use. The [account page](account-console.md) stops
+  listing them. (The Admin API may still list them until they are purged or a new login of that user
+  clears them under a session limit.)
+- Changing the password on the account page renews the cookie of a remembered session and keeps its
+  lifetime.
 - Federated sign-in has no checkbox and always gets the ordinary lifetime.
 - Step-up policy, `max_age`, `prompt=login` and the 10 minute re-authentication of account pages are
   unaffected: a remembered session is not a recent login.
@@ -177,8 +181,8 @@ that block third-party cookies or partition storage may give the framed page non
 application's cookies; applications should use `sid` to end the session server side, or rely on
 back-channel logout, which stays the dependable mechanism. A framed page that redirects to another
 origin is blocked. The application must allow itself to be framed by the identity server. Sessions
-ended by an administrator, the session limit, a password reset or a cross-site POST logout (no cookie)
-get back-channel logout only.
+ended by an administrator, the session limit, a password reset or change, a sign-out of another
+session on the account page, or a cross-site POST logout (no cookie) get back-channel logout only.
 
 ## What ends a session
 

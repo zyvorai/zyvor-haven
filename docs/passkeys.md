@@ -247,8 +247,9 @@ A store without it does not have the option.
 - Attestation formats beyond `none` and packed self attestation. There is no FIDO
   Metadata Service, no enterprise attestation and no certificate chain validation.
 - Enrolment enforcement; passkey-only accounts (password removal).
-- Passkey re-authentication on the other account pages (TOTP, email change), and
-  a way to reach the account page without first signing in through an application.
+- Passkey re-authentication on the other account pages (TOTP, email change, the
+  [account console](account-console.md)), and a way to reach the account page
+  without first signing in through an application.
 - Requiring a discoverable credential at registration.
 - Config as code and console support for the passkey policies.
 - Non-minimal CBOR integer encodings are tolerated; algorithms other than ES256,

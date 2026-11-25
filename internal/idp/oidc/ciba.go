@@ -490,7 +490,8 @@ type cibaView struct {
 	Scopes, Resources                        []string
 	IP, When, Ago                            string
 	Approved                                 bool
-	L                                        Loc // ui.go
+	L                                        Loc    // ui.go
+	Account                                  string // account console, on the done page
 }
 
 var cibaTmpl = template.Must(template.New("ciba").Parse(withTheme(`<!doctype html>
@@ -515,6 +516,7 @@ var cibaTmpl = template.Must(template.New("ciba").Parse(withTheme(`<!doctype htm
 {{else}}
 {{if .Approved}}<p>{{.L.T "You approved the request. You can close this window."}}</p>
 {{else}}<p>{{.L.T "You denied the request. Nothing was shared. You can close this window."}}</p>{{end}}
+{{if .Account}}<p class="sub"><a href="{{.Account}}/activity">{{.L.T "Review your account activity"}}</a></p>{{end}}
 {{end}}
 </main></body></html>`)))
 
@@ -525,6 +527,9 @@ func (p *Provider) cibaRender(w http.ResponseWriter, rl core.Realm, status int, 
 	v.Realm = v.L.RealmName(rl)
 	v.Title = v.L.T(v.Title)
 	v.Action = keepUILocales(w, p.cibaURL(rl.Name)+"/approve")
+	if v.Mode == "done" {
+		v.Account = p.accountLink(rl.Name)
+	}
 	if v.Mode == "approve" {
 		csrf := p.newCSRF(rl.Name)
 		v.CSRF = csrf

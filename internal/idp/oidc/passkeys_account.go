@@ -503,4 +503,5 @@ var pkAcctTmpl = template.Must(template.New("pkacct").Parse(withTheme(`<!doctype
 <button type="button">{{.L.T "Confirm with a passkey"}}</button><p class="err pk-err" role="alert" hidden></p></form>
 {{if not .Password}}<p class="err pk-no" role="alert" hidden>{{.L.T "This browser does not support passkeys."}}</p>{{end}}
 <script nonce="{{.Nonce}}">{{.Script}}</script>{{end}}{{end}}
+<p class="sub"><a href="../account">{{.L.T "Back to your account"}}</a></p>
 </main></body></html>`)))

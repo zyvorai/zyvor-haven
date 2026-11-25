@@ -57,7 +57,8 @@ const acctBody = `{{with .Data}}{{if .Codes}}` + `<p class="err"><strong>{{$.L.T
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="disable">
 <label for="dc">{{$.L.T "Current code or a recovery code"}}</label><input id="dc" name="code" autocomplete="one-time-code" required maxlength="64">` + acctPW + `
 <button type="submit" class="secondary">{{$.L.T "Turn off two-step verification"}}</button></form>
-{{end}}{{end}}{{end}}`
+{{end}}{{end}}{{end}}
+<p class="sub"><a href="../account">{{$.L.T "Back to your account"}}</a></p>`
 
 func (p *Provider) accountTOTP(w http.ResponseWriter, r *http.Request) {
 	rl, ok := p.realm(r.Context(), r.PathValue("realm"))

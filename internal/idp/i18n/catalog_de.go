@@ -339,4 +339,10 @@ var catalogDE = map[string]string{ // #nosec G101 -- translated page text; no cr
 	"Your sign-in is older than 10 minutes. Confirm your password, or use a passkey, to add or remove passkeys.": "Ihre Anmeldung ist älter als 10 Minuten. Bestätigen Sie Ihr Passwort oder verwenden Sie einen Passkey, um Passkeys hinzuzufügen oder zu entfernen.",
 	"That passkey could not confirm it is you. Try again.":                                                       "Mit diesem Passkey konnte Ihre Identität nicht bestätigt werden. Versuchen Sie es erneut.",
 	"This account confirms with a passkey, not with a password.":                                                 "Dieses Konto bestätigt mit einem Passkey, nicht mit einem Passwort.",
+
+	// ---- links to the account console and its notice (the console itself is English) ----
+	"Back to your account":         "Zurück zu Ihrem Konto",
+	"Manage your account instead":  "Stattdessen Ihr Konto verwalten",
+	"Review your account activity": "Kontoaktivität ansehen",
+	"your account page":            "Ihre Kontoseite",
 }

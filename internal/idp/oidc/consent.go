@@ -411,7 +411,8 @@ const consentAcctBody = `{{with .Data}}{{if .Info}}<p class="sub">{{$.L.T .Info}
 <span class="sub">{{$.L.T "Scopes: %s" .Scopes}}{{if .Resources}}<br>{{$.L.T "Services: %s" .Resources}}{{end}}<br>{{$.L.T "Allowed %s, expires %s" .Granted .Expires}}</span></p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="revoke"><input type="hidden" name="grant_id" value="{{.ID}}">
 <button type="submit" class="secondary">{{$.L.T "Revoke access"}}</button></form></div>{{end}}
-{{if .History}}<p class="sub"><strong>{{$.L.T "Recent activity"}}</strong></p><ul>{{range .History}}<li class="sub">{{.When}}: {{$.L.T .Type}} {{.Client}}{{if .Scopes}} ({{.Scopes}}){{end}}{{if .By}} {{$.L.T "by %s" .By}}{{end}}</li>{{end}}</ul>{{end}}{{end}}`
+{{if .History}}<p class="sub"><strong>{{$.L.T "Recent activity"}}</strong></p><ul>{{range .History}}<li class="sub">{{.When}}: {{$.L.T .Type}} {{.Client}}{{if .Scopes}} ({{.Scopes}}){{end}}{{if .By}} {{$.L.T "by %s" .By}}{{end}}</li>{{end}}</ul>{{end}}{{end}}
+<p class="sub"><a href="../account">{{$.L.T "Back to your account"}}</a></p>`
 
 func (p *Provider) accountConsents(w http.ResponseWriter, r *http.Request) {
 	rl, ok := p.realm(r.Context(), r.PathValue("realm"))

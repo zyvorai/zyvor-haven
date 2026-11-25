@@ -57,7 +57,8 @@ const ecBody = `{{with .Data}}{{if .Done}}<p class="sub">{{$.L.T .Info}}</p>
 <label for="ne">{{$.L.T "New email address"}}</label><input id="ne" name="email" type="email" autocomplete="email" required maxlength="254">
 <label for="pw">{{$.L.T "Password (to confirm it is you)"}}</label><input id="pw" name="password" type="password" autocomplete="current-password" required maxlength="1024">
 <button type="submit">{{$.L.T "Send confirmation link"}}</button></form>
-{{end}}{{end}}`
+{{end}}{{end}}
+<p class="sub"><a href="../account">{{$.L.T "Back to your account"}}</a></p>`
 
 const ecConfirmBody = `{{with .Data}}<p class="sub">{{$.L.T "Press the button to make this your new email address."}}</p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="token" value="{{.Token}}">
