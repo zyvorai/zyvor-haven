@@ -383,7 +383,7 @@ func (p *Provider) pkAssert(w http.ResponseWriter, r *http.Request, ar *authzReq
 	if mode == "2fa" {
 		detail = "passkey_2fa"
 	}
-	p.completeLogin(w, r, ar, u, detail)
+	p.completeLogin(w, r.WithContext(context.WithValue(ctx, uvCtxKey{}, res.UserVerified)), ar, u, detail) // authn.go
 }
 
 // pkShort is a log-friendly prefix of a credential id (ids are public values).

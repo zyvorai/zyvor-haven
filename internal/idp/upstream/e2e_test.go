@@ -77,6 +77,7 @@ type fedOpts struct {
 	cfg        map[string]string // merged over the default provider config
 	trustEmail *bool
 	alias      string
+	resources  oidc.ResourceAllowList
 }
 
 func newFed(t *testing.T, o fedOpts) *fed {
@@ -114,7 +115,7 @@ func newFed(t *testing.T, o fedOpts) *fed {
 	log := slog.New(slog.NewTextHandler(f.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	mux := http.NewServeMux()
 	mux.Handle("/realms/", oidc.New(oidc.Config{Store: f.st, Signer: sg, Hasher: h, BaseURL: f.srv.URL, Clock: clock,
-		Logger: log, SecretBox: f.box, Federation: f.mgr, CSRFKey: []byte("0123456789abcdef0123456789abcdef")}))
+		Logger: log, SecretBox: f.box, Federation: f.mgr, CSRFKey: []byte("0123456789abcdef0123456789abcdef"), Resources: o.resources}))
 	mux.Handle("/admin/v1/", admin.New(admin.Config{Store: f.st, Signer: sg, Hasher: h, BaseURL: f.srv.URL,
 		AdminRealm: adminRealm, SecretBox: f.box, Logger: log, Clock: clock, AllowPrivateUpstreams: !o.strictIP}))
 	handler = mux

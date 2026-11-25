@@ -34,11 +34,13 @@ the token endpoint (`client_secret_basic` or `client_secret_post`). Public clien
 | `login_hint` | required: the user's username or email address. At most 256 characters. |
 | `scope` | required, must include `openid`; from `openid profile email roles`. `offline_access` is rejected (see below). |
 | `binding_message` | optional, at most 128 characters, no control or formatting characters (newlines, bidi overrides). Shown to the user on the approval page and in the email, labelled as coming from the application. |
-| `resource` | optional, repeatable (at most 5): absolute `http(s)` URIs without fragment or userinfo (RFC 8707 indicators). Shown to the user. |
+| `resource` | optional, repeatable (at most 5): [RFC 8707 resource indicators](mcp-resource-indicators.md) on the client's allow-list (canonical `https`). Shown to the user and **bound into the access token's `aud`**. |
+| `acr_values` | optional, at most 512 characters: the approver's sign-in must reach one of these [levels](step-up-acr.md). `claims` is refused. |
 | `requested_expiry` | optional, 1 to 600 seconds; default 120. |
 
 Rejected with `invalid_request`: `login_hint_token`, `id_token_hint`, `user_code`, `request`, `request_uri` (not
-supported). Other errors: `invalid_scope`, `invalid_binding_message`, `invalid_target`, `unauthorized_client`
+supported). Other errors: `invalid_scope`, `invalid_binding_message`, `invalid_target` (a resource that is invalid or
+not allowed for the client), `unmet_authentication_requirements` (no requested level exists), `unauthorized_client`
 (client not opted in, or public), `invalid_client` (bad credentials), `slow_down` with HTTP 429 (rate limit),
 `feature_unavailable` with HTTP 501 (store or mail missing).
 
@@ -60,6 +62,10 @@ request's real scope, so "sensitive scope" rules apply) all run. A sign-in more 
 count, even if the SSO session is alive. Only the user the request was addressed to can decide; another account
 gets a 403 page.
 
+With `acr_values`, that login demands the level ([step-up-acr.md](step-up-acr.md)): the user is taken through the
+factor that reaches it, and a sign-in that does not reach it can neither see the approval page nor decide. A user
+who cannot reach it gets an error page and the request expires unanswered.
+
 The approval page shows the client, the user, a plain-language list of scopes, the binding message, the requested
 resources, the network address the request came from and when, and a warning. Approve and Deny are CSRF-protected
 POSTs. Approving adds the client to the SSO session, so ending that session (logout, admin revoke) invalidates
@@ -78,7 +84,12 @@ what the agent received, as for the device flow.
 | `expired_token` | the request expired |
 | `invalid_grant` | unknown, used, or another client's `auth_req_id`; user disabled or session ended since |
 | `unauthorized_client` | CIBA was switched off for the client, or it is public |
+| `invalid_target` | `resource` asks for more than was approved, or the approved resources left the allow-list; the request is not consumed |
 | `200` | `access_token` and `id_token`, **no refresh token** |
+
+The access token's `aud` is `[client_id, resource...]` for the approved resources (the token request may narrow them
+with `resource`). Both tokens carry the approver's `acr`, `amr` and `auth_time`; with `acr_values` the level is
+checked again at this point against the realm's current ladder (`invalid_grant` if it no longer holds).
 
 Tokens are issued once: the row is deleted by the request that issues them.
 
@@ -139,11 +150,10 @@ and re-created `clientId` starts switched off. See `internal/idp/admin/SPEC.md`.
 - **No push notifications** to a phone or authenticator app: the approval request is an email link. An attacker with
   access to the user's mailbox still needs the user's password and second factor to approve, but email delay and
   phishing-style lookalikes are real limits of this channel.
-- **Requested resources are shown, not enforced.** `resource` values are recorded and shown to the approver, but the
-  issued access token's `aud` is still the client id. A resource server must not treat the displayed resources as a
-  token restriction. (Making them the audience needs a change in the shared token issuer.)
+- The approver cannot narrow scopes or resources on the approval page: approve all or deny.
 - **`login_hint_token`, `id_token_hint`, `user_code`, signed authentication requests** are rejected.
-- No `acr_values`; the binding message is not verified by anyone (it is shown labelled as the application's).
+- The approval page does not say which sign-in level was demanded.
+- The binding message is not verified by anyone (it is shown labelled as the application's).
 - No admin view of pending requests, no per-client lifetime or scope limits, no per-user opt-out.
 - The hint lookup for email addresses scans a user search (capped); realms with very many users should hint by username.
 - The in-memory (dev) store does not persist CIBA state across restarts.

@@ -202,6 +202,12 @@ func (p *Provider) deviceAuthorize(w http.ResponseWriter, r *http.Request) {
 	if sc == "" {
 		sc = "openid"
 	}
+	// A device request cannot demand an authentication level: ignoring it would
+	// hand out tokens weaker than asked for.
+	if r.PostForm.Has("acr_values") || r.PostForm.Has("claims") {
+		p.deviceError(w, http.StatusBadRequest, "invalid_request", "acr_values and claims are not supported in the device flow")
+		return
+	}
 	res, rerr := p.authzResources(name, cl.ClientID, r.PostForm["resource"]) // resources.go
 	if rerr != nil {
 		p.deviceError(w, http.StatusBadRequest, "invalid_target", rerr.Error())
@@ -301,6 +307,12 @@ func (p *Provider) grantDevice(r *http.Request, rl core.Realm, cl core.Client, _
 		return nil, terr
 	}
 	r = withResources(r, aud, kept)
+	authn, _, err := p.sessionGrant(ctx, rl.Name, d.SessionID, d.AuthTime, core.ACRRequirement{}) // authn.go
+	if err != nil {
+		p.cfg.Logger.Error("oidc: authentication context", "err", err)
+		return nil, &tokenErr{http.StatusInternalServerError, "server_error", "temporary error"}
+	}
+	r = withAuthn(r, authn)
 	// Single use: whoever deletes the row issues the tokens.
 	d, err = ds.ConsumeDeviceCode(ctx, rl.Name, cl.ClientID, hash, now)
 	if err != nil {

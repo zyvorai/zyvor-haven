@@ -172,6 +172,7 @@ func (s *Store) DeleteRealm(_ context.Context, name string) error {
 	s.stepUpDropRealm(n)  // stepup.go
 	s.scimDropRealm(n)    // scim.go
 	s.consentDropRealm(n) // consent.go
+	s.authnDropRealm(n)   // authn.go
 	for k, v := range s.sess {
 		if v.Realm == n {
 			delete(s.sess, k)

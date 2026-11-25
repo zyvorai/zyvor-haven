@@ -103,7 +103,8 @@ credential signal, no device attestation, no behavioural or ML scoring, no per-c
 - Device-flow (RFC 8628) logins use the normal login page and so get the interactive behaviour.
 - Refresh-token use and back-channel calls are not re-evaluated; a step-up decision applies only at
   `/auth`.
-- ID tokens carry no `acr`/`amr` showing that step-up happened.
+- Tokens show how the user signed in (`acr`, `amr`) but not that this risk policy was the reason; what a
+  client can demand itself is in [step-up-acr.md](step-up-acr.md).
 
 ## Admin API
 
@@ -126,7 +127,7 @@ Audit events (when the realm logs auth events): `STEPUP_REQUIRED` / `STEPUP_REPO
 
 ## Not yet
 
-Per-client or per-user rules, `acr`/`amr` claims, step-up for refresh tokens or token exchange, federated
+Per-client or per-user rules, risk step-up for refresh tokens or token exchange, federated
 logins, a user-visible "your devices" page or new-device email notification, geo/ASN/reputation signals,
 a trusted-device lifetime separate from the cookie lifetime, an admin view of fallback usage beyond audit events.
 Verified with software authenticators and unit tests; a real passkey was not used for the fallback round trip.

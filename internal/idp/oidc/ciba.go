@@ -53,10 +53,11 @@ const (
 	// sensitive act; a day-old SSO session is not enough).
 	cibaAuthFresh = 5 * time.Minute
 
-	cibaMaxHint     = 256
-	cibaMaxBinding  = 128 // runes
-	cibaMaxResource = 5
-	cibaMaxURILen   = 256
+	cibaMaxHint    = 256
+	cibaMaxBinding = 128 // runes
+	// cibaMaxACR bounds acr_values: they ride inside both handles and the
+	// signed login state.
+	cibaMaxACR = 512
 
 	cibaCSRFCookie   = "haven_ciba_csrf"
 	cibaStatePurpose = "ciba-login"
@@ -162,19 +163,6 @@ func cibaDisplay(s string, max int) string {
 	return strings.TrimSpace(b.String())
 }
 
-// validResource accepts an RFC 8707 resource indicator: an absolute http(s)
-// URI without fragment.
-func validResource(s string) bool {
-	if s == "" || len(s) > cibaMaxURILen {
-		return false
-	}
-	if t, ok := cibaText(s, cibaMaxURILen); !ok || t != s {
-		return false
-	}
-	u, err := url.Parse(s)
-	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.Fragment == "" && u.User == nil
-}
-
 // ---- backchannel authentication endpoint ----
 
 func (p *Provider) cibaAuthorize(w http.ResponseWriter, r *http.Request) {
@@ -263,18 +251,32 @@ func (p *Provider) cibaAuthorize(w http.ResponseWriter, r *http.Request) {
 		bad("invalid_binding_message", "binding_message is too long or contains control characters")
 		return
 	}
-	resources := r.PostForm["resource"]
-	if len(resources) > cibaMaxResource {
-		bad("invalid_target", "too many resource parameters")
+	// The resources become the audience of the tokens (resources.go): the same
+	// canonical form and client allow-list as at /auth.
+	resources, rerr := p.authzResources(name, cl.ClientID, r.PostForm["resource"])
+	if rerr != nil {
+		bad("invalid_target", rerr.Error())
 		return
 	}
-	for _, res := range resources {
-		if !validResource(res) {
-			bad("invalid_target", "resource must be an absolute http(s) URI without fragment")
-			return
-		}
+	// acr_values binds the approver's sign-in (authn.go). "claims" is not part
+	// of CIBA: ignoring a demand would hand out weaker tokens, so refuse it.
+	if r.PostForm.Has("claims") {
+		bad("invalid_request", "claims is not supported; use acr_values")
+		return
 	}
-	resources = dedupe(resources)
+	acrValues, aerr := parseACRValues(r.PostForm)
+	if aerr != nil || len(r.PostForm.Get("acr_values")) > cibaMaxACR {
+		bad("invalid_request", "acr_values is malformed, repeated or too long")
+		return
+	}
+	var demand grantAuthn
+	if len(acrValues) > 0 {
+		demand.Req = [][]string{acrValues}
+	}
+	if code, desc := p.acrPossible(ctx, name, demand.requirement()); code != "" {
+		bad(code, desc)
+		return
+	}
 	ttl := cibaDefaultTTL
 	if v := r.PostForm.Get("requested_expiry"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -307,7 +309,8 @@ func (p *Provider) cibaAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	now := p.now()
 	_, _ = cs.PurgeExpiredCIBA(ctx, now) // housekeeping; expired rows are harmless anyway
-	authReq, approval := randToken(32), randToken(32)
+	// Both handles carry the demanded level; only their hashes are stored.
+	authReq, approval := randToken(32)+encodeSuffix(nil, demand), randToken(32)+encodeSuffix(nil, demand)
 	row := core.CIBARequest{
 		AuthReqHash: HashSecret(authReq), ApprovalHash: HashSecret(approval), Realm: name, ClientID: cl.ClientID,
 		Scope: sc, Binding: binding, Resources: resources, Status: core.CIBAPending, RequestIP: ip,
@@ -330,16 +333,6 @@ func (p *Provider) cibaAuthorize(w http.ResponseWriter, r *http.Request) {
 		"expires_in":  int(ttl.Seconds()),
 		"interval":    cibaInterval,
 	})
-}
-
-func dedupe(in []string) []string {
-	var out []string
-	for _, s := range in {
-		if !slices.Contains(out, s) {
-			out = append(out, s)
-		}
-	}
-	return out
 }
 
 // cibaResolve maps a login_hint (username, or email address) to the user the
@@ -430,7 +423,7 @@ func (p *Provider) grantCIBA(r *http.Request, rl core.Realm, cl core.Client, con
 		return nil, oerr("unauthorized_client", "client may not use this grant")
 	}
 	id := r.PostForm.Get("auth_req_id")
-	if id == "" || len(id) > 256 {
+	if id == "" || len(id) > maxTokenLen {
 		return nil, oerr("invalid_request", "auth_req_id is required")
 	}
 	hash := HashSecret(id)
@@ -460,6 +453,25 @@ func (p *Provider) grantCIBA(r *http.Request, rl core.Realm, cl core.Client, con
 	default:
 		return nil, bad
 	}
+	// Audience and authentication level are settled before the request is
+	// consumed, so a mistaken token request does not burn the approval.
+	aud, kept, terr := p.resolveResources(r, rl, cl, d.Resources, false)
+	if terr != nil {
+		return nil, terr
+	}
+	demand, dok := decodeAuthn(id)
+	if !dok {
+		return nil, bad
+	}
+	authn, met, err := p.sessionGrant(ctx, rl.Name, d.SessionID, d.AuthTime, demand.requirement())
+	if err != nil {
+		p.cfg.Logger.Error("oidc: authentication context", "err", err)
+		return nil, &tokenErr{http.StatusInternalServerError, "server_error", "temporary error"}
+	}
+	if !met { // the ladder changed since the approval
+		return nil, oerr("invalid_grant", "the approver's sign-in no longer meets the requested authentication level")
+	}
+	r = withResources(withAuthn(r, authn), aud, kept)
 	// Single use: whoever deletes the row issues the tokens.
 	d, err = cs.ConsumeCIBA(ctx, rl.Name, cl.ClientID, hash, now)
 	if err != nil {
@@ -585,7 +597,7 @@ func (p *Provider) cibaLoad(w http.ResponseWriter, r *http.Request, rl core.Real
 		p.errorPage(w, http.StatusBadRequest, cibaNotValid)
 		return core.CIBARequest{}, core.Client{}, false
 	}
-	if token == "" || len(token) > 256 {
+	if token == "" || len(token) > maxTokenLen {
 		return notValid()
 	}
 	row, err := cs.GetCIBAByApproval(ctx, rl.Name, HashSecret(token))
@@ -610,9 +622,15 @@ func (p *Provider) cibaLoad(w http.ResponseWriter, r *http.Request, rl core.Real
 	return row, cl, true
 }
 
+// cibaDemand is the authentication level the approval token carries.
+func cibaDemand(token string) core.ACRRequirement {
+	g, _ := decodeAuthn(token) // the request was found by the hash of this token
+	return g.requirement()
+}
+
 // cibaApprover returns the signed-in user when they are the addressee and
-// signed in recently enough to decide.
-func (p *Provider) cibaApprover(w http.ResponseWriter, r *http.Request, rl core.Realm, row core.CIBARequest) (core.Session, core.User, bool, bool) {
+// signed in recently and strongly enough to decide.
+func (p *Provider) cibaApprover(w http.ResponseWriter, r *http.Request, rl core.Realm, row core.CIBARequest, token string) (core.Session, core.User, bool, bool) {
 	s, u, signedIn := p.deviceSessionUser(w, r, rl)
 	if !signedIn {
 		return s, u, false, false
@@ -622,6 +640,9 @@ func (p *Provider) cibaApprover(w http.ResponseWriter, r *http.Request, rl core.
 	}
 	if p.now().Sub(s.AuthTime) > cibaAuthFresh {
 		return s, u, false, false // stale: sign in again
+	}
+	if !p.acrMetBySession(r.Context(), &authzReq{realm: rl, acr: cibaDemand(token)}, s) {
+		return s, u, false, false // too weak: sign in with more
 	}
 	return s, u, true, false
 }
@@ -644,6 +665,9 @@ func (p *Provider) cibaLogin(w http.ResponseWriter, r *http.Request, rl core.Rea
 		"state":                 {p.signPending(rl.Name, "", cibaStatePurpose, token, 15*time.Minute)},
 		"code_challenge":        {base64.RawURLEncoding.EncodeToString(sum[:])},
 		"code_challenge_method": {"S256"},
+	}
+	if req := cibaDemand(token); !req.Empty() {
+		q.Set("acr_values", strings.Join(req.Sets[0], " ")) // CIBA carries one set
 	}
 	noStore(w)
 	http.Redirect(w, r, p.endpoint(rl.Name, "auth")+"?"+q.Encode(), http.StatusSeeOther)
@@ -705,7 +729,7 @@ func (p *Provider) cibaApprove(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s, u, fresh, wrong := p.cibaApprover(w, r, rl, row)
+	s, u, fresh, wrong := p.cibaApprover(w, r, rl, row, token)
 	if wrong {
 		p.errorPage(w, http.StatusForbidden, "This request is not addressed to the account you are signed in with.")
 		return
@@ -752,7 +776,7 @@ func (p *Provider) cibaShow(w http.ResponseWriter, r *http.Request, rl core.Real
 	if !ok {
 		return
 	}
-	_, u, fresh, wrong := p.cibaApprover(w, r, rl, row)
+	_, u, fresh, wrong := p.cibaApprover(w, r, rl, row, token)
 	switch {
 	case wrong:
 		p.errorPage(w, http.StatusForbidden, "This request is not addressed to the account you signed in with. Sign in as the account that received the email.")
@@ -778,6 +802,10 @@ func (p *Provider) cibaContinue(w http.ResponseWriter, r *http.Request) {
 		_, _ = p.cfg.Store.ConsumeAuthCode(r.Context(), HashSecret(code))
 	}
 	_, token, valid := p.checkPending(rl.Name, q.Get("state"), cibaStatePurpose)
+	if valid && q.Get("error") == errUnmetACR {
+		p.errorPage(w, http.StatusForbidden, "This request asks for a stronger sign-in than your account can provide here, so it cannot be approved.")
+		return
+	}
 	if !valid || q.Get("error") != "" {
 		p.errorPage(w, http.StatusBadRequest, "Sign-in did not complete. Open the link from your email again.")
 		return

@@ -30,7 +30,8 @@ import (
 // identifier on the allow-list of the client (ResourceAllowList), or the
 // request fails with invalid_target. The granted set is carried inside the
 // authorization code, device code and refresh token strings themselves
-// ("<random>~<base64url resources>"): only the sha256 of the whole string is
+// ("<random>~<base64url resources>", plus "~<context>" for the authentication
+// context of authn.go): only the sha256 of the whole string is
 // stored, so the set cannot be altered without invalidating the token, and no
 // schema change is needed. The access token's `aud` becomes
 // [client_id, resource...]; the client id stays so userinfo and introspection
@@ -247,8 +248,17 @@ func encodeResources(res []string) string {
 // decodeResources reads the set back out of a code or refresh token string the
 // store already recognised. ok is false for a malformed suffix.
 func decodeResources(tok string) (res []string, ok bool) {
-	_, enc, has := strings.Cut(tok, resSep)
-	if !has {
+	parts := strings.Split(tok, resSep)
+	if len(parts) == 1 {
+		return nil, true
+	}
+	// A third segment is the authentication context (authn.go); only then may
+	// the resource segment be empty.
+	if len(parts) > 3 {
+		return nil, false
+	}
+	enc := parts[1]
+	if enc == "" && len(parts) == 3 {
 		return nil, true
 	}
 	b, err := base64.RawURLEncoding.DecodeString(enc)

@@ -94,6 +94,17 @@ func cq(clientID string, over map[string]string) url.Values {
 
 var digestRe = regexp.MustCompile(`name="consent_proof" value="([^"]+)"`)
 
+// tickedRe matches the scope boxes a browser would submit: checked, not disabled.
+var tickedRe = regexp.MustCompile(`name="consent_scope" value="([^"]+)" checked>`)
+
+func tickedScopes(page string) []string {
+	var out []string
+	for _, m := range tickedRe.FindAllStringSubmatch(page, -1) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
 // authorize drives /auth: GET, log in when asked. It returns the response that
 // is NOT a login page (a consent page, a redirect, an error).
 func (b *browser) authorize(q url.Values) *httptest.ResponseRecorder {
@@ -119,7 +130,8 @@ func (b *browser) consentDecide(page *httptest.ResponseRecorder, q url.Values, d
 	if c == nil || d == nil {
 		b.e.t.Fatalf("not a consent page (%d): %s", page.Code, body)
 	}
-	return b.do("POST", base+"auth?"+q.Encode(), url.Values{"csrf": {c[1]}, "consent_proof": {d[1]}, "consent_decision": {decision}})
+	return b.do("POST", base+"auth?"+q.Encode(), url.Values{"csrf": {c[1]}, "consent_proof": {d[1]}, "consent_decision": {decision},
+		"consent_scope": tickedScopes(body)})
 }
 
 func isConsentPage(w *httptest.ResponseRecorder) bool {
@@ -566,7 +578,7 @@ func TestConsentDecisionSecurity(t *testing.T) {
 	}
 	good := func() url.Values {
 		c, d := csrfRe.FindStringSubmatch(w.Body.String()), digestRe.FindStringSubmatch(w.Body.String())
-		return url.Values{"csrf": {c[1]}, "consent_proof": {d[1]}, "consent_decision": {"allow"}}
+		return url.Values{"csrf": {c[1]}, "consent_proof": {d[1]}, "consent_decision": {"allow"}, "consent_scope": tickedScopes(w.Body.String())}
 	}
 	noCode := func(name string, r *httptest.ResponseRecorder, wantStatus int) {
 		t.Helper()

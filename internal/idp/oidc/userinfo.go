@@ -117,7 +117,13 @@ func (p *Provider) userinfo(w http.ResponseWriter, r *http.Request) {
 		p.bearerErr(w, http.StatusUnauthorized, "invalid_token")
 		return
 	}
-	out := map[string]any{"sub": u.ID, "preferred_username": u.Username}
+	out := map[string]any{"sub": u.ID}
+	// The token decides: it has no user name when the user withheld the profile
+	// scope on the consent screen.
+	if claimStr(c, "preferred_username") != "" {
+		out["preferred_username"] = u.Username
+	}
+	copyAuthnClaims(out, c, "acr", "auth_time") // authn.go
 	if slices.Contains(scopes, "email") {
 		out["email"], out["email_verified"] = u.Email, u.EmailVerified
 	}
@@ -189,8 +195,12 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 		}
 		out := map[string]any{"active": true, "token_type": "Bearer", "client_id": claimStr(c, "azp"),
 			"scope": claimStr(c, "scope"), "sub": claimStr(c, "sub"), "iss": claimStr(c, "iss"),
-			"aud": c["aud"], "jti": claimStr(c, "jti"), "username": claimStr(c, "preferred_username")}
-		if cnf, ok := c["cnf"]; ok { // DPoP-bound: the resource server checks the proof against cnf.jkt
+			"aud": c["aud"], "jti": claimStr(c, "jti")}
+		if n := claimStr(c, "preferred_username"); n != "" {
+			out["username"] = n
+		}
+		copyAuthnClaims(out, c, "acr", "auth_time", "amr") // RFC 9470 section 6.2
+		if cnf, ok := c["cnf"]; ok {                       // DPoP-bound: the resource server checks the proof against cnf.jkt
 			out["cnf"], out["token_type"] = cnf, "DPoP"
 		}
 		if ad, ok := c["authorization_details"]; ok { // RFC 9396, section 9.2
@@ -211,6 +221,17 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = cl
+	// A refresh token whose authentication level no longer satisfies the realm
+	// policy cannot be redeemed: it is not active.
+	authn, aok := decodeAuthn(tok)
+	if !aok {
+		writeJSON(w, http.StatusOK, inactive)
+		return
+	}
+	if rl, ok := p.realm(r.Context(), name); !ok || p.recheckGrant(r.Context(), rl, authn) != nil {
+		writeJSON(w, http.StatusOK, inactive)
+		return
+	}
 	cnf, cerr := p.dpopRefreshCnf(r.Context(), tok)
 	if cerr != nil { // cannot tell whether it is key-bound: fail closed
 		p.cfg.Logger.Error("oidc: introspect dpop binding", "err", cerr)
@@ -220,6 +241,12 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"active": true, "token_type": "refresh_token", "client_id": rt.ClientID,
 		"scope": rt.Scope, "sub": rt.UserID, "exp": rt.ExpiresAt.Unix(), "iat": rt.CreatedAt.Unix(),
 		"iss": p.issuer(name)}
+	if authn.ACR != "" {
+		out["acr"] = authn.ACR
+	}
+	if authn.AuthTime != 0 {
+		out["auth_time"] = authn.AuthTime
+	}
 	if cnf != nil {
 		out["cnf"] = cnf
 	}

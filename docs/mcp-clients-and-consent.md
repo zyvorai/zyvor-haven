@@ -69,7 +69,8 @@ Consent is asked, before a code is issued, for:
   never exempt a CIMD or dynamically registered client). Admin-created clients are not asked by default.
 
 The screen shows the client name, its identifier, the website it claims (unverified), the exact redirect URI the
-browser will return to, each requested scope in words, and the requested `resource` (RFC 8707) values. Buttons:
+browser will return to, the requested `resource` (RFC 8707) values, and each requested scope in words with a
+checkbox (see "Choosing scopes"). Buttons:
 Allow / Deny. Deny returns `access_denied` to the registered redirect URI; `prompt=none` returns `consent_required`
 (never a page); `prompt=consent` forces the screen even when a grant is remembered.
 
@@ -77,9 +78,31 @@ A remembered grant covers a later request only if all of these hold: it is activ
 default 90 days, `grantTtlSeconds`), the client's identity is unchanged (a fingerprint of client id, name and
 exact redirect URIs: a changed document asks again), and the request asks for no scope or resource beyond it.
 
-`resource` parameters are validated (absolute https URIs, no fragment, at most 16) and recorded in the grant and
-the receipt. Binding the `aud` of issued tokens to them is the job of the MCP resource-server work, not of this
-feature.
+### Choosing scopes
+
+Every requested scope starts ticked; the user can untick any of them except `openid`, which is shown as required.
+Allow grants exactly the ticked subset:
+
+* the code, the tokens, the refresh token and the token response's `scope` carry only that subset, and a refresh can
+  never widen it;
+* the grant records the subset; the receipt records it and, in `detail`, what was declined;
+* for a client that goes through this screen, claims follow the granted scopes: `realm_access.roles` is empty
+  without `roles`, and `preferred_username` is absent (ID token, access token, userinfo, introspection `username`)
+  without `profile`. This also applies when such a scope was simply not requested, so a client cannot get a declined
+  claim back by dropping the scope from its next request. Clients that are never asked for consent keep the previous
+  behaviour (roles and user name are always in the token);
+* a later request for a scope that was not granted shows the screen again (`prompt=none`: `consent_required`);
+* unticking a scope that an active grant already included also revokes the user's refresh tokens for that client
+  (access tokens already issued live until they expire);
+* a form that names a scope which was not requested is refused (`400`); with nothing ticked and no `openid` in the
+  request the screen asks again.
+
+### Resources
+
+`resource` values are checked against the client's [allow-list](mcp-resource-indicators.md) before any page is shown
+(`invalid_target` otherwise, at most 5), shown and recorded in canonical form, and **they are the audience of the
+issued access tokens** (`aud: [client_id, resource...]`). They cannot be unticked individually: deny the request
+instead.
 
 ### Security properties
 
@@ -157,8 +180,10 @@ request with it.
 
 * Loopback redirect URIs are matched exactly (RFC 8252 allows any port for loopback; a CIMD client with a random
   port must list the port it uses).
-* Consent is per client and user, not per scope or per resource server; the user cannot untick single scopes.
-* Granted `resource`s are recorded and shown but not yet bound into the issued token `aud`.
+* Resources are all or nothing on the screen; there is no per-resource choice and no per-resource scope.
+* A declined scope is not remembered as declined: a client that asks for it again shows the screen again.
+* The device flow and CIBA have their own approval pages without scope checkboxes, so their tokens are not limited
+  this way, even for a client that would be asked for consent in the browser flow.
 * No `software_statement`, signed metadata, `jwks`/`private_key_jwt` clients, or `logo_uri` display.
 * No ETag/conditional refetch of documents, no push invalidation; a changed document is picked up at cache expiry.
 * The kill switch cannot recall access tokens that were already issued; there is no per-token deny list.

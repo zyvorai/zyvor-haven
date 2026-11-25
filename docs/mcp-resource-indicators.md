@@ -18,6 +18,10 @@ A client sends `resource=<identifier>` (repeatable, at most 5) on:
 | token request, `authorization_code` | values may only **narrow** what the code was authorized for; none = the whole authorized set |
 | token request, `refresh_token` | same: may only narrow the original grant; the new refresh token keeps the **original** set, so a narrowed access token does not shrink the grant |
 | device authorization + device token request | same rules (the device code carries the set) |
+| pushed (PAR) and signed (JAR) authorization requests | same as the authorization request; PAR repeats the form field, a request object may use a string or an array |
+| brokered sign-in ("Continue with ...") | same as the authorization request: the resources are bound after the upstream login |
+| consent screen | shows and records the canonical values that the tokens will be bound to ([mcp-clients-and-consent.md](mcp-clients-and-consent.md)) |
+| CIBA backchannel request + CIBA token request | values must be on the client's allow-list; the token request may only narrow what the user approved ([ciba.md](ciba.md)) |
 | token request, `client_credentials` | values must be on the client's allow-list; none = a plain token |
 | token exchange, agent identities | unchanged: `resource`/`audience` must be one entry of the agent's own audience list ([agent-identities.md](agent-identities.md)); the client allow-list is not consulted |
 | token exchange / JWT bearer, workload identities | unchanged: `resource` is refused with `invalid_target` ([workload-identity.md](workload-identity.md)) |
@@ -126,8 +130,8 @@ pre-registered client, and sends `resource` on both requests.
 * No Admin API or UI for the allow-list and no per-realm persistence: the list is a file read at start (a
   persistent store would need a migration; the `ResourceAllowList` interface is the seam). Config as code
   (`validate/plan/apply`) does not know about it.
-* No user-facing consent for a resource: an administrator's allow-list is the only gate. The device flow approval
-  page does not show the resource.
+* The consent screen and the CIBA approval page show resources, all or nothing; clients that are not asked for
+  consent are gated by the allow-list alone. The device flow approval page does not show the resource.
 * Loopback redirect URIs are matched exactly: MCP desktop clients that pick a random local port must register the
   URIs they use (RFC 8252 port flexibility is not implemented).
 * Client ID Metadata Documents are not supported.

@@ -37,7 +37,8 @@ var jarAlgs = []string{"ES256", "PS256"}
 // jarParams are the request object members that become authorization request
 // parameters. Anything else in the object is dropped.
 var jarParams = []string{"redirect_uri", "response_type", "scope", "state", "nonce", "code_challenge",
-	"code_challenge_method", "response_mode", "prompt", "max_age", "authorization_details", "dpop_jkt"}
+	"code_challenge_method", "response_mode", "prompt", "max_age", "authorization_details", "dpop_jkt",
+	"acr_values", "claims", "resource"}
 
 var errJAR = errors.New("invalid request object")
 
@@ -239,7 +240,27 @@ func verifyRequestObject(raw, jwks, clientID, issuer string, now time.Time) (map
 			}
 			s = t.String()
 		case []any:
+			if k == "resource" { // several indicators travel space separated
+				for _, x := range t {
+					v, ok := x.(string)
+					if !ok || v == "" || strings.ContainsAny(v, " \t\r\n") {
+						return nil, errJAR
+					}
+					s += " " + v
+				}
+				s = strings.TrimPrefix(s, " ")
+				break
+			}
 			if k != "authorization_details" {
+				return nil, errJAR
+			}
+			b, err := json.Marshal(t)
+			if err != nil {
+				return nil, errJAR
+			}
+			s = string(b)
+		case map[string]any:
+			if k != "claims" {
 				return nil, errJAR
 			}
 			b, err := json.Marshal(t)

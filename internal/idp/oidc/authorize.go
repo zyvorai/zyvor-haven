@@ -32,7 +32,9 @@ type authzReq struct {
 	scope     string
 	nonce     string
 	challenge string
-	resources []string // RFC 8707, canonical and allow-listed (resources.go)
+	resources []string            // RFC 8707, canonical and allow-listed (resources.go)
+	acr       core.ACRRequirement // acr_values / claims acr (authn.go)
+	limited   bool                // set by the consent screen: claims follow the granted scopes
 }
 
 func filterScope(s string) string {
@@ -142,6 +144,16 @@ func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 		}
 		maxAge = n
 	}
+	req, aerr := parseACRRequest(q) // authn.go
+	if aerr != nil {
+		fail("invalid_request", aerr.Error())
+		return
+	}
+	if code, desc := p.acrPossible(r.Context(), name, req); code != "" {
+		fail(code, desc)
+		return
+	}
+	ar.acr = req
 
 	if r.Method == http.MethodGet {
 		// SSO reuse comes only after every redirect_uri / PKCE / parameter
@@ -192,6 +204,9 @@ func (p *Provider) ssoReuse(w http.ResponseWriter, r *http.Request, ar *authzReq
 	if p.stepUpBlocksSSO(r, ar, u, s) { // stepup.go: risk policy asks for a real login
 		return false
 	}
+	if !p.acrMetBySession(ctx, ar, s) { // authn.go: a stronger login is demanded
+		return false
+	}
 	p.touchSession(r, rl, s)
 	p.issueCode(w, r, ar, u, s, "sso")
 	return true
@@ -202,19 +217,32 @@ func (p *Provider) ssoReuse(w http.ResponseWriter, r *http.Request, ar *authzReq
 func (p *Provider) issueCode(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, s core.Session, detail string) {
 	ctx := r.Context()
 	rl := ar.realm
+	// The one gate every code passes: the session must meet the demanded
+	// authentication level, whichever path led here (authn.go).
+	authn, met, err := p.sessionGrant(ctx, rl.Name, s.ID, s.AuthTime, ar.acr)
+	if err != nil {
+		p.cfg.Logger.Error("oidc: authentication context", "err", err)
+		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
+		return
+	}
+	if !met {
+		p.acrUnmet(w, r, ar, u.ID, "session_too_weak")
+		return
+	}
 	if consentGateHook != nil && consentGateHook(p, w, r, ar, u, s, detail) { // consent.go
 		return
 	}
+	authn.Limited = ar.limited
 	if err := p.cfg.Store.AddSessionClient(ctx, rl.Name, s.ID, ar.client.ClientID); err != nil {
 		p.cfg.Logger.Error("oidc: record session client", "err", err)
 		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not issue code")
 		return
 	}
-	code := randToken(32) + encodeResources(ar.resources) // the code carries the granted resources
-	if !p.fapiBindCode(w, r, ar, HashSecret(code)) {      // fapi.go: authorization_details, dpop_jkt, single-use login context
+	code := randToken(32) + encodeSuffix(ar.resources, authn) // the code carries the granted resources and authentication context
+	if !p.fapiBindCode(w, r, ar, HashSecret(code)) {          // fapi.go: authorization_details, dpop_jkt, single-use login context
 		return
 	}
-	err := p.cfg.Store.PutAuthCode(ctx, core.AuthCode{
+	err = p.cfg.Store.PutAuthCode(ctx, core.AuthCode{
 		CodeHash: HashSecret(code), Realm: rl.Name, ClientID: ar.client.ClientID, UserID: u.ID,
 		RedirectURI: ar.redirect, Scope: ar.scope, Nonce: ar.nonce,
 		CodeChallenge: ar.challenge, ChallengeMeth: methFor(ar.challenge),
@@ -525,6 +553,13 @@ func (p *Provider) completeLogin(w http.ResponseWriter, r *http.Request, ar *aut
 	sess, err := p.startSession(w, r, ar.realm, u)
 	if err != nil {
 		p.cfg.Logger.Error("oidc: start session", "err", err)
+		p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
+		return
+	}
+	if err := p.recordAuthn(r.Context(), ar.realm.Name, sess.ID, detail); err != nil { // authn.go
+		p.cfg.Logger.Error("oidc: record authentication methods", "err", err)
+		_, _ = p.sessions().End(r.Context(), ar.realm.Name, sess.ID)
+		p.clearSSOCookie(w, ar.realm.Name)
 		p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
 		return
 	}

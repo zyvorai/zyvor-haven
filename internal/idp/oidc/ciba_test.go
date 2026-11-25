@@ -6,6 +6,7 @@ package oidc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -83,7 +84,9 @@ func newCEnv(t *testing.T, o cibaOpts) *cenv {
 	}
 	clock := func() time.Time { e.mu.Lock(); defer e.mu.Unlock(); return e.now }
 	cfg := Config{Store: st, Signer: fakeSigner{now: clock}, Hasher: fakeHasher{}, BaseURL: idpBase, Clock: clock,
-		CSRFKey: []byte("0123456789abcdef0123456789abcdef")}
+		CSRFKey: []byte("0123456789abcdef0123456789abcdef"),
+		// resources the CIBA tests ask for must be on the RFC 8707 allow-list
+		Resources: &ResourcePolicy{Realms: map[string]RealmResources{"r": {Resources: []string{"https://shop.example/api", "https://pay.example/v1"}}}}}
 	if !o.noMail {
 		cfg.Actions = &actions.Service{Store: e.st, Mailer: e.box, BaseURL: idpBase, Clock: clock}
 	}
@@ -143,7 +146,7 @@ func (e *cenv) poll(client, id string) (int, map[string]any) {
 	return w.Code, out
 }
 
-var cibaLinkRe = regexp.MustCompile(`https://idp\.example/realms/r/ciba/approve\?req=[A-Za-z0-9_%-]+`)
+var cibaLinkRe = regexp.MustCompile(`https://idp\.example/realms/r/ciba/approve\?req=[A-Za-z0-9_%~-]+`)
 
 // link returns the approval link mailed to addr (after in-flight mail is done).
 func (e *cenv) link(addr string) string {
@@ -307,7 +310,13 @@ func TestCIBAFullFlow(t *testing.T) {
 		t.Fatalf("sessions: %v %v", sess, err)
 	}
 	at, idc := claimsOf(t, out["access_token"].(string)), claimsOf(t, out["id_token"].(string))
-	if at["sub"] != "u1" || at["aud"] != "agent" || at["sid"] != sess[0].ID || idc["sub"] != "u1" || idc["azp"] != "agent" ||
+	if aud := fmt.Sprint(at["aud"]); aud != "[agent https://shop.example/api https://pay.example/v1]" {
+		t.Errorf("the approved resources must be the audience: %s", aud)
+	}
+	if idc["aud"] != "agent" || at["acr"] != core.ACRSingleFactor || fmt.Sprint(at["amr"]) != "[pwd]" {
+		t.Errorf("claims: aud=%v acr=%v amr=%v", idc["aud"], at["acr"], at["amr"])
+	}
+	if at["sub"] != "u1" || at["sid"] != sess[0].ID || idc["sub"] != "u1" || idc["azp"] != "agent" ||
 		int64(idc["auth_time"].(float64)) != sess[0].AuthTime.Unix() {
 		t.Fatalf("claims: at=%v id=%v", at, idc)
 	}

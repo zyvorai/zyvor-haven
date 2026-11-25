@@ -110,6 +110,16 @@ func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, status, msg)
 		return
 	}
+	if status, challenge := a.stepUpChallenge(r, actor); status != 0 { // authn.go (RFC 9470)
+		msg := "internal error"
+		if status == http.StatusUnauthorized {
+			h.Set("WWW-Authenticate", challenge)
+			msg = "insufficient_user_authentication"
+		}
+		a.authFailure(r, status)
+		writeErr(w, status, msg)
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, bodyLimit(r.URL.Path))
 	a.mux.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), actorKey{}, actor)))
 }

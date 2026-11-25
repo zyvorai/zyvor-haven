@@ -160,7 +160,14 @@ func (p *Provider) par(w http.ResponseWriter, r *http.Request) {
 		}
 		params = map[string]string{}
 		for _, k := range jarParams {
-			if v := r.PostForm.Get(k); v != "" {
+			v := r.PostForm.Get(k)
+			if k == "resource" { // repeatable (RFC 8707)
+				v = strings.TrimSpace(strings.Join(r.PostForm[k], " "))
+			} else if len(r.PostForm[k]) > 1 && (k == "acr_values" || k == "claims") {
+				p.parFail(w, http.StatusBadRequest, "invalid_request", k+" must not be repeated")
+				return
+			}
+			if v != "" {
 				if len(v) > jarMaxValue {
 					p.parFail(w, http.StatusBadRequest, "invalid_request", "parameter too long")
 					return
@@ -356,6 +363,10 @@ func (p *Provider) fapiAuthorize(w http.ResponseWriter, r *http.Request, q url.V
 		out = url.Values{"client_id": {cl.ClientID}}
 		for _, k := range jarParams {
 			if v := params[k]; v != "" {
+				if k == "resource" {
+					out[k] = strings.Fields(v)
+					continue
+				}
 				out.Set(k, v)
 			}
 		}

@@ -94,6 +94,7 @@ nav:
       - Two-step verification (TOTP): mfa-totp.md
       - Passkeys (WebAuthn): passkeys.md
       - Login fallback and step-up: login-fallback-and-stepup.md
+      - Authentication context and step-up (acr, RFC 9470): step-up-acr.md
       - DPoP (sender-constrained tokens): dpop.md
       - FAPI building blocks (PAR, JAR, RAR): fapi-par-jar-rar.md
       - Password policy: password-policy.md

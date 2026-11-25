@@ -16,7 +16,6 @@ import (
 
 	"github.com/zyvorai/haven/internal/idp"
 	"github.com/zyvorai/haven/internal/idp/core"
-	"github.com/zyvorai/haven/internal/idp/safehttp"
 )
 
 // The consent screen. Every authorization of a third-party client (CIMD,
@@ -36,10 +35,9 @@ import (
 // SSO session of the logged-in user.
 
 const (
-	consentProofTTL       = 10 * time.Minute
-	consentLimit          = 60 // decisions per user and window
-	consentWindow         = time.Minute
-	consentMaxResourceLen = 512
+	consentProofTTL = 10 * time.Minute
+	consentLimit    = 60 // decisions per user and window
+	consentWindow   = time.Minute
 )
 
 type consentDoneKey struct{}
@@ -112,25 +110,35 @@ func (p *Provider) consentSubjectOf(ctx context.Context, cs core.ConsentStore, p
 	return s, false, nil
 }
 
-// requestedResources returns the RFC 8707 resource indicators of the /auth
-// request, validated, de-duplicated and sorted.
-func (p *Provider) requestedResources(r *http.Request) ([]string, error) {
-	vals := r.URL.Query()["resource"]
-	if len(vals) > core.MaxConsentResources {
-		return nil, errors.New("too many resource parameters")
-	}
-	allowPrivate := p.cfg.Federation != nil && p.cfg.Federation.AllowPrivate()
-	var out []string
-	for _, v := range vals {
-		if _, err := safehttp.ValidateURL(v, allowPrivate, "resource", consentMaxResourceLen); err != nil {
-			return nil, err
+// consentResources are the resources of the request as the consent screen shows
+// and records them: the canonical, allow-listed set (resources.go) that the
+// issued tokens are bound to, sorted.
+func consentResources(ar *authzReq) []string {
+	out := slices.Clone(ar.resources)
+	slices.Sort(out)
+	return out
+}
+
+// scopeOpenID cannot be unticked: without it there is no sign-in at all.
+const scopeOpenID = "openid"
+
+// grantedScopes is the requested scope narrowed to what the posted form ticked.
+// ok is false when the form names a scope that was not requested.
+func grantedScopes(requested string, ticked []string) (granted, declined []string, ok bool) {
+	req := strings.Fields(requested)
+	for _, t := range ticked {
+		if !slices.Contains(req, t) {
+			return nil, nil, false
 		}
-		if !slices.Contains(out, v) {
-			out = append(out, v)
+	}
+	for _, s := range req {
+		if s == scopeOpenID || slices.Contains(ticked, s) {
+			granted = append(granted, s)
+		} else {
+			declined = append(declined, s)
 		}
 	}
-	sort.Strings(out)
-	return out, nil
+	return granted, declined, true
 }
 
 func sortedScopes(scope string) []string {
@@ -174,15 +182,13 @@ func (p *Provider) consentGate(w http.ResponseWriter, r *http.Request, ar *authz
 	if !need {
 		return false
 	}
+	ar.limited = true // the tokens carry what the user consented to, no more
 	if _, err := cs.GetConsentBlock(ctx, rl.Name, ar.client.ClientID); err == nil {
 		return fail("access_denied", "this application has been blocked")
 	} else if !errors.Is(err, idp.ErrNotFound) {
 		return fail("server_error", "could not check consent")
 	}
-	resources, err := p.requestedResources(r)
-	if err != nil {
-		return fail("invalid_target", "invalid resource parameter")
-	}
+	resources := consentResources(ar)
 	scopes := sortedScopes(ar.scope)
 	prompts := strings.Fields(r.URL.Query().Get("prompt"))
 	remember := subj.kind != "cimd" || pol.RememberCIMD
@@ -204,7 +210,10 @@ func (p *Provider) consentGate(w http.ResponseWriter, r *http.Request, ar *authz
 
 // ---- page ----
 
-type scopeInfo struct{ Name, Desc string }
+type scopeInfo struct {
+	Name, Desc string
+	Required   bool
+}
 
 type consentView struct {
 	ClientName, ClientID, ClientURI, Redirect, Note, Proof string
@@ -226,11 +235,11 @@ const consentBody = `{{with .Data}}<p><strong>{{.ClientName}}</strong> is asking
 <p class="sub">Application identifier:<br><code>{{.ClientID}}</code></p>
 {{if .ClientURI}}<p class="sub">Website it claims (not verified):<br><code>{{.ClientURI}}</code></p>{{end}}
 <p class="sub">If you allow, your browser returns to:<br><code>{{.Redirect}}</code></p>
-<p class="sub">It will be able to:</p>
-<ul>{{range .Scopes}}<li><code>{{.Name}}</code>: {{.Desc}}</li>{{end}}</ul>
-{{if .Resources}}<p class="sub">For these services:</p><ul>{{range .Resources}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
+{{if .Resources}}<p class="sub">For these services (the access tokens are valid there):</p><ul>{{range .Resources}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
 <p class="sub">You can review and revoke this later on your account page: <code>{{.AccountURL}}</code></p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="consent_proof" value="{{.Proof}}">
+<p class="sub">It will be able to (untick anything you do not want to allow):</p>
+<ul>{{range .Scopes}}<li><label class="check"><input type="checkbox" name="consent_scope" value="{{.Name}}" checked{{if .Required}} disabled{{end}}><span><code>{{.Name}}</code>: {{.Desc}}{{if .Required}} (required){{end}}</span></label></li>{{end}}</ul>
 <button type="submit" name="consent_decision" value="allow">Allow</button>
 <button type="submit" name="consent_decision" value="deny" class="secondary">Deny</button></form>{{end}}`
 
@@ -263,7 +272,7 @@ func (p *Provider) consentPage(w http.ResponseWriter, r *http.Request, ar *authz
 		if d == "" {
 			d = "use this permission"
 		}
-		v.Scopes = append(v.Scopes, scopeInfo{s, d})
+		v.Scopes = append(v.Scopes, scopeInfo{s, d, s == scopeOpenID})
 	}
 	disp := rl.DisplayName
 	if disp == "" {
@@ -341,11 +350,7 @@ func consentContinue(p *Provider, w http.ResponseWriter, r *http.Request, ar *au
 		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "access_denied", "this application has been blocked")
 		return true
 	}
-	resources, rerr := p.requestedResources(r)
-	if rerr != nil {
-		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "invalid_target", "invalid resource parameter")
-		return true
-	}
+	resources := consentResources(ar)
 	scopes := sortedScopes(ar.scope)
 	if p.consentLimited(ctx, rl.Name, u.ID) {
 		p.errorPage(w, http.StatusTooManyRequests, "Too many attempts. Wait a minute and try again.")
@@ -369,6 +374,37 @@ func consentContinue(p *Provider, w http.ResponseWriter, r *http.Request, ar *au
 		p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "access_denied", "the user denied the request")
 	case "allow":
 		now := p.now()
+		kept, declined, ok := grantedScopes(ar.scope, r.PostForm["consent_scope"])
+		if !ok {
+			p.errorPage(w, http.StatusBadRequest, "Invalid request.")
+			return true
+		}
+		if len(kept) == 0 && len(declined) > 0 {
+			p.consentPage(w, r, ar, u, sess, subj, scopes, resources, "Tick at least one permission, or press Deny.", http.StatusOK)
+			return true
+		}
+		// Withdrawing a scope that was allowed before also ends the refresh
+		// tokens that still carry it.
+		if old, err := cs.GetActiveConsentGrant(ctx, rl.Name, u.ID, ar.client.ClientID, now); err == nil {
+			if slices.ContainsFunc(declined, func(s string) bool { return slices.Contains(old.Scopes, s) }) {
+				if _, err := cs.RevokeClientRefreshTokens(ctx, rl.Name, ar.client.ClientID, u.ID); err != nil {
+					p.cfg.Logger.Error("oidc: consent withdraw scope", "err", err)
+					p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not record consent")
+					return true
+				}
+			}
+		} else if !errors.Is(err, idp.ErrNotFound) {
+			p.cfg.Logger.Error("oidc: consent load grant", "err", err)
+			p.redirectErr(w, r, ar.redirect, ar.state, rl.Name, "server_error", "could not record consent")
+			return true
+		}
+		// From here the request is for the granted subset only.
+		ar.scope, ar.limited = strings.Join(kept, " "), true
+		scopes = sortedScopes(ar.scope)
+		rc.Scopes = scopes
+		if len(declined) > 0 {
+			rc.Detail = "declined: " + strings.Join(declined, " ")
+		}
 		g, err := cs.PutConsentGrant(ctx, core.ConsentGrant{Realm: rl.Name, UserID: u.ID, ClientID: ar.client.ClientID,
 			ClientName: subj.name, Scopes: scopes, Resources: resources, Fingerprint: subj.fp, CreatedAt: now,
 			ExpiresAt: now.Add(pol.GrantTTL())}, now)

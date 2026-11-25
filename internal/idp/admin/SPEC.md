@@ -434,3 +434,21 @@ migration `0017_mcp_consent.sql`. All under `/realms/{r}`.
 | `POST /consent/unkill` | `{clientId` xor `agentId}`; `204`, removes the block and re-enables the client row only. 404 when not blocked |
 
 Auth events: `CONSENT_GRANT`, `CONSENT_DENY`, `CONSENT_REVOKE`. User-facing: `GET/POST /realms/{r}/account/consents`.
+
+## Authentication context and step-up (`docs/step-up-acr.md`)
+
+Optional store extension `core.AuthnStore`; a store without it answers 501. Bodies reject unknown fields. Pg
+migration `0022_authn_context.sql`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/acr-policy` | `{levels:[{acr, anyOf:[[method,...]]}], enrollOnStepUp, adminAcr?, adminMaxAgeSeconds?, default?}`; `default:true` when the realm uses the built-in ladder |
+| `PUT /realms/{r}/acr-policy` | replaces the ladder (weakest level first). 400: no or more than 10 levels, duplicate or malformed `acr`, empty `anyOf` or alternative, unknown method, `adminAcr` not a level, `adminMaxAgeSeconds` outside 0..one year, `adminAcr`/`adminMaxAgeSeconds` on a realm other than the Admin API realm. Audit `ADMIN_UPDATE "acr-policy <realm>"` |
+| `DELETE /realms/{r}/acr-policy` | `204`; back to the built-in ladder. Audit `ADMIN_DELETE "acr-policy <realm>"` |
+
+**Step-up on the Admin API itself (RFC 9470).** When the Admin API realm's policy sets `adminAcr` and/or
+`adminMaxAgeSeconds`, a **user** token (the `haven-admin` role) must reach that level (judged from its `amr` under
+the current ladder) and carry an `auth_time` that recent, else `401` with
+`WWW-Authenticate: Bearer error="insufficient_user_authentication", error_description="...", acr_values="...", max_age="..."`.
+Service account tokens (client credentials) have no user authentication and are not affected, which is also the way
+back in if a requirement was set that no administrator can meet.

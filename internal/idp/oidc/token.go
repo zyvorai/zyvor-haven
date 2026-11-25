@@ -203,6 +203,14 @@ func (p *Provider) grantCode(r *http.Request, rl core.Realm, cl core.Client) (ma
 		return nil, terr
 	}
 	r = withResources(r, aud, kept)
+	authn, aok := decodeAuthn(code) // authn.go
+	if !aok {
+		return nil, bad
+	}
+	if terr := p.recheckGrant(ctx, rl, authn); terr != nil {
+		return nil, terr
+	}
+	r = withAuthn(r, authn)
 	family := randToken(16)
 	resp, terr := p.issue(r, rl, cl, u, ac.Scope, ac.Nonce, ac.AuthTime, family, "", true, "authorization_code", ac.SessionID, ac.SessionID != "")
 	if terr != nil {
@@ -306,6 +314,19 @@ func (p *Provider) grantRefresh(r *http.Request, rl core.Realm, cl core.Client) 
 		return nil, terr
 	}
 	r = withResources(r, aud, kept)
+	// The authentication context of the original grant travels with it; it is
+	// re-checked against the current ladder before the token is spent (authn.go).
+	authn, aok := decodeAuthn(raw)
+	if !aok {
+		return nil, bad
+	}
+	if terr := p.recheckGrant(ctx, rl, authn); terr != nil {
+		if terr.status == http.StatusBadRequest {
+			p.event(ctx, rl, "REFRESH_ERROR", u.ID, cl.ClientID, p.clientIP(r), "acr_unmet")
+		}
+		return nil, terr
+	}
+	r = withResources(withAuthn(r, authn), aud, kept)
 	newRefresh := ""
 	if rl.RefreshTokenRotation {
 		if err := p.cfg.Store.MarkRefreshUsed(ctx, hash); err != nil {
@@ -400,12 +421,22 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 	roles := p.effectiveRoles(ctx, rl, u) // permanent roles + active time-boxed grants
 	iss := p.issuer(rl.Name)
 	rg := resourcesOf(ctx) // resources.go: RFC 8707 audience / refresh-carried set
+	authn := authnOf(ctx)  // authn.go: acr, amr and auth_time of the original login
+	// After the consent screen, claims follow the scopes the user granted.
+	withName := !authn.Limited || slices.Contains(scopes, "profile")
+	if authn.Limited && !slices.Contains(scopes, "roles") {
+		roles = []string{}
+	}
 	atClaims := core.Claims{
 		"iss": iss, "sub": u.ID, "aud": audClaim(cl.ClientID, rg.aud), "azp": cl.ClientID,
 		"exp": now.Add(ttl).Unix(), "iat": now.Unix(), "jti": randToken(16),
-		"typ": "Bearer", "scope": scope, "preferred_username": u.Username,
+		"typ": "Bearer", "scope": scope,
 		"realm_access": map[string]any{"roles": roles},
 	}
+	if withName {
+		atClaims["preferred_username"] = u.Username
+	}
+	authn.claims(atClaims)
 	if sid != "" && sidLive {
 		atClaims["sid"] = sid
 	}
@@ -424,8 +455,10 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		idc := core.Claims{
 			"iss": iss, "sub": u.ID, "aud": cl.ClientID, "azp": cl.ClientID,
 			"exp": now.Add(ttl).Unix(), "iat": now.Unix(), "typ": "ID",
-			"at_hash":            base64.RawURLEncoding.EncodeToString(sum[:16]),
-			"preferred_username": u.Username,
+			"at_hash": base64.RawURLEncoding.EncodeToString(sum[:16]),
+		}
+		if withName {
+			idc["preferred_username"] = u.Username
 		}
 		if sid != "" && sidLive {
 			idc["sid"] = sid
@@ -433,6 +466,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		if !authTime.IsZero() {
 			idc["auth_time"] = authTime.Unix()
 		}
+		authn.claims(idc)
 		if nonce != "" {
 			idc["nonce"] = nonce
 		}
@@ -457,7 +491,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 		if rtl <= 0 {
 			rtl = defaultRefresh
 		}
-		raw := randToken(32) + encodeResources(rg.granted)
+		raw := randToken(32) + encodeSuffix(rg.granted, authn)
 		err := p.cfg.Store.PutRefreshToken(ctx, core.RefreshToken{
 			TokenHash: HashSecret(raw), FamilyID: family, Realm: rl.Name, ClientID: cl.ClientID,
 			UserID: u.ID, SessionID: sid, Scope: scope, ExpiresAt: now.Add(rtl), CreatedAt: now,

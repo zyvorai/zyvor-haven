@@ -145,6 +145,16 @@ func (p *Provider) parseAuthzQuery(ctx context.Context, rl core.Realm, q url.Val
 	if len(ar.nonce) > 512 {
 		return nil, "Invalid authorization request."
 	}
+	// Resources and the demanded authentication level bind brokered logins too.
+	res, err := p.authzResources(rl.Name, cl.ClientID, q["resource"])
+	if err != nil {
+		return nil, "Invalid authorization request."
+	}
+	req, err := parseACRRequest(q)
+	if err != nil {
+		return nil, "Invalid authorization request."
+	}
+	ar.resources, ar.acr = res, req
 	return ar, ""
 }
 
@@ -384,7 +394,11 @@ func (p *Provider) brokerEndpoint(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	p.completeLogin(w, r, ar, u, "federated:"+alias)
+	// From here the request is the original /auth request again: the consent
+	// screen posts back to it and reads its parameters.
+	orig := r.Clone(r.Context())
+	orig.URL = &url.URL{Path: "/realms/" + rl.Name + oidcPath + "/auth", RawQuery: st.AuthQuery}
+	p.completeLogin(w, orig, ar, u, "federated:"+alias)
 }
 
 // fedResolve maps validated claims to a local user. It returns a short reason

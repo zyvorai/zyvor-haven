@@ -111,8 +111,6 @@ Auth events are written when the realm has `AuthEventsLogged`.
 - No QR code (see above).
 - No link to the account page from anywhere; no account console.
 - The code page is one field for TOTP and recovery codes, not a separate toggle.
-- `acr`/`amr` claims are not added to tokens; clients cannot ask for or learn that a second factor
-  was used.
 - Only SHA1/6 digits/30 s (what authenticator apps support); no HOTP, SMS, email or push factors.
 - `requireMfa` has no grace period and no per-client or per-role scoping.
 - Disabling TOTP is allowed even when the realm requires it; the user is asked to enroll again at the
