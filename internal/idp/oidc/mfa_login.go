@@ -47,23 +47,23 @@ type mfaPageData struct {
 	Alt        *Fallback // "use another method" (fallback.go)
 }
 
-const verifyBody = `<p class="sub">Enter the 6-digit code from your authenticator app, or a recovery code.</p>
+const verifyBody = `<p class="sub">{{.L.T "Enter the 6-digit code from your authenticator app, or a recovery code."}}</p>
 <form method="post" action="{{.Action}}" autocomplete="off">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input type="hidden" name="mfa_token" value="{{.Data.Token}}">
-<label for="c">Code</label><input id="c" name="code" autocomplete="one-time-code" autofocus required maxlength="64">
-<button type="submit">Verify</button></form>` + altFragment
+<label for="c">{{.L.T "Code"}}</label><input id="c" name="code" autocomplete="one-time-code" autofocus required maxlength="64">
+<button type="submit">{{.L.T "Verify"}}</button></form>` + altFragment
 
-const enrollBody = `<p class="sub">{{.Realm}} requires a second factor. Add this account to an authenticator app, then enter the 6-digit code it shows.</p>
-<p>Secret key: <code>{{.Data.Secret}}</code></p>
-<p class="sub">Or enter this setup link in an app that accepts one: <code>{{.Data.URI}}</code></p>
+const enrollBody = `<p class="sub">{{.L.T "%s requires a second factor. Add this account to an authenticator app, then enter the 6-digit code it shows." .Realm}}</p>
+<p>{{.L.H "Secret key: %s" (.L.C .Data.Secret)}}</p>
+<p class="sub">{{.L.H "Or enter this setup link in an app that accepts one: %s" (.L.C .Data.URI)}}</p>
 <form method="post" action="{{.Action}}" autocomplete="off">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input type="hidden" name="mfa_token" value="{{.Data.Token}}">
-<label for="c">6-digit code</label><input id="c" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus required maxlength="16">
-<button type="submit">Confirm and continue</button></form>`
+<label for="c">{{.L.T "6-digit code"}}</label><input id="c" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus required maxlength="16">
+<button type="submit">{{.L.T "Confirm and continue"}}</button></form>`
 
-const recoveryCodesFrag = `<p class="err"><strong>Save these recovery codes now.</strong> They are shown only once and cannot be displayed again. Each works one time if you lose your authenticator.</p>
+const recoveryCodesFrag = `<p class="err"><strong>{{.L.T "Save these recovery codes now."}}</strong> {{.L.T "They are shown only once and cannot be displayed again. Each works one time if you lose your authenticator."}}</p>
 <pre>{{range .Data.Codes}}{{.}}
 {{end}}</pre>`
 
@@ -71,7 +71,7 @@ const doneBody = recoveryCodesFrag + `
 <form method="post" action="{{.Action}}">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <input type="hidden" name="mfa_token" value="{{.Data.Token}}">
-<button type="submit">I have saved my codes: continue</button></form>`
+<button type="submit">{{.L.T "I have saved my codes: continue"}}</button></form>`
 
 // credTag names one credential: a hash of its sealed seed, which carries a
 // fresh random nonce, so a re-enrolled credential never shares it.

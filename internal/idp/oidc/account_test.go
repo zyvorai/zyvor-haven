@@ -493,6 +493,10 @@ func TestAccountPageHeadersAndTheme(t *testing.T) {
 			strings.Contains(body, "style=") || strings.Contains(body, "<script") {
 			t.Errorf("%q: style or script rules broken", slug)
 		}
+		// The stylesheet must carry the console's rules, not just the base theme.
+		if !strings.Contains(body, strings.TrimSpace(consoleCSS)) {
+			t.Errorf("%q: console styles missing", slug)
+		}
 		if !strings.Contains(body, `<main class="console">`) || !strings.Contains(body, `<svg class="hero"`) {
 			t.Errorf("%q: not the console theme", slug)
 		}
@@ -1364,6 +1368,30 @@ func TestAccountActivity(t *testing.T) {
 	e.must(e.st.UpdateRealm(ctx, e.realm))
 	if !strings.Contains(a.get("activity"), "does not currently record") {
 		t.Error("no note when events are off")
+	}
+}
+
+// The console carries the realm's branding but declares the English it is
+// written in, whatever language the browser asks for.
+func TestAccountUsesRealmBranding(t *testing.T) {
+	e := newConEnv(t, conOpts{})
+	bs, ok := core.StoreAs[core.BrandingStore](e.st)
+	if !ok {
+		t.Fatal("no branding store")
+	}
+	e.must(bs.PutBranding(context.Background(), core.Branding{Realm: "r", DisplayName: "Acme Identity",
+		AccentColor: "#7a1fa2", SupportURL: "https://help.example/acme", DefaultLocale: "de",
+		LogoLight: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>`}))
+	a := e.visitor("UA1", "192.0.2.1")
+	a.signIn("alice", "alice-pass")
+	body := a.get("security")
+	for _, want := range []string{`<html lang="en">`, "Acme Identity", "--accent:#7a1fa2", `class="logo"`, "https://help.example/acme"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("lacks %q", want)
+		}
+	}
+	if strings.Count(body, "<style") != 1 || strings.Contains(body, "style=") || strings.Contains(body, `<svg class="hero"`) {
+		t.Error("branding broke the style rules or kept the illustration beside the logo")
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"html"
 	netmail "net/mail"
 	"net/url"
 	"strings"
@@ -104,12 +103,13 @@ func (s *Service) SendEmailChange(ctx context.Context, rl core.Realm, u core.Use
 	}
 	link := strings.TrimRight(s.BaseURL, "/") + "/realms/" + url.PathEscape(rl.Name) +
 		"/login-actions/confirm-email-change?token=" + url.QueryEscape(raw)
-	disp := s.displayRealm(rl)
-	who := u.Username
-	text := fmt.Sprintf("Hello %s, someone asked to use this email address for the %s account.\n\nTo confirm, open this link:\n\n%s\n\nThis link is valid for 2 hours.\n\nIf you did not request this, you can safely ignore this email; nothing changes until the link is opened.\n", who, disp, link)
-	htmlBody := fmt.Sprintf("<!doctype html>\n<html><body>\n<p>Hello %s, someone asked to use this email address for the %s account.</p>\n<p><a href=\"%s\">Confirm this email address</a></p>\n<p>This link is valid for 2 hours.</p>\n<p>If you did not request this, you can safely ignore this email; nothing changes until the link is opened.</p>\n</body></html>\n",
-		html.EscapeString(who), html.EscapeString(disp), html.EscapeString(link))
-	msg := mail.Message{To: newEmail, Subject: "Confirm your new email address for " + disp, Text: text, HTML: htmlBody}
+	msg, err := s.Compose(ctx, rl, mail.KindChangeEmail, mail.TemplateData{Username: u.Username, Link: link,
+		Hours: int(ChangeEmailTTL / time.Hour)})
+	if err != nil {
+		_, _ = s.Store.ConsumeActionToken(ctx, Hash(raw))
+		return err
+	}
+	msg.To = newEmail
 	if err := s.Mailer.Send(ctx, msg); err != nil {
 		_, _ = s.Store.ConsumeActionToken(ctx, Hash(raw))
 		return fmt.Errorf("actions: send: %w", err)
@@ -163,21 +163,17 @@ func (s *Service) NotifyEmailChange(ctx context.Context, rl core.Realm, oldEmail
 	if oldEmail == "" || ctl(oldEmail) || ctl(username) || ctl(s.displayRealm(rl)) {
 		return ErrNoEmail
 	}
-	disp := s.displayRealm(rl)
-	var subject, line string
+	kind := mail.KindEmailChangeRequested
 	if done {
-		subject = "The email address for your " + disp + " account was changed"
-		line = "the email address of your " + disp + " account was changed to " + MaskEmail(newEmail) + ". This address no longer receives account email."
-	} else {
-		subject = "A change of your " + disp + " email address was requested"
-		line = "someone asked to change the email address of your " + disp + " account to " + MaskEmail(newEmail) + ". Nothing has changed yet; it only takes effect if the link sent to that address is opened."
+		kind = mail.KindEmailChanged
 	}
-	when := s.now().UTC().Format("2006-01-02 15:04:05 UTC")
-	tail := "If this was not you, change your password now and contact your administrator. This email contains no link on purpose."
-	text := fmt.Sprintf("Hello %s, %s\n\nWhen: %s\n\n%s\n", username, line, when, tail)
-	htmlBody := fmt.Sprintf("<!doctype html>\n<html><body>\n<p>Hello %s, %s</p>\n<p>When: %s</p>\n<p>%s</p>\n</body></html>\n",
-		html.EscapeString(username), html.EscapeString(line), when, html.EscapeString(tail))
-	if err := s.Mailer.Send(ctx, mail.Message{To: oldEmail, Subject: subject, Text: text, HTML: htmlBody}); err != nil {
+	msg, err := s.Compose(ctx, rl, kind, mail.TemplateData{Username: username, NewEmail: MaskEmail(newEmail),
+		When: s.now().UTC().Format("2006-01-02 15:04:05 UTC")})
+	if err != nil {
+		return fmt.Errorf("actions: notify: %w", err)
+	}
+	msg.To = oldEmail
+	if err := s.Mailer.Send(ctx, msg); err != nil {
 		return fmt.Errorf("actions: notify: %w", err)
 	}
 	return nil

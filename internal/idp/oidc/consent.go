@@ -221,18 +221,18 @@ var scopeDesc = map[string]string{
 	"offline_access": "keep access after you sign out (until you revoke it)",
 }
 
-const consentBody = `{{with .Data}}<p><strong>{{.ClientName}}</strong> is asking to access your account.</p>
-<p class="sub">{{.Note}}</p>
-<p class="sub">Application identifier:<br><code>{{.ClientID}}</code></p>
-{{if .ClientURI}}<p class="sub">Website it claims (not verified):<br><code>{{.ClientURI}}</code></p>{{end}}
-<p class="sub">If you allow, your browser returns to:<br><code>{{.Redirect}}</code></p>
-<p class="sub">It will be able to:</p>
-<ul>{{range .Scopes}}<li><code>{{.Name}}</code>: {{.Desc}}</li>{{end}}</ul>
-{{if .Resources}}<p class="sub">For these services:</p><ul>{{range .Resources}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
-<p class="sub">You can review and revoke this later on your account page: <code>{{.AccountURL}}</code></p>
+const consentBody = `{{with .Data}}<p>{{$.L.H "%s is asking to access your account." ($.L.B .ClientName)}}</p>
+<p class="sub">{{$.L.T .Note}}</p>
+<p class="sub">{{$.L.T "Application identifier:"}}<br><code>{{.ClientID}}</code></p>
+{{if .ClientURI}}<p class="sub">{{$.L.T "Website it claims (not verified):"}}<br><code>{{.ClientURI}}</code></p>{{end}}
+<p class="sub">{{$.L.T "If you allow, your browser returns to:"}}<br><code>{{.Redirect}}</code></p>
+<p class="sub">{{$.L.T "It will be able to:"}}</p>
+<ul>{{range .Scopes}}<li><code>{{.Name}}</code>: {{$.L.T .Desc}}</li>{{end}}</ul>
+{{if .Resources}}<p class="sub">{{$.L.T "For these services:"}}</p><ul>{{range .Resources}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}
+<p class="sub">{{$.L.H "You can review and revoke this later on your account page: %s" ($.L.C .AccountURL)}}</p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="consent_proof" value="{{.Proof}}">
-<button type="submit" name="consent_decision" value="allow">Allow</button>
-<button type="submit" name="consent_decision" value="deny" class="secondary">Deny</button></form>{{end}}`
+<button type="submit" name="consent_decision" value="allow">{{$.L.T "Allow"}}</button>
+<button type="submit" name="consent_decision" value="deny" class="secondary">{{$.L.T "Deny"}}</button></form>{{end}}`
 
 func (p *Provider) consentPage(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, s core.Session, subj consentSubject, scopes, resources []string, errMsg string, status int) {
 	rl := ar.realm
@@ -265,13 +265,11 @@ func (p *Provider) consentPage(w http.ResponseWriter, r *http.Request, ar *authz
 		}
 		v.Scopes = append(v.Scopes, scopeInfo{s, d})
 	}
-	disp := rl.DisplayName
-	if disp == "" {
-		disp = rl.Name
-	}
+	l := p.loc(w)
+	disp := l.RealmName(rl)
 	w.WriteHeader(status)
-	_ = stepTemplate(consentBody).Execute(w, StepData{Title: "Allow access to " + disp, Nonce: nonce, CSRF: csrf, Realm: disp,
-		Client: subj.name, Error: errMsg, Action: r.URL.Path + "?" + r.URL.RawQuery, Data: v})
+	_ = stepTemplate(consentBody).Execute(w, StepData{Title: l.T("Allow access to %s", disp), Nonce: nonce, CSRF: csrf, Realm: disp,
+		Client: subj.name, Error: l.T(errMsg), Action: r.URL.Path + "?" + r.URL.RawQuery, Data: v, L: l})
 }
 
 // ---- decision ----
@@ -407,14 +405,14 @@ type consentAcct struct {
 	History []consentHistoryRow
 }
 
-const consentAcctBody = `{{with .Data}}{{if .Info}}<p class="sub">{{.Info}}</p>{{end}}
-{{if not .Grants}}<p>No applications currently have remembered access to your account.</p>{{end}}
+const consentAcctBody = `{{with .Data}}{{if .Info}}<p class="sub">{{$.L.T .Info}}</p>{{end}}
+{{if not .Grants}}<p>{{$.L.T "No applications currently have remembered access to your account."}}</p>{{end}}
 {{range .Grants}}<div class="item"><p><strong>{{.ClientName}}</strong><br><code>{{.ClientID}}</code><br>
-<span class="sub">Scopes: {{.Scopes}}{{if .Resources}}<br>Services: {{.Resources}}{{end}}<br>Allowed {{.Granted}}, expires {{.Expires}}</span></p>
+<span class="sub">{{$.L.T "Scopes: %s" .Scopes}}{{if .Resources}}<br>{{$.L.T "Services: %s" .Resources}}{{end}}<br>{{$.L.T "Allowed %s, expires %s" .Granted .Expires}}</span></p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="revoke"><input type="hidden" name="grant_id" value="{{.ID}}">
-<button type="submit" class="secondary">Revoke access</button></form></div>{{end}}
-{{if .History}}<p class="sub"><strong>Recent activity</strong></p><ul>{{range .History}}<li class="sub">{{.When}}: {{.Type}} {{.Client}}{{if .Scopes}} ({{.Scopes}}){{end}}{{if .By}} by {{.By}}{{end}}</li>{{end}}</ul>{{end}}{{end}}
-<p class="sub"><a href="../account">Back to your account</a></p>`
+<button type="submit" class="secondary">{{$.L.T "Revoke access"}}</button></form></div>{{end}}
+{{if .History}}<p class="sub"><strong>{{$.L.T "Recent activity"}}</strong></p><ul>{{range .History}}<li class="sub">{{.When}}: {{$.L.T .Type}} {{.Client}}{{if .Scopes}} ({{.Scopes}}){{end}}{{if .By}} {{$.L.T "by %s" .By}}{{end}}</li>{{end}}</ul>{{end}}{{end}}
+<p class="sub"><a href="../account">{{$.L.T "Back to your account"}}</a></p>`
 
 func (p *Provider) accountConsents(w http.ResponseWriter, r *http.Request) {
 	rl, ok := p.realm(r.Context(), r.PathValue("realm"))
@@ -502,5 +500,5 @@ func (p *Provider) accountConsents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.event(ctx, rl, "CONSENT_REVOKE", u.ID, g.ClientID, p.clientIP(r), "by user")
-	show(http.StatusOK, "Access revoked: "+g.ClientName+" can no longer refresh its tokens. Access tokens it already holds expire within minutes.", "")
+	show(http.StatusOK, p.loc(w).T("Access revoked: %s can no longer refresh its tokens. Access tokens it already holds expire within minutes.", g.ClientName), "")
 }

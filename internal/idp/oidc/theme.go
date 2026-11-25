@@ -21,7 +21,7 @@ const themeMarker = "<!--theme-->"
 // .err, .ok, .warn, .code, .row, .deny, .secondary, .fed, .wide, .item, .hero);
 // keep new pages to those.
 const themeCSS = `
-:root{color-scheme:light dark;--bg:#fff;--card:#fff;--glass:rgba(255,255,255,.74);--edge:rgba(0,0,0,.08);--surface:#f5f5f7;--field:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:#d2d2d7;--link:#0066cc;--accent:#0071e3;--accent-h:#0077ed;--accent-a:#006edb;--err:#e30000;--ok:#1d7a3a;--ring:rgba(0,113,227,.25);--t1:#1d1d1f;--t2:#4b3fd1;--g1:#0a84ff;--g2:#5e5ce6;--g3:#bf5af2;--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06),0 24px 64px rgba(60,60,140,.10);--m1:rgba(0,113,227,.16);--m2:rgba(94,92,230,.14);--m3:rgba(191,90,242,.11);--m4:rgba(50,200,190,.12)}
+:root{color-scheme:light dark;--bg:#fff;--card:#fff;--glass:rgba(255,255,255,.74);--edge:rgba(0,0,0,.08);--surface:#f5f5f7;--field:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:#d2d2d7;--link:#0066cc;--accent:#0071e3;--accent-h:#0077ed;--accent-a:#006edb;--on-accent:#fff;--err:#e30000;--ok:#1d7a3a;--ring:rgba(0,113,227,.25);--t1:#1d1d1f;--t2:#4b3fd1;--g1:#0a84ff;--g2:#5e5ce6;--g3:#bf5af2;--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06),0 24px 64px rgba(60,60,140,.10);--m1:rgba(0,113,227,.16);--m2:rgba(94,92,230,.14);--m3:rgba(191,90,242,.11);--m4:rgba(50,200,190,.12)}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1d1d1f;--glass:rgba(29,29,31,.72);--edge:rgba(255,255,255,.1);--surface:#2a2a2d;--field:rgba(0,0,0,.5);--text:#f5f5f7;--muted:#86868b;--line:#424245;--link:#2997ff;--err:#ff453a;--ok:#30d158;--ring:rgba(41,151,255,.35);--t1:#f5f5f7;--t2:#9db8ff;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.5),0 32px 80px rgba(20,20,80,.35);--m1:rgba(10,132,255,.34);--m2:rgba(94,92,230,.32);--m3:rgba(191,90,242,.22);--m4:rgba(50,200,190,.16)}}
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -59,11 +59,11 @@ input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--r
 input[type=hidden]{display:none}
 input[name=code],input[name=user_code]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1.3rem;letter-spacing:.18em;text-align:center}
 input[name=user_code]{text-transform:uppercase}
-button{position:relative;display:block;width:100%;min-height:48px;margin-top:24px;padding:0 20px;font:inherit;font-weight:400;letter-spacing:-.01em;color:#fff;background:var(--accent);border:1px solid transparent;border-radius:12px;cursor:pointer;transition:background-color .15s,border-color .15s,box-shadow .15s,transform .12s}
+button{position:relative;display:block;width:100%;min-height:48px;margin-top:24px;padding:0 20px;font:inherit;font-weight:400;letter-spacing:-.01em;color:var(--on-accent);background:var(--accent);border:1px solid transparent;border-radius:12px;cursor:pointer;transition:background-color .15s,border-color .15s,box-shadow .15s,transform .12s}
 button:hover{background:var(--accent-h)}
 button:active{background:var(--accent-a);transform:scale(.985)}
 button:disabled,button[aria-busy=true]{cursor:progress;color:transparent;opacity:.85}
-button:disabled::after,button[aria-busy=true]::after{content:"";position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+button:disabled::after,button[aria-busy=true]::after{content:"";position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(255,255,255,.4);border-top-color:var(--on-accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 button+button{margin-top:12px}
 button.deny,button.secondary,#pkform button,button[value=deny],form.row button,div.row>button+button{color:var(--link);background:transparent;border-color:var(--line)}
@@ -95,10 +95,18 @@ code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-s
 code{padding:1px 6px;background:var(--surface);border-radius:6px;word-break:break-all}
 pre{margin:16px 0;padding:16px;background:var(--surface);border-radius:14px;font-size:1.1rem;line-height:1.9;letter-spacing:.12em;text-align:center;white-space:pre-wrap;overflow-wrap:anywhere}
 .code{margin:16px 0;padding:18px 12px;font:600 1.75rem/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.2em;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow-wrap:anywhere}
-blockquote{margin:12px 0;padding:4px 0 4px 16px;border-left:3px solid var(--line);color:var(--muted);overflow-wrap:anywhere}
+blockquote{margin:12px 0;padding-block:4px;padding-inline:16px 0;border-inline-start:3px solid var(--line);color:var(--muted);overflow-wrap:anywhere}
 dl{margin:16px 0;font-size:.9rem}
 dt{color:var(--muted);margin-top:12px;font-size:.82rem}
 dd{margin:2px 0 0;overflow-wrap:anywhere}
+.logo{display:block;max-width:100%;height:auto;margin:0 auto 20px}
+.logo-dark{display:none}
+@media (prefers-color-scheme:dark){.logo-light{display:none}.logo-dark{display:block}}
+.legal{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 20px;margin-top:32px;font-size:.82rem}
+strong{unicode-bidi:isolate}
+code,pre,.code,input[name=code],input[name=user_code],input[type=email],input[type=password]{direction:ltr;unicode-bidi:isolate}
+:lang(hi),:lang(hi) :not(code):not(pre):not(.code):not(input){letter-spacing:0}
+:lang(hi) h1{line-height:1.35}
 @media (max-width:480px){main{padding:32px 20px 28px;border-radius:24px;margin-top:12px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 @media (forced-colors:active){body::before{display:none}main{background:Canvas;border:1px solid CanvasText;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}h1{background:none;-webkit-text-fill-color:CanvasText;color:CanvasText}.hero{filter:none;forced-color-adjust:none}.hero .tile{fill:Canvas;stroke:CanvasText}.hero .gl{stroke:CanvasText}.hero .gf{fill:CanvasText}.hero .shine{display:none}button{background:ButtonFace;color:ButtonText;border-color:ButtonText}input{border-color:CanvasText}a{color:LinkText}}
@@ -106,6 +114,17 @@ dd{margin:2px 0 0;overflow-wrap:anywhere}
 
 // themeStyle is the full nonce'd style element injected into every page.
 const themeStyle = `<style nonce="{{.Nonce}}">` + themeCSS + consoleCSS + `</style>`
+
+// locMarker, written <html<!--loc-->>, opts a page into language and branding
+// (ui.go). Its data must then have a field L of type Loc.
+const locMarker = "<!--loc-->"
+
+const (
+	locAttrs = ` lang="{{$.L.Lang}}"{{if $.L.RTL}} dir="rtl"{{end}}`
+	// The realm's accent colours follow the theme inside the same element.
+	locStyle  = `<style nonce="{{.Nonce}}">` + themeCSS + consoleCSS + `{{$.L.CSS}}</style>`
+	locFooter = `{{with $.L.Links}}<footer class="legal">{{range .}}<a href="{{.URL}}" rel="noopener noreferrer">{{.Label}}</a>{{end}}</footer>{{end}}</main>`
+)
 
 // heroGlyphs are the illustrations, drawn on a 64x64 tile in one style
 // (rounded 2.5 strokes, white glyph on a gradient tile with a soft glow). They
@@ -159,9 +178,19 @@ func withTheme(src string) string {
 	if !strings.Contains(src, themeMarker) {
 		panic("oidc: page template lacks " + themeMarker)
 	}
-	src = strings.Replace(src, themeMarker, themeStyle, 1)
+	style, opted := themeStyle, strings.Contains(src, locMarker)
+	if opted {
+		style = locStyle
+		src = strings.Replace(src, locMarker, locAttrs, 1)
+		src = strings.Replace(src, "</main>", locFooter, 1)
+	}
+	src = strings.Replace(src, themeMarker, style, 1)
 	return heroMarkerRE.ReplaceAllStringFunc(src, func(m string) string {
-		return heroSVG(heroMarkerRE.FindStringSubmatch(m)[1])
+		svg := heroSVG(heroMarkerRE.FindStringSubmatch(m)[1])
+		if opted { // a realm logo takes the illustration's place
+			return `{{if $.L.Logo}}{{$.L.Logo}}{{else}}` + svg + `{{end}}`
+		}
+		return svg
 	})
 }
 
@@ -172,12 +201,14 @@ const consoleCSS = `
 main.console{width:min(960px,calc(100% - 24px));display:grid;grid-template-columns:minmax(0,1fr);gap:20px;margin-top:max(16px,4vh);padding:24px;align-content:start}
 .console .who{display:flex;align-items:center;gap:14px;min-width:0}
 .console .who .hero{width:48px;height:48px;flex:0 0 auto;margin:0}
+.console .who .logo{width:auto;max-width:96px;max-height:48px;flex:0 0 auto;margin:0}
+.console .legal{grid-column:1/-1}
 .console .who p{margin:0;min-width:0;line-height:1.3}
 .console .who strong,.console .who span{display:block;overflow-wrap:anywhere}
 .console .seg{display:flex;flex-wrap:wrap;gap:4px;align-self:start;padding:4px;background:var(--surface);border-radius:14px}
 .console .seg a{flex:1 1 auto;min-height:40px;display:flex;align-items:center;justify-content:center;padding:0 12px;font-size:.88rem;color:var(--text);border-radius:10px}
 .console .seg a:hover{background:var(--card);text-decoration:none}
-.console .seg a[aria-current=page],.console .seg a[aria-current=page]:hover{background:var(--accent);color:#fff;font-weight:600}
+.console .seg a[aria-current=page],.console .seg a[aria-current=page]:hover{background:var(--accent);color:var(--on-accent);font-weight:600}
 .console .seg a.out{color:var(--link)}
 .console .content{min-width:0}
 .console h1{text-align:left;font-size:1.6rem;margin-bottom:12px}

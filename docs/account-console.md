@@ -110,5 +110,7 @@ None added. Administrators keep using the session, device, consent and agent rou
 - The older pages (`/account/totp`, `/account/passkeys`, `/account/consents`) keep their own rules: renaming a
   passkey and revoking on `/account/consents` do not ask for recent authentication there.
 - Activity has no paging or filtering, shows no location, and is bounded by what the realm records.
-- English only; session and activity times are UTC.
+- English only: the console is not in the [translation catalogue](branding-and-i18n.md) (it declares `lang="en"`),
+  although the realm's logo, name, accent colours and footer links apply (footer link labels follow the browser's
+  language). Session and activity times are UTC.
 - Behind a reverse proxy under a path prefix the console, like the other account pages, is not supported.

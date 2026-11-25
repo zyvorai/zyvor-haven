@@ -443,6 +443,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 			idc["given_name"], idc["family_name"] = u.FirstName, u.LastName
 			idc["name"] = strings.TrimSpace(u.FirstName + " " + u.LastName)
 		}
+		p.addGroupsClaim(rl.Name, cl, u, scopes, idc) // groupsclaim.go: opted-in clients that were granted "groups"
 		idt, err := p.cfg.Signer.Sign(ctx, rl.Name, idc)
 		if err != nil {
 			p.cfg.Logger.Error("oidc: sign id token", "err", err)

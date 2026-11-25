@@ -354,6 +354,10 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 	if err != nil {
 		return err
 	}
+	groupsClaim, err := oidc.ParseGroupsClaimClients(os.Getenv("HAVEN_IDP_GROUPS_CLAIM_CLIENTS")) // docs/kubernetes-login.md
+	if err != nil {
+		return err
+	}
 	oidcCfg := oidc.Config{
 		Sessions: sess,
 		Actions:  act,
@@ -366,6 +370,7 @@ func serve(ctx context.Context, log *slog.Logger, cfg Config) error {
 		Resources:  resPolicy,
 		Federation: upstream.NewManager(safehttp.Options{AllowPrivate: cfg.FederationAllowPrivate}, nil),
 	}
+	oidcCfg.GroupsClaim = groupsClaim
 	adminCfg := admin.Config{}
 
 	mux := http.NewServeMux()

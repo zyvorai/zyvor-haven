@@ -154,6 +154,8 @@ type acctView struct {
 	HasPassword, EmailChange, TOTP, TOTPOn, Passkeys bool
 	PasskeyCount, RecoveryLeft                       int
 	PasswordPolicy                                   string
+
+	L Loc // ui.go: the realm's branding; the console's text is English
 }
 
 func acctTime(t time.Time) string {
@@ -415,11 +417,11 @@ func (c *console) loadOverview(ctx context.Context, v *acctView) error {
 func (c *console) render(status int, msg, errMsg string) {
 	p, rl := c.p, c.rl
 	ctx := c.r.Context()
-	disp := rl.DisplayName
-	if disp == "" {
-		disp = rl.Name
-	}
-	v := &acctView{Title: c.def.title, Page: c.def.slug, Realm: disp, Username: c.u.Username,
+	// Realm branding (logo, accent, footer links) applies. The text is not in
+	// the translation catalogue, so the page is declared English.
+	l := p.loc(c.w)
+	l.lang = ""
+	v := &acctView{L: l, Title: c.def.title, Page: c.def.slug, Realm: l.RealmName(rl), Username: c.u.Username,
 		Name: strings.TrimSpace(c.u.FirstName + " " + c.u.LastName), Email: c.u.Email, EmailVerified: c.u.EmailVerified,
 		Msg: msg, Error: errMsg, Action: accountPath(rl.Name, c.def.slug), Base: accountPath(rl.Name, ""),
 		LogoutURL: p.logoutPath(rl.Name), Recent: c.recent, HasPassword: c.u.PasswordHash != "",
@@ -481,7 +483,7 @@ func (c *console) render(status int, msg, errMsg string) {
 const accountHidden = `<input type="hidden" name="csrf" value="{{$.CSRF}}">`
 
 var accountTmpl = template.Must(template.New("account").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}} - Account</title>
 <!--theme--></head><body><main class="console">
 <header class="who"><!--hero:person--><p><strong>{{.Username}}</strong><span class="sub">{{.Realm}}</span></p></header>

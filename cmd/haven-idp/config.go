@@ -443,7 +443,6 @@ func runExport(realm string, f cfgFlags, io_ cfgIO) (int, error) {
 
 // connect resolves the Admin API connection from flags and environment.
 func connect(f cfgFlags) (idp.Provider, error) {
-	var c connInfo
 	if f.dev {
 		path, err := devCredsPath()
 		if err != nil {
@@ -456,12 +455,23 @@ func connect(f cfgFlags) (idp.Provider, error) {
 		if err != nil {
 			return nil, fmt.Errorf("dev credentials: %w", err)
 		}
-		c = connInfo{URL: fmt.Sprintf("http://127.0.0.1:%d", f.port), AdminRealm: "demo", ClientID: "haven-admin", Secret: creds.AdminSecret}
+		c := connInfo{URL: fmt.Sprintf("http://127.0.0.1:%d", f.port), AdminRealm: "demo", ClientID: "haven-admin", Secret: creds.AdminSecret}
 		return cfgConnect(c)
 	}
+	c, err := resolveConnection(f, "")
+	if err != nil {
+		return nil, err
+	}
+	return cfgConnect(c)
+}
+
+// resolveConnection reads the Admin API settings from flags, then the
+// environment (and --env-file), with fallbackURL when no URL is set.
+func resolveConnection(f cfgFlags, fallbackURL string) (connInfo, error) {
+	var c connInfo
 	if f.envFile != "" {
 		if err := loadEnvFile(f.envFile); err != nil {
-			return nil, err
+			return c, err
 		}
 	}
 	first := func(vals ...string) string {
@@ -472,13 +482,13 @@ func connect(f cfgFlags) (idp.Provider, error) {
 		}
 		return ""
 	}
-	c.URL = first(f.url, os.Getenv("HAVEN_IDP_URL"))
+	c.URL = first(f.url, os.Getenv("HAVEN_IDP_URL"), fallbackURL)
 	c.AdminRealm = first(f.adminRealm, os.Getenv("HAVEN_IDP_ADMIN_REALM"))
 	c.ClientID = first(f.clientID, os.Getenv("HAVEN_IDP_ADMIN_CLIENT_ID"), "haven-admin")
 	var err error
 	c.Secret, err = fromFile(os.Getenv("HAVEN_IDP_ADMIN_CLIENT_SECRET"), os.Getenv("HAVEN_IDP_ADMIN_CLIENT_SECRET_FILE"), "admin client secret")
 	if err != nil {
-		return nil, err
+		return c, err
 	}
 	var missing []string
 	if c.URL == "" {
@@ -491,7 +501,7 @@ func connect(f cfgFlags) (idp.Provider, error) {
 		missing = append(missing, "HAVEN_IDP_ADMIN_CLIENT_SECRET or HAVEN_IDP_ADMIN_CLIENT_SECRET_FILE")
 	}
 	if len(missing) > 0 {
-		return nil, fmt.Errorf("missing connection settings: %s (or use --dev)", strings.Join(missing, ", "))
+		return c, fmt.Errorf("missing connection settings: %s (or use --dev)", strings.Join(missing, ", "))
 	}
-	return cfgConnect(c)
+	return c, nil
 }

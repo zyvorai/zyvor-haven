@@ -59,6 +59,7 @@ func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 	if r, q, fapiOK = p.fapiAuthorize(w, r, q); !fapiOK { // fapi.go: PAR / JAR / RAR / dpop_jkt
 		return
 	}
+	setUILocales(w, q.Get("ui_locales"))
 	name := r.PathValue("realm")
 	rl, ok := p.realm(r.Context(), name)
 	if !ok {
@@ -312,35 +313,35 @@ func (p *Provider) pageHeaders(w http.ResponseWriter, nonce string) {
 }
 
 var pageTmpl = template.Must(template.New("page").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
 <!--theme--></head><body><main>
 {{if .Login}}<!--hero:lock-->{{else if eq .Form "forgot"}}<!--hero:envelope-->{{else if eq .Form "reset"}}<!--hero:lock-->{{else if .Form}}<!--hero:envelope-->{{else}}<!--hero:compass-->{{end}}
-{{if .Login}}<h1>Sign in to {{.Realm}}</h1>
-<p class="sub">to continue to {{.Client}}</p>
+{{if .Login}}<h1>{{.L.T "Sign in to %s" .Realm}}</h1>
+<p class="sub">{{.L.T "to continue to %s" .Client}}</p>
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 <form method="post" action="{{.Action}}" autocomplete="on">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
-<label for="u">Username or email</label><input id="u" name="username" value="{{.Username}}" autocomplete="username" autofocus required maxlength="256">
-<label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required maxlength="1024">
-<button type="submit">Sign in</button></form>
+<label for="u">{{.L.T "Username or email"}}</label><input id="u" name="username" value="{{.Username}}" autocomplete="username" autofocus required maxlength="256">
+<label for="p">{{.L.T "Password"}}</label><input id="p" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+<button type="submit">{{.L.T "Sign in"}}</button></form>
 {{if .Passkey}}{{template "passkey" .}}{{end}}
-{{if .ForgotURL}}<p class="sub"><a href="{{.ForgotURL}}">Forgot your password?</a></p>{{end}}
-{{range .Providers}}<a class="fed" href="{{.URL}}">Continue with {{.Name}}</a>
+{{if .ForgotURL}}<p class="sub"><a href="{{.ForgotURL}}">{{.L.T "Forgot your password?"}}</a></p>{{end}}
+{{range .Providers}}<a class="fed" href="{{.URL}}">{{$.L.T "Continue with %s" .Name}}</a>
 {{end}}
 {{else if .Form}}<h1>{{.Title}}</h1>
 {{if .Message}}<p class="sub">{{.Message}}</p>{{end}}
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 <form method="post" action="{{.Action}}">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
-{{if eq .Form "forgot"}}<label for="u">Username or email</label><input id="u" name="username" autocomplete="username" autofocus required maxlength="256">
-<button type="submit">Send reset link</button>
+{{if eq .Form "forgot"}}<label for="u">{{.L.T "Username or email"}}</label><input id="u" name="username" autocomplete="username" autofocus required maxlength="256">
+<button type="submit">{{.L.T "Send reset link"}}</button>
 {{else if eq .Form "reset"}}<input type="hidden" name="token" value="{{.Token}}">
-<label for="p">New password</label><input id="p" name="password" type="password" autocomplete="new-password" autofocus required maxlength="1024">
-<label for="c">Repeat new password</label><input id="c" name="confirm" type="password" autocomplete="new-password" required maxlength="1024">
-<button type="submit">Set password</button>
+<label for="p">{{.L.T "New password"}}</label><input id="p" name="password" type="password" autocomplete="new-password" autofocus required maxlength="1024">
+<label for="c">{{.L.T "Repeat new password"}}</label><input id="c" name="confirm" type="password" autocomplete="new-password" required maxlength="1024">
+<button type="submit">{{.L.T "Set password"}}</button>
 {{else}}<input type="hidden" name="token" value="{{.Token}}">
-<button type="submit">Confirm email address</button>{{end}}
+<button type="submit">{{.L.T "Confirm email address"}}</button>{{end}}
 </form>
 {{else}}<h1>{{.Title}}</h1><p>{{.Message}}</p>{{end}}
 </main></body></html>`)))
@@ -351,6 +352,7 @@ type pageData struct {
 	Login                                                               bool
 	Passkey                                                             *PasskeyLogin // set by passkeys.go via loginPageHook
 	Providers                                                           []fedButton   // federation.go
+	L                                                                   Loc           // ui.go
 }
 
 func (p *Provider) errorPage(w http.ResponseWriter, status int, msg string) {
@@ -360,8 +362,9 @@ func (p *Provider) errorPage(w http.ResponseWriter, status int, msg string) {
 func (p *Provider) simplePage(w http.ResponseWriter, status int, title, msg string) {
 	nonce := randToken(16)
 	p.pageHeaders(w, nonce)
+	l := p.loc(w)
 	w.WriteHeader(status)
-	_ = pageTmpl.Execute(w, pageData{Title: title, Nonce: nonce, Message: msg})
+	_ = pageTmpl.Execute(w, pageData{Title: l.T(title), Nonce: nonce, Message: l.T(msg), L: l})
 }
 
 func (p *Provider) loginPage(w http.ResponseWriter, r *http.Request, ar *authzReq, errMsg, username string) {
@@ -371,17 +374,12 @@ func (p *Provider) loginPage(w http.ResponseWriter, r *http.Request, ar *authzRe
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)
 	p.pageHeaders(w, nonce)
-	disp := ar.realm.DisplayName
-	if disp == "" {
-		disp = ar.realm.Name
-	}
-	cn := ar.client.Name
-	if cn == "" {
-		cn = ar.client.ClientID
-	}
-	pd := pageData{Title: "Sign in", Nonce: nonce, Login: true, Realm: disp, Client: cn,
-		Error: errMsg, Username: username, CSRF: csrf, ForgotURL: p.forgotURL(ar.realm.Name),
-		Action: r.URL.Path + "?" + r.URL.RawQuery, Providers: p.loginProviders(r, ar.realm)}
+	l := p.loc(w)
+	disp := l.RealmName(ar.realm)
+	cn := l.clientName(ar.client)
+	pd := pageData{Title: l.T("Sign in"), Nonce: nonce, Login: true, Realm: disp, Client: cn,
+		Error: l.T(errMsg), Username: username, CSRF: csrf, ForgotURL: keepUILocales(w, p.forgotURL(ar.realm.Name)),
+		Action: r.URL.Path + "?" + r.URL.RawQuery, Providers: p.loginProviders(r, ar.realm), L: l}
 	if loginPageHook != nil {
 		loginPageHook(p, w, ar, nonce, &pd) // passkeys: adds the button and its nonce'd script
 	}
@@ -490,7 +488,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 		p.cfg.Obs.Login(rl.Name, "unverified")
 		p.event(ctx, rl, "LOGIN_ERROR", u.ID, ar.client.ClientID, ip, "email_not_verified")
 		msg := "Your email address has not been verified. Verify it before signing in."
-		if p.sendAsync(rl, u, core.ActionVerifyEmail) {
+		if p.sendAsync(rl, u, core.ActionVerifyEmail, p.reqLang(w)) {
 			msg = "Your email address has not been verified. We sent a verification link to the address on file: open it, then sign in."
 		}
 		p.loginPage(w, r, ar, msg, username)

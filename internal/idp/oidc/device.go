@@ -411,6 +411,7 @@ type deviceView struct {
 	Scopes                                   []string
 	IP, UA, When, Ago                        string
 	Approved                                 bool
+	L                                        Loc    // ui.go
 	Account                                  string // account console, on the done page
 }
 
@@ -423,46 +424,45 @@ var scopeWords = map[string]string{
 }
 
 var deviceTmpl = template.Must(template.New("device").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
 <!--theme--></head><body><main>
 {{if eq .Mode "done"}}{{if .Approved}}<!--hero:check-->{{else}}<!--hero:compass-->{{end}}{{else}}<!--hero:devices-->{{end}}
 <h1>{{.Title}}</h1>
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 {{if eq .Mode "entry"}}
-<p class="sub">Enter the code shown on your device.</p>
+<p class="sub">{{.L.T "Enter the code shown on your device."}}</p>
 <form method="post" action="{{.Action}}" autocomplete="off">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
-<label for="uc">Code</label><input id="uc" type="text" name="user_code" value="{{.UserCode}}" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus required maxlength="32" placeholder="XXXX-XXXX">
-<button type="submit">Continue</button></form>
+<label for="uc">{{.L.T "Code"}}</label><input id="uc" type="text" name="user_code" value="{{.UserCode}}" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus required maxlength="32" placeholder="XXXX-XXXX">
+<button type="submit">{{.L.T "Continue"}}</button></form>
 {{else if eq .Mode "approve"}}
-<p><strong>{{.Client}}</strong> wants to sign in to {{.Realm}} as <strong>{{.User}}</strong>.</p>
-<div class="code" aria-label="Code on your device">{{.UserCode}}</div>
-<p class="sub">Make sure this is the code your device shows. It would be allowed to:</p>
+<p>{{.L.H "%s wants to sign in to %s as %s." (.L.B .Client) .Realm (.L.B .User)}}</p>
+<div class="code" aria-label="{{.L.T "Code on your device"}}">{{.UserCode}}</div>
+<p class="sub">{{.L.T "Make sure this is the code your device shows. It would be allowed to:"}}</p>
 <ul>{{range .Scopes}}<li>{{.}}</li>{{end}}</ul>
-<dl><dt>Request came from</dt><dd>{{.IP}}</dd>
-<dt>Device / software</dt><dd>{{.UA}}</dd>
-<dt>Requested</dt><dd>{{.When}} ({{.Ago}})</dd></dl>
-<p class="warn"><strong>Only approve if you started this on your own device.</strong> If you did not, deny it: someone may be trying to get into your account.</p>
+<dl><dt>{{.L.T "Request came from"}}</dt><dd>{{.IP}}</dd>
+<dt>{{.L.T "Device / software"}}</dt><dd>{{.UA}}</dd>
+<dt>{{.L.T "Requested"}}</dt><dd>{{.When}} ({{.Ago}})</dd></dl>
+<p class="warn"><strong>{{.L.T "Only approve if you started this on your own device."}}</strong> {{.L.T "If you did not, deny it: someone may be trying to get into your account."}}</p>
 <div class="row">
-<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="user_code" value="{{.UserCode}}"><input type="hidden" name="decision" value="approve"><button type="submit">Approve</button></form>
-<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="user_code" value="{{.UserCode}}"><input type="hidden" name="decision" value="deny"><button type="submit" class="deny">Deny</button></form>
+<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="user_code" value="{{.UserCode}}"><input type="hidden" name="decision" value="approve"><button type="submit">{{.L.T "Approve"}}</button></form>
+<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="user_code" value="{{.UserCode}}"><input type="hidden" name="decision" value="deny"><button type="submit" class="deny">{{.L.T "Deny"}}</button></form>
 </div>
 {{else}}
-{{if .Approved}}<p>You approved the sign-in. You can close this window and go back to your device.</p>
-{{else}}<p>You denied the sign-in. Nothing was shared with the device. You can close this window.</p>{{end}}
-{{if .Account}}<p class="sub"><a href="{{.Account}}/activity">Review your account activity</a></p>{{end}}
+{{if .Approved}}<p>{{.L.T "You approved the sign-in. You can close this window and go back to your device."}}</p>
+{{else}}<p>{{.L.T "You denied the sign-in. Nothing was shared with the device. You can close this window."}}</p>{{end}}
+{{if .Account}}<p class="sub"><a href="{{.Account}}/activity">{{.L.T "Review your account activity"}}</a></p>{{end}}
 {{end}}
 </main></body></html>`)))
 
 func (p *Provider) deviceRender(w http.ResponseWriter, rl core.Realm, status int, v deviceView) {
 	nonce := randToken(16)
 	v.Nonce = nonce
-	v.Realm = rl.DisplayName
-	if v.Realm == "" {
-		v.Realm = rl.Name
-	}
-	v.Action = p.deviceURL(rl.Name)
+	v.L = p.loc(w)
+	v.Realm = v.L.RealmName(rl)
+	v.Title, v.Error = v.L.T(v.Title), v.L.T(v.Error)
+	v.Action = keepUILocales(w, p.deviceURL(rl.Name))
 	if v.Mode == "done" {
 		v.Account = p.accountLink(rl.Name)
 	}
@@ -487,26 +487,27 @@ func (p *Provider) deviceApprovePage(w http.ResponseWriter, rl core.Realm, d cor
 	if name == "" {
 		name = cl.ClientID
 	}
+	l := p.loc(w)
 	var scopes []string
 	for _, s := range strings.Fields(d.Scope) {
-		if w, ok := scopeWords[s]; ok {
-			scopes = append(scopes, w)
+		if words, ok := scopeWords[s]; ok {
+			scopes = append(scopes, l.T(words))
 		}
 	}
 	ua := d.RequestUA
 	if ua == "" {
-		ua = "unknown"
+		ua = l.T("unknown")
 	} else if len(ua) > 100 {
 		ua = ua[:100] + "..."
 	}
 	ip := d.RequestIP
 	if ip == "" {
-		ip = "unknown"
+		ip = l.T("unknown")
 	}
 	ago := p.now().Sub(d.CreatedAt).Round(time.Minute)
-	agoS := "just now"
+	agoS := l.T("just now")
 	if ago >= time.Minute {
-		agoS = fmt.Sprintf("%d min ago", int(ago.Minutes()))
+		agoS = l.T("%d min ago", int(ago.Minutes()))
 	}
 	p.deviceRender(w, rl, http.StatusOK, deviceView{Title: "Approve this device?", Mode: "approve",
 		UserCode: displayUserCode(norm), Client: name, User: u.Username, Scopes: scopes, IP: ip, UA: ua,
@@ -611,7 +612,7 @@ func (p *Provider) deviceLogin(w http.ResponseWriter, r *http.Request, rl core.R
 		"code_challenge_method": {"S256"},
 	}
 	noStore(w)
-	http.Redirect(w, r, p.endpoint(rl.Name, "auth")+"?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, keepUILocales(w, p.endpoint(rl.Name, "auth")+"?"+q.Encode()), http.StatusSeeOther)
 }
 
 // deviceContinue is where the login redirect lands. It reads the SSO session
