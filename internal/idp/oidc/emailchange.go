@@ -13,6 +13,7 @@ import (
 
 	"github.com/zyvorai/haven/internal/idp/actions"
 	"github.com/zyvorai/haven/internal/idp/core"
+	"github.com/zyvorai/haven/internal/idp/i18n"
 )
 
 // Self-service email change.
@@ -50,17 +51,18 @@ type ecData struct {
 	Done    bool
 }
 
-const ecBody = `{{with .Data}}{{if .Done}}<p class="sub">{{.Info}}</p>
-{{else}}{{if .Info}}<p class="sub">{{.Info}}</p>{{end}}<p>Current address: <strong>{{if .Current}}{{.Current}}{{else}}none{{end}}</strong></p>
+const ecBody = `{{with .Data}}{{if .Done}}<p class="sub">{{$.L.T .Info}}</p>
+{{else}}{{if .Info}}<p class="sub">{{$.L.T .Info}}</p>{{end}}<p>{{if .Current}}{{$.L.H "Current address: %s" ($.L.B .Current)}}{{else}}{{$.L.H "Current address: %s" ($.L.B ($.L.T "none"))}}{{end}}</p>
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}">
-<label for="ne">New email address</label><input id="ne" name="email" type="email" autocomplete="email" required maxlength="254">
-<label for="pw">Password (to confirm it is you)</label><input id="pw" name="password" type="password" autocomplete="current-password" required maxlength="1024">
-<button type="submit">Send confirmation link</button></form>
-{{end}}{{end}}`
+<label for="ne">{{$.L.T "New email address"}}</label><input id="ne" name="email" type="email" autocomplete="email" required maxlength="254">
+<label for="pw">{{$.L.T "Password (to confirm it is you)"}}</label><input id="pw" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+<button type="submit">{{$.L.T "Send confirmation link"}}</button></form>
+{{end}}{{end}}
+<p class="sub"><a href="../account">{{$.L.T "Back to your account"}}</a></p>`
 
-const ecConfirmBody = `{{with .Data}}<p class="sub">Press the button to make this your new email address.</p>
+const ecConfirmBody = `{{with .Data}}<p class="sub">{{$.L.T "Press the button to make this your new email address."}}</p>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="token" value="{{.Token}}">
-<button type="submit">Confirm new email address</button></form>{{end}}`
+<button type="submit">{{$.L.T "Confirm new email address"}}</button></form>{{end}}`
 
 func (p *Provider) accountEmail(w http.ResponseWriter, r *http.Request) {
 	rl, ok := p.realm(r.Context(), r.PathValue("realm"))
@@ -149,7 +151,7 @@ func (p *Provider) accountEmail(w http.ResponseWriter, r *http.Request) {
 	p.event(ctx, rl, "UPDATE_EMAIL_REQUEST", u.ID, "", p.clientIP(r), "")
 	if !taken {
 		p.bg.Add(1)
-		detached := context.WithoutCancel(ctx) // outlives the response, keeps request values
+		detached := i18n.WithLang(context.WithoutCancel(ctx), p.reqLang(w)) // outlives the response, keeps request values
 		go func(rl core.Realm, u core.User) {
 			defer p.bg.Done()
 			bctx, cancel := context.WithTimeout(detached, mailTimeout)
@@ -239,7 +241,7 @@ func (p *Provider) confirmEmailChange(w http.ResponseWriter, r *http.Request) {
 	p.event(ctx, rl, "UPDATE_EMAIL", u.ID, "", p.clientIP(r), "")
 	if strings.TrimSpace(oldEmail) != "" {
 		p.bg.Add(1)
-		detached := context.WithoutCancel(ctx) // outlives the response, keeps request values
+		detached := i18n.WithLang(context.WithoutCancel(ctx), p.reqLang(w)) // outlives the response, keeps request values
 		go func(rl core.Realm) {
 			defer p.bg.Done()
 			bctx, cancel := context.WithTimeout(detached, mailTimeout)

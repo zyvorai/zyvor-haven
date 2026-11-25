@@ -85,6 +85,13 @@ type Config struct {
 	// for (resources.go). Nil = none: any `resource` parameter is refused with
 	// invalid_target.
 	Resources ResourceAllowList
+	// GroupsClaim lists the clients whose ID tokens may carry `groups`
+	// (groupsclaim.go). Nil = none.
+	GroupsClaim *GroupsClaimPolicy
+	// MTLS says where client certificates come from (clientauth_mtls.go).
+	// The zero value turns mutual TLS off: no header or connection
+	// certificate is ever consulted.
+	MTLS MTLSConfig
 }
 
 // Provider is the http.Handler for all realms.
@@ -176,7 +183,7 @@ func (p *Provider) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
-	p.mux.ServeHTTP(w, r)
+	p.mux.ServeHTTP(&uiWriter{ResponseWriter: w, r: r}, r) // ui.go: language and branding of pages
 }
 
 // HashSecret returns the sha256 hex digest used to store client secrets and

@@ -382,6 +382,8 @@ func (p *Provider) pkAssert(w http.ResponseWriter, r *http.Request, ar *authzReq
 	detail := "passkey"
 	if mode == "2fa" {
 		detail = "passkey_2fa"
+	} else {
+		p.markPasswordless(ctx, rl.Name, credKey) // passkeyonly.go
 	}
 	p.completeLogin(w, r.WithContext(context.WithValue(ctx, uvCtxKey{}, res.UserVerified)), ar, u, detail) // authn.go
 }

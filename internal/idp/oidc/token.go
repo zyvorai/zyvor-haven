@@ -35,9 +35,6 @@ func (p *Provider) writeTokenErr(w http.ResponseWriter, e *tokenErr, basic bool)
 	writeJSON(w, e.status, map[string]string{"error": e.code, "error_description": e.desc})
 }
 
-// authClient authenticates the calling client from Basic or POST credentials.
-// Public clients identify with client_id only. The returned bool reports
-// whether the client authenticated with a secret.
 // grantLabel bounds the grant label to the known grant types.
 func grantLabel(g string) string {
 	switch g {
@@ -53,7 +50,15 @@ func (p *Provider) tokenFail(w http.ResponseWriter, e *tokenErr, basic bool, rea
 	p.writeTokenErr(w, e, basic)
 }
 
+// authClient authenticates the calling client. A client with a configured
+// authentication method (clientauth.go) must use exactly that one; otherwise
+// confidential clients send their secret (Basic or POST) and public clients
+// identify with client_id only. The first returned bool reports whether the
+// client authenticated (is confidential), the second whether it used Basic.
 func (p *Provider) authClient(r *http.Request, realm string) (core.Client, bool, bool, *tokenErr) {
+	if r.PostForm.Has("client_assertion") || r.PostForm.Has("client_assertion_type") {
+		return p.authAssertion(r, realm) // private_key_jwt
+	}
 	id, secret, basic := r.BasicAuth()
 	if basic {
 		var err error
@@ -80,6 +85,16 @@ func (p *Provider) authClient(r *http.Request, realm string) (core.Client, bool,
 	}
 	if !cl.Enabled {
 		return core.Client{}, false, basic, bad
+	}
+	// Before anything else looks at the secret or the public flag: a configured
+	// method is the only way in (no fallback to a weaker one).
+	cfg, found, err := p.clientAuthConfig(r.Context(), realm, cl)
+	if err != nil {
+		p.cfg.Logger.Error("oidc: client authentication settings", "err", err)
+		return core.Client{}, false, basic, &tokenErr{http.StatusInternalServerError, "server_error", "temporary error"}
+	}
+	if found {
+		return p.authConfigured(r, realm, cl, cfg, secret, basic)
 	}
 	if cl.Public {
 		if secret != "" {
@@ -118,6 +133,10 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 		p.tokenFail(w, terr, basic, rl.Name, grant)
 		return
 	}
+	if r, terr = p.mtlsToken(r, rl, cl); terr != nil { // clientauth_mtls.go: certificate-bound tokens
+		p.tokenFail(w, terr, basic, rl.Name, grant)
+		return
+	}
 	var resp map[string]any
 	switch g := r.PostForm.Get("grant_type"); g {
 	case "authorization_code":
@@ -132,6 +151,9 @@ func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
 		} else {
 			terr = oerr("unsupported_grant_type", "grant_type not supported")
 		}
+	}
+	if terr == nil {
+		terr = p.mtlsTokenDone(r, resp) // never an unbound token when binding is required
 	}
 	if terr == nil {
 		terr = p.dpopTokenDone(w, r, rl, cl, resp) // DPoP: bind the refresh token
@@ -477,6 +499,7 @@ func (p *Provider) issue(r *http.Request, rl core.Realm, cl core.Client, u core.
 			idc["given_name"], idc["family_name"] = u.FirstName, u.LastName
 			idc["name"] = strings.TrimSpace(u.FirstName + " " + u.LastName)
 		}
+		p.addGroupsClaim(rl.Name, cl, u, scopes, idc) // groupsclaim.go: opted-in clients that were granted "groups"
 		idt, err := p.cfg.Signer.Sign(ctx, rl.Name, idc)
 		if err != nil {
 			p.cfg.Logger.Error("oidc: sign id token", "err", err)

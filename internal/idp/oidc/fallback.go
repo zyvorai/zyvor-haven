@@ -49,7 +49,7 @@ type Fallback struct {
 // altFragment is appended to the passkey and TOTP step bodies; Data must
 // carry an Alt *Fallback.
 const altFragment = `
-{{if .Data.Alt}}<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="fb_token" value="{{.Data.Alt.Token}}"><button type="submit" class="secondary">{{.Data.Alt.Label}}</button></form>{{end}}`
+{{if .Data.Alt}}<form method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="fb_token" value="{{.Data.Alt.Token}}"><button type="submit" class="secondary">{{.L.T .Data.Alt.Label}}</button></form>{{end}}`
 
 // methodReady reports whether the user has the method enrolled and the
 // feature for it is on. Errors count as "not ready".
@@ -88,6 +88,11 @@ func (p *Provider) fallbackOffer(r *http.Request, ar *authzReq, userID, from str
 	to, label := methodPasskey, "Use a passkey instead"
 	if from == methodPasskey {
 		to, label = methodTOTP, "Use an authenticator code or recovery code instead"
+		// Passkey-only realms offer no way around the passkey (passkeyonly.go
+		// also refuses it at completion).
+		if only, _, err := p.passkeyOnlyFor(r.Context(), ar.realm.Name, userID); err != nil || only {
+			return nil
+		}
 	}
 	if !p.methodReady(r, ar.realm.Name, userID, to) {
 		return nil

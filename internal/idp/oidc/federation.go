@@ -318,7 +318,7 @@ func (p *Provider) brokerEndpoint(w http.ResponseWriter, r *http.Request) {
 	if q.Get("error") != "" {
 		// The upstream refused (for example the user cancelled). Nothing from the
 		// response is echoed.
-		p.brokerFail(w, rl, r, cid, alias, "upstream_denied", http.StatusForbidden, "Sign-in with "+fp.DisplayName+" was cancelled or denied.")
+		p.brokerFail(w, rl, r, cid, alias, "upstream_denied", http.StatusForbidden, p.loc(w).T("Sign-in with %s was cancelled or denied.", fp.DisplayName))
 		return
 	}
 	code := q.Get("code")
@@ -364,11 +364,11 @@ func (p *Provider) brokerEndpoint(w http.ResponseWriter, r *http.Request) {
 			p.cfg.Obs.Login(rl.Name, "disabled")
 			p.brokerFail(w, rl, r, cid, alias, why, http.StatusForbidden, "Your account is disabled.")
 		case "no_account":
-			p.brokerFail(w, rl, r, cid, alias, why, http.StatusForbidden, "No account is linked to this "+fp.DisplayName+" identity, and new accounts are not created automatically. Ask an administrator.")
+			p.brokerFail(w, rl, r, cid, alias, why, http.StatusForbidden, p.loc(w).T("No account is linked to this %s identity, and new accounts are not created automatically. Ask an administrator.", fp.DisplayName))
 		case "email_exists":
 			p.brokerFail(w, rl, r, cid, alias, why, http.StatusForbidden, "An account with this email address already exists but cannot be linked automatically. Sign in with your existing method or ask an administrator to link it.")
 		case "link_conflict":
-			p.brokerFail(w, rl, r, cid, alias, why, http.StatusForbidden, "This account is already linked to a different "+fp.DisplayName+" identity. Ask an administrator.")
+			p.brokerFail(w, rl, r, cid, alias, why, http.StatusForbidden, p.loc(w).T("This account is already linked to a different %s identity. Ask an administrator.", fp.DisplayName))
 		default:
 			p.brokerFail(w, rl, r, cid, alias, why, http.StatusInternalServerError, "Temporary error. Try again.")
 		}
@@ -381,7 +381,7 @@ func (p *Provider) brokerEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	if rl.EmailVerificationRequired && !u.EmailVerified {
 		msg := "Your email address has not been verified. Verify it before signing in."
-		if p.sendAsync(rl, u, core.ActionVerifyEmail) {
+		if p.sendAsync(rl, u, core.ActionVerifyEmail, p.reqLang(w)) {
 			msg = "Your email address has not been verified. We sent a verification link to the address on file: open it, then sign in again."
 		}
 		p.brokerFail(w, rl, r, cid, alias, "email_not_verified", http.StatusForbidden, msg)

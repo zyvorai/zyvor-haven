@@ -22,14 +22,13 @@ func TestEveryPageUsesSharedTheme(t *testing.T) {
 		data any
 	}{
 		"login/forgot/error": {pageTmpl, pageData{Nonce: nonce, Title: "t", Message: "m"}},
-		"logout": {logoutTmpl, struct {
-			Nonce, Realm, CSRF, Action string
-			Hidden                     []hiddenField
-		}{Nonce: nonce}},
-		"device":    {deviceTmpl, deviceView{Nonce: nonce, Mode: "done"}},
-		"ciba":      {cibaTmpl, cibaView{Nonce: nonce, Mode: "done"}},
-		"passkeys":  {pkAcctTmpl, pkAcctData{Nonce: nonce}},
-		"step/mfa/": {stepTemplate(""), StepData{Nonce: nonce, Title: "t"}},
+		"logout":             {logoutTmpl, logoutView{Nonce: nonce}},
+		"device":             {deviceTmpl, deviceView{Nonce: nonce, Mode: "done"}},
+		"ciba":               {cibaTmpl, cibaView{Nonce: nonce, Mode: "done"}},
+		"passkeys":           {pkAcctTmpl, pkAcctData{Nonce: nonce}},
+		"step/mfa/":          {stepTemplate(""), StepData{Nonce: nonce, Title: "t"}},
+		"frontchannel logout": {fcLogoutTmpl, fcPageData{Nonce: nonce, Next: "https://app.example/",
+			Frames: []fcFrame{{URL: "https://app.example/fc"}, {URL: "https://idp.example/fc", Isolated: true}}}},
 	}
 	for name, pg := range pages {
 		var b bytes.Buffer

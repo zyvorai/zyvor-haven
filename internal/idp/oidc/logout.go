@@ -16,18 +16,25 @@ import (
 func (p *Provider) logoutPath(realm string) string { return "/realms/" + realm + oidcPath + "/logout" }
 
 var logoutTmpl = template.Must(template.New("logout").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign out</title>
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.L.T "Sign out"}}</title>
 <!--theme--></head><body><main>
 <!--hero:door-->
-<h1>Sign out of {{.Realm}}?</h1>
+<h1>{{.L.T "Sign out of %s?" .Realm}}</h1>
 <form method="post" action="{{.Action}}">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 {{range .Hidden}}<input type="hidden" name="{{.K}}" value="{{.V}}">
-{{end}}<button type="submit">Sign out</button></form>
+{{end}}<button type="submit">{{.L.T "Sign out"}}</button></form>
+<p class="sub"><a href="../../account">{{.L.T "Manage your account instead"}}</a></p>
 </main></body></html>`)))
 
 type hiddenField struct{ K, V string }
+
+type logoutView struct {
+	Nonce, Realm, CSRF, Action string
+	Hidden                     []hiddenField
+	L                          Loc // ui.go
+}
 
 // verifyHint validates an id_token_hint for logout. Signature, alg pinning,
 // issuer and realm are always enforced; only expiry is waived, because ID
@@ -132,9 +139,13 @@ func (p *Provider) logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cs, haveCookie := p.cookieSession(r, name)
+	// The session of THIS browser, when this request ended it: only then are
+	// its applications told through the browser (front-channel logout), so a
+	// stolen id_token_hint never reveals them.
+	var browser *core.Session
 	switch {
 	case hc != nil:
-		p.logoutWithHint(w, r, rl, hc, cs, haveCookie, ip)
+		browser = p.logoutWithHint(w, r, rl, hc, cs, haveCookie, ip)
 	case haveCookie:
 		if r.Method != http.MethodPost {
 			p.logoutConfirm(w, rl, ru, clientID, state)
@@ -145,7 +156,9 @@ func (p *Provider) logout(w http.ResponseWriter, r *http.Request) {
 			p.errorPage(w, http.StatusForbidden, "This sign-out request could not be verified. Go back and try again.")
 			return
 		}
-		p.endAndLog(r, rl, cs.ID, cs.UserID, clientID, ip, "confirmed")
+		if s, ended := p.endAndLog(r, rl, cs.ID, cs.UserID, clientID, ip, "confirmed"); ended {
+			browser = &s
+		}
 		p.clearSSOCookie(w, name)
 		p.clearLogoutCSRF(w, name)
 	default:
@@ -153,6 +166,15 @@ func (p *Provider) logout(w http.ResponseWriter, r *http.Request) {
 		p.clearSSOCookie(w, name)
 	}
 
+	if browser != nil {
+		next := ""
+		if redirect != nil {
+			next = redirect.String()
+		}
+		if p.frontchannelLogout(w, r, rl, *browser, next) { // frontchannel.go
+			return
+		}
+	}
 	if redirect != nil {
 		noStore(w)
 		http.Redirect(w, r, redirect.String(), http.StatusFound)
@@ -162,32 +184,41 @@ func (p *Provider) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // logoutWithHint ends the session named by a verified id_token_hint and, when
-// it belongs to the same user, the browser's cookie session.
+// it belongs to the same user, the browser's cookie session. It returns the
+// cookie session if this call ended it.
 func (p *Provider) logoutWithHint(w http.ResponseWriter, r *http.Request, rl core.Realm, hc core.Claims,
-	cs core.Session, haveCookie bool, ip string) {
+	cs core.Session, haveCookie bool, ip string) (browser *core.Session) {
 	sub, azp, sid := claimStr(hc, "sub"), claimStr(hc, "azp"), claimStr(hc, "sid")
+	own := haveCookie && cs.UserID == sub
 	if sid != "" {
 		// The hint's sid only counts when the session belongs to the hint's
 		// subject: a token for one user never ends another user's session.
 		if s, err := p.cfg.Store.GetSession(r.Context(), rl.Name, sid); err == nil && s.UserID == sub {
-			p.endAndLog(r, rl, sid, sub, azp, ip, "id_token_hint")
+			if ended, ok := p.endAndLog(r, rl, sid, sub, azp, ip, "id_token_hint"); ok && own && cs.ID == sid {
+				browser = &ended
+			}
 		}
 	}
-	if haveCookie && cs.UserID == sub {
+	if own {
 		if cs.ID != sid {
-			p.endAndLog(r, rl, cs.ID, sub, azp, ip, "id_token_hint cookie session")
+			if ended, ok := p.endAndLog(r, rl, cs.ID, sub, azp, ip, "id_token_hint cookie session"); ok {
+				browser = &ended
+			}
 		}
 		p.clearSSOCookie(w, rl.Name)
 	}
+	return browser
 }
 
 // endAndLog ends one session through the sessions service and records LOGOUT
 // only when this call actually ended it, so replays leave no trace.
-func (p *Provider) endAndLog(r *http.Request, rl core.Realm, sid, userID, clientID, ip, how string) {
-	if _, err := p.sessions().End(r.Context(), rl.Name, sid); err != nil {
-		return
+func (p *Provider) endAndLog(r *http.Request, rl core.Realm, sid, userID, clientID, ip, how string) (core.Session, bool) {
+	s, err := p.sessions().End(r.Context(), rl.Name, sid)
+	if err != nil {
+		return core.Session{}, false
 	}
 	p.event(r.Context(), rl, "LOGOUT", userID, clientID, ip, how)
+	return s, true
 }
 
 func (p *Provider) logoutConfirm(w http.ResponseWriter, rl core.Realm, ru, clientID, state string) {
@@ -203,15 +234,10 @@ func (p *Provider) logoutConfirm(w http.ResponseWriter, rl core.Realm, ru, clien
 	}
 	nonce := randToken(16)
 	p.pageHeaders(w, nonce)
-	disp := rl.DisplayName
-	if disp == "" {
-		disp = rl.Name
-	}
+	l := p.loc(w)
 	w.WriteHeader(http.StatusOK)
-	_ = logoutTmpl.Execute(w, struct {
-		Nonce, Realm, CSRF, Action string
-		Hidden                     []hiddenField
-	}{nonce, disp, csrf, p.logoutPath(rl.Name), hidden})
+	_ = logoutTmpl.Execute(w, logoutView{Nonce: nonce, Realm: l.RealmName(rl), CSRF: csrf,
+		Action: keepUILocales(w, p.logoutPath(rl.Name)), Hidden: hidden, L: l})
 }
 
 func (p *Provider) clearLogoutCSRF(w http.ResponseWriter, realm string) {

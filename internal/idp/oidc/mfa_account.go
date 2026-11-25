@@ -27,37 +27,38 @@ type acctData struct {
 	Required     bool
 }
 
-const acctPW = `{{if .NeedPassword}}<label for="pw{{.State}}">Password (to confirm it is you)</label><input id="pw{{.State}}" name="password" type="password" autocomplete="current-password" required maxlength="1024">{{end}}` // #nosec G101 -- HTML template fragment with a password input, no credential
+const acctPW = `{{if .NeedPassword}}<label for="pw{{.State}}">{{$.L.T "Password (to confirm it is you)"}}</label><input id="pw{{.State}}" name="password" type="password" autocomplete="current-password" required maxlength="1024">{{end}}` // #nosec G101 -- HTML template fragment with a password input, no credential
 
-const acctBody = `{{with .Data}}{{if .Codes}}` + `<p class="err"><strong>Save these recovery codes now.</strong> They are shown only once and cannot be displayed again. Each works one time if you lose your authenticator.</p>
+const acctBody = `{{with .Data}}{{if .Codes}}` + `<p class="err"><strong>{{$.L.T "Save these recovery codes now."}}</strong> {{$.L.T "They are shown only once and cannot be displayed again. Each works one time if you lose your authenticator."}}</p>
 <pre>{{range .Codes}}{{.}}
 {{end}}</pre>
-{{else if .Secret}}<p class="sub">Add this account to your authenticator app, then enter the 6-digit code it shows to finish.</p>
-<p>Secret key: <code>{{.Secret}}</code></p>
-<p class="sub">Or enter this setup link in an app that accepts one: <code>{{.URI}}</code></p>
+{{else if .Secret}}<p class="sub">{{$.L.T "Add this account to your authenticator app, then enter the 6-digit code it shows to finish."}}</p>
+<p>{{$.L.H "Secret key: %s" ($.L.C .Secret)}}</p>
+<p class="sub">{{$.L.H "Or enter this setup link in an app that accepts one: %s" ($.L.C .URI)}}</p>
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="confirm">
-<label for="cc">6-digit code</label><input id="cc" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus required maxlength="16">
-<button type="submit">Confirm</button></form>
-{{else}}{{if .Info}}<p class="sub">{{.Info}}</p>{{end}}
-{{if eq .State "off"}}<p>Two-step verification is <strong>off</strong>.</p>{{if .Required}}<p class="sub">This realm requires it at sign-in.</p>{{end}}
+<label for="cc">{{$.L.T "6-digit code"}}</label><input id="cc" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus required maxlength="16">
+<button type="submit">{{$.L.T "Confirm"}}</button></form>
+{{else}}{{if .Info}}<p class="sub">{{$.L.T .Info}}</p>{{end}}
+{{if eq .State "off"}}<p>{{$.L.H "Two-step verification is %s." ($.L.B ($.L.T "off"))}}</p>{{if .Required}}<p class="sub">{{$.L.T "This realm requires it at sign-in."}}</p>{{end}}
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="start">` + acctPW + `
-<button type="submit">Set up authenticator app</button></form>
-{{else if eq .State "pending"}}<p>Setup was started but not finished.</p>
+<button type="submit">{{$.L.T "Set up authenticator app"}}</button></form>
+{{else if eq .State "pending"}}<p>{{$.L.T "Setup was started but not finished."}}</p>
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="confirm">
-<label for="cc">6-digit code from your app</label><input id="cc" name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="16">
-<button type="submit">Confirm</button></form>
+<label for="cc">{{$.L.T "6-digit code from your app"}}</label><input id="cc" name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="16">
+<button type="submit">{{$.L.T "Confirm"}}</button></form>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="start">` + acctPW + `
-<button type="submit" class="secondary">Start over with a new secret</button></form>
+<button type="submit" class="secondary">{{$.L.T "Start over with a new secret"}}</button></form>
 <form method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="disable">` + acctPW + `
-<button type="submit" class="secondary">Cancel setup</button></form>
-{{else}}<p>Two-step verification is <strong>on</strong>. Recovery codes left: <strong>{{.Remaining}}</strong>.</p>
+<button type="submit" class="secondary">{{$.L.T "Cancel setup"}}</button></form>
+{{else}}<p>{{$.L.H "Two-step verification is %s." ($.L.B ($.L.T "on"))}} {{$.L.H "Recovery codes left: %s." ($.L.B .Remaining)}}</p>
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="regenerate">
-<label for="rc">Current code or a recovery code</label><input id="rc" name="code" autocomplete="one-time-code" required maxlength="64">` + acctPW + `
-<button type="submit">Generate new recovery codes</button></form>
+<label for="rc">{{$.L.T "Current code or a recovery code"}}</label><input id="rc" name="code" autocomplete="one-time-code" required maxlength="64">` + acctPW + `
+<button type="submit">{{$.L.T "Generate new recovery codes"}}</button></form>
 <form method="post" action="{{$.Action}}" autocomplete="off"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="action" value="disable">
-<label for="dc">Current code or a recovery code</label><input id="dc" name="code" autocomplete="one-time-code" required maxlength="64">` + acctPW + `
-<button type="submit" class="secondary">Turn off two-step verification</button></form>
-{{end}}{{end}}{{end}}`
+<label for="dc">{{$.L.T "Current code or a recovery code"}}</label><input id="dc" name="code" autocomplete="one-time-code" required maxlength="64">` + acctPW + `
+<button type="submit" class="secondary">{{$.L.T "Turn off two-step verification"}}</button></form>
+{{end}}{{end}}{{end}}
+<p class="sub"><a href="../account">{{$.L.T "Back to your account"}}</a></p>`
 
 func (p *Provider) accountTOTP(w http.ResponseWriter, r *http.Request) {
 	rl, ok := p.realm(r.Context(), r.PathValue("realm"))

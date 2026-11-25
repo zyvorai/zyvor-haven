@@ -245,9 +245,12 @@ Needs a store implementing `core.PasskeyStore`; otherwise every route answers 50
 - `DELETE /realms/{r}/users/{id}/passkeys/{credId}` -> 204; 404 when the credential does
   not belong to that user. Does not end sessions. Ignores the realm's passkey policy
   (admins can always remove). Audit `ADMIN_DELETE passkey <username>` (no credential id).
-- `GET /realms/{r}/passkey-policy` -> `{"requirePasskeys":bool}`;
-  `PUT` with the same body (unknown fields -> 400). When true, the account page refuses to
-  remove a user's last passkey. Audit `ADMIN_UPDATE passkey-policy <realm>`.
+- `GET /realms/{r}/passkey-policy` -> `{"requirePasskeys":bool,"passkeyOnly":bool}`
+  (`passkeyOnly` is omitted when the store has no `core.PasskeyOnlyStore`);
+  `PUT` with the same body (unknown fields -> 400). `requirePasskeys` true: the account page
+  refuses to remove a user's last passkey (absent means false). `passkeyOnly` ("passkey-only
+  for users who have a passkey", see `docs/passkeys.md`; default false): absent leaves it
+  unchanged; 501 when sent to a store without it. Audit `ADMIN_UPDATE passkey-policy <realm>`.
 Metrics: `AdminOp(realm,"passkey","delete",ok)` and `AdminOp(realm,"passkey-policy","update",ok)`.
 ## Identity providers (identity brokering, `internal/idp/admin/federation.go`)
 Upstream OpenID Connect providers ("Sign in with ..."): Google, Microsoft Entra ID and any
@@ -434,6 +437,49 @@ migration `0017_mcp_consent.sql`. All under `/realms/{r}`.
 | `POST /consent/unkill` | `{clientId` xor `agentId}`; `204`, removes the block and re-enables the client row only. 404 when not blocked |
 
 Auth events: `CONSENT_GRANT`, `CONSENT_DENY`, `CONSENT_REVOKE`. User-facing: `GET/POST /realms/{r}/account/consents`.
+## Branding and email templates
+
+See `docs/branding-and-i18n.md`. Optional store extension `core.BrandingStore`; a store without it answers 501. Bodies
+reject unknown fields. Pg migration `0026_branding.sql`. All under `/realms/{r}`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /branding` | `{displayName, accentColor, accentColorDark, logoLight, logoDark, supportUrl, privacyUrl, termsUrl, defaultLocale, effectiveAccentColorDark, supportedLocales, updatedAt?}`; empty strings when unset |
+| `PUT /branding` | replaces the record (omitted = unset; the three read-only members are not accepted); `200` with the stored form. 400: unreadable or malformed colour, logo outside the SVG subset, non-https link, bad name or locale, dark logo without light. Audit `ADMIN_UPDATE "branding <realm>"` |
+| `DELETE /branding` | `204`, idempotent |
+| `GET /email-templates/kinds` | `[{kind, variables, requiresLink, locales}]` |
+| `GET /email-templates` | stored templates `[{kind, locale, subject, text, html, updatedAt}]` |
+| `GET /email-templates/{kind}/{locale}` | one stored template; 404 none, unknown kind or locale |
+| `PUT /email-templates/{kind}/{locale}` | `{subject, text, html?}` -> `200`; 400 names the rule broken. Audit `ADMIN_UPDATE "email-template <kind>/<locale>"` |
+| `DELETE /email-templates/{kind}/{locale}` | `204`; 404 none |
+| `POST /email-templates/{kind}/{locale}/preview` | optional `{subject, text, html?}` draft -> `{source: draft/custom/builtin, subject, text, html}` with sample data |
+| `POST /email-templates/{kind}/{locale}/test-send` | same optional body; mails the sample to the calling admin user's own address -> `204`. No recipient field. 409 email not configured, service account, or no address; 429 over 10 per hour; 502 delivery failed. Audit `ADMIN_ACTION "email-template-test <kind>/<locale>"` |
+
+## Client authentication (`docs/client-authentication.md`)
+
+Optional store extension `core.ClientAuthStore`; a store without it answers 501. Pg migration `0023_client_auth.sql`.
+Request bodies reject unknown fields. `{id}` is the client's UUID.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/clients/{id}/authentication` | `{method, jwks, jwksUri, signingAlg, tlsSubjectDn, tlsSanDns, tlsSanUri, tlsSanIp, tlsSanEmail, certificateBoundTokens}` (public keys only); 404 when none is configured or the client is unknown |
+| `PUT /realms/{r}/clients/{id}/authentication` | Replaces the settings. `method`: `none` (public clients only), `client_secret_basic`, `client_secret_post`, `private_key_jwt`, `tls_client_auth`, `self_signed_tls_client_auth`. `private_key_jwt` and `self_signed_tls_client_auth` need exactly one of `jwks` (public keys; `x5c` for self signed) and `jwksUri` (https); `signingAlg` (`ES256`, `PS256`, `RS256`, `EdDSA`) only with `private_key_jwt`; `tls_client_auth` needs exactly one `tls*` field; `certificateBoundTokens` needs a confidential client. Anything else is 400. 409 for key/certificate methods or binding on the admin client. A key or certificate method **deletes the client secret**. Whether the server accepts client certificates is not checked here: without mTLS configured such a client simply cannot authenticate. Audit `ADMIN_UPDATE "client-authentication <clientId> <method>"` (no key material). |
+| `DELETE /realms/{r}/clients/{id}/authentication` | 204; 404 when none. A former key or certificate client has no secret afterwards: regenerate one to let it sign in with a secret. Audit `ADMIN_DELETE`. |
+
+`POST /realms/{r}/clients/{id}/secret` answers 409 while the client uses a key or certificate method.
+
+## Session controls and front-channel logout (`docs/sso-and-logout.md`)
+
+Optional store extensions `core.SessionPolicyStore` and `core.FrontchannelStore`; a store without one answers
+501 on its routes. Pg migration `0025_passkey_polish_session_controls.sql`. Bodies reject unknown fields.
+All under `/realms/{r}`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /session-policy` | `{maxSessionsPerUser, onLimit, rememberMe, rememberIdleSeconds, rememberMaxSeconds}`; defaults when never set: `0, "revoke_oldest", false, 0, 0`. With `rememberMe` true the lifetimes shown are the effective ones |
+| `PUT /session-policy` | replaces the whole policy (absent = off/default). 400: limit outside 0..1000, `onLimit` not `revoke_oldest`/`deny_new`, maximum not 0 or 1..90 days, idle not 0 or 1 hour..90 days or above the maximum. Audit `ADMIN_UPDATE "session-policy <realm>"` |
+| `GET /clients/{id}/frontchannel-logout` | `{frontchannelLogoutUrl}` (`""` when none); 404 unknown client |
+| `PUT /clients/{id}/frontchannel-logout` | same body, field required, `""` removes. 400 unless https (loopback http), no credentials or fragment, DNS name or IPv4 host, and same scheme/host/port as a redirect URI of the client. Audit `ADMIN_UPDATE "client <clientId> frontchannel-logout"` |
 
 ## Authentication context and step-up (`docs/step-up-acr.md`)
 

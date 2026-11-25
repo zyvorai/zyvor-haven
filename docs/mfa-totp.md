@@ -109,7 +109,7 @@ Auth events are written when the realm has `AuthEventsLogged`.
 ## Not yet
 
 - No QR code (see above).
-- No link to the account page from anywhere; no account console.
+- The page is reached from the [account console](account-console.md) (Security); sign-in itself does not link to it.
 - The code page is one field for TOTP and recovery codes, not a separate toggle.
 - Only SHA1/6 digits/30 s (what authenticator apps support); no HOTP, SMS, email or push factors.
 - `requireMfa` has no grace period and no per-client or per-role scoping.

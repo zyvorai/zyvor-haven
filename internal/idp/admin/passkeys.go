@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -108,6 +109,9 @@ func (a *api) deletePasskey(w http.ResponseWriter, r *http.Request) {
 
 type passkeyPolicyJSON struct {
 	RequirePasskeys bool `json:"requirePasskeys"`
+	// PasskeyOnly is "passkey-only for users who have a passkey". Absent in
+	// GET answers of a store without it; absent in a PUT leaves it unchanged.
+	PasskeyOnly *bool `json:"passkeyOnly,omitempty"`
 }
 
 func (a *api) getPasskeyPolicy(w http.ResponseWriter, r *http.Request) {
@@ -119,12 +123,28 @@ func (a *api) getPasskeyPolicy(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v, err := st.RealmRequiresPasskeys(r.Context(), rl.Name)
+	out, err := a.passkeyPolicy(r.Context(), st, rl.Name)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, passkeyPolicyJSON{RequirePasskeys: v})
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (a *api) passkeyPolicy(ctx context.Context, st core.PasskeyStore, realm string) (passkeyPolicyJSON, error) {
+	var out passkeyPolicyJSON
+	var err error
+	if out.RequirePasskeys, err = st.RealmRequiresPasskeys(ctx, realm); err != nil {
+		return out, err
+	}
+	if po, ok := core.StoreAs[core.PasskeyOnlyStore](a.cfg.Store); ok {
+		only, err := po.PasskeyOnly(ctx, realm)
+		if err != nil {
+			return out, err
+		}
+		out.PasskeyOnly = &only
+	}
+	return out, nil
 }
 
 func (a *api) putPasskeyPolicy(w http.ResponseWriter, r *http.Request) {
@@ -141,10 +161,26 @@ func (a *api) putPasskeyPolicy(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	if in.PasskeyOnly != nil {
+		po, ok := core.StoreAs[core.PasskeyOnlyStore](a.cfg.Store)
+		if !ok {
+			notImplemented(w, "this store does not support passkeyOnly")
+			return
+		}
+		if err := po.SetPasskeyOnly(r.Context(), rl.Name, *in.PasskeyOnly); err != nil {
+			a.fail(w, r, err)
+			return
+		}
+	}
 	if err := st.SetRealmRequiresPasskeys(r.Context(), rl.Name, in.RequirePasskeys); err != nil {
 		a.fail(w, r, err)
 		return
 	}
 	a.audit(r, rl, "UPDATE", "passkey-policy", rl.Name)
-	writeJSON(w, http.StatusOK, in)
+	out, err := a.passkeyPolicy(r.Context(), st, rl.Name)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }

@@ -89,9 +89,10 @@ outside `haven`'s scope. Never put a token on a command line (it shows up in
 
 ### kubectl
 
-Point the Kubernetes API server at haven-idp (`--oidc-issuer-url`,
-`--oidc-client-id`, usually `--oidc-username-claim=preferred_username`), run
-`haven login` once, then use the exec plugin in your kubeconfig:
+Point the Kubernetes API server at haven-idp (`haven-idp kube-config generate`
+writes the settings; see [kubernetes-login.md](kubernetes-login.md), and note
+that hand-written flags need `--oidc-signing-algs=ES256`), run `haven login`
+once, then use the exec plugin in your kubeconfig:
 
 ```yaml
 apiVersion: v1

@@ -184,7 +184,7 @@ request with it.
 * A declined scope is not remembered as declined: a client that asks for it again shows the screen again.
 * The device flow and CIBA have their own approval pages without scope checkboxes, so their tokens are not limited
   this way, even for a client that would be asked for consent in the browser flow.
-* No `software_statement`, signed metadata, `jwks`/`private_key_jwt` clients, or `logo_uri` display.
+* No `software_statement`, signed metadata, `jwks`/`private_key_jwt` for metadata-document clients, or `logo_uri` display.
 * No ETag/conditional refetch of documents, no push invalidation; a changed document is picked up at cache expiry.
 * The kill switch cannot recall access tokens that were already issued; there is no per-token deny list.
 * No consent for the device flow's own approval page, for `client_credentials`, or for token exchange (agents
