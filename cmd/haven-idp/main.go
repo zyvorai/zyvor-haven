@@ -17,6 +17,12 @@
 //	HAVEN_IDP_DEV=1              allow the in-memory store (data lost on restart)
 //	HAVEN_IDP_CSRF_KEY           shared secret for login-form CSRF (random if unset; set it for replicas)
 //	HAVEN_IDP_TRUST_PROXY=1      take client IP from X-Forwarded-For
+//	HAVEN_IDP_TLS_CERT_FILE, HAVEN_IDP_TLS_KEY_FILE  serve HTTPS with this certificate (default: plain HTTP)
+//	HAVEN_IDP_MTLS=direct        ask TLS clients for a certificate (mutual TLS); see docs/client-authentication.md
+//	HAVEN_IDP_MTLS_PROXY_HEADER  header in which a TLS-terminating proxy forwards the client certificate; the
+//	                             proxy MUST strip it from incoming requests. Needs HAVEN_IDP_MTLS_TRUSTED_PROXIES
+//	HAVEN_IDP_MTLS_TRUSTED_PROXIES comma-separated addresses/CIDRs of those proxies (the TCP peer is checked)
+//	HAVEN_IDP_MTLS_CA_FILE       PEM trust anchors for tls_client_auth
 //	HAVEN_IDP_BOOTSTRAP_REALM    seed this realm on start (idempotent)
 //	HAVEN_IDP_BOOTSTRAP_USER     admin username in that realm
 //	HAVEN_IDP_BOOTSTRAP_PASSWORD admin password (or ..._PASSWORD_FILE)

@@ -190,8 +190,11 @@ func (p *Provider) introspect(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{"active": true, "token_type": "Bearer", "client_id": claimStr(c, "azp"),
 			"scope": claimStr(c, "scope"), "sub": claimStr(c, "sub"), "iss": claimStr(c, "iss"),
 			"aud": c["aud"], "jti": claimStr(c, "jti"), "username": claimStr(c, "preferred_username")}
-		if cnf, ok := c["cnf"]; ok { // DPoP-bound: the resource server checks the proof against cnf.jkt
-			out["cnf"], out["token_type"] = cnf, "DPoP"
+		if cnf, ok := c["cnf"]; ok { // sender-constrained: the resource server checks the proof / certificate against cnf
+			out["cnf"] = cnf
+			if m, _ := cnf.(map[string]any); m["jkt"] != nil { // certificate-bound tokens stay "Bearer" (RFC 8705)
+				out["token_type"] = "DPoP"
+			}
 		}
 		if ad, ok := c["authorization_details"]; ok { // RFC 9396, section 9.2
 			out["authorization_details"] = ad

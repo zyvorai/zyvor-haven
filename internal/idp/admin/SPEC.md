@@ -434,3 +434,15 @@ migration `0017_mcp_consent.sql`. All under `/realms/{r}`.
 | `POST /consent/unkill` | `{clientId` xor `agentId}`; `204`, removes the block and re-enables the client row only. 404 when not blocked |
 
 Auth events: `CONSENT_GRANT`, `CONSENT_DENY`, `CONSENT_REVOKE`. User-facing: `GET/POST /realms/{r}/account/consents`.
+## Client authentication (`docs/client-authentication.md`)
+
+Optional store extension `core.ClientAuthStore`; a store without it answers 501. Pg migration `0023_client_auth.sql`.
+Request bodies reject unknown fields. `{id}` is the client's UUID.
+
+| Method and path | Notes |
+|---|---|
+| `GET /realms/{r}/clients/{id}/authentication` | `{method, jwks, jwksUri, signingAlg, tlsSubjectDn, tlsSanDns, tlsSanUri, tlsSanIp, tlsSanEmail, certificateBoundTokens}` (public keys only); 404 when none is configured or the client is unknown |
+| `PUT /realms/{r}/clients/{id}/authentication` | Replaces the settings. `method`: `none` (public clients only), `client_secret_basic`, `client_secret_post`, `private_key_jwt`, `tls_client_auth`, `self_signed_tls_client_auth`. `private_key_jwt` and `self_signed_tls_client_auth` need exactly one of `jwks` (public keys; `x5c` for self signed) and `jwksUri` (https); `signingAlg` (`ES256`, `PS256`, `RS256`, `EdDSA`) only with `private_key_jwt`; `tls_client_auth` needs exactly one `tls*` field; `certificateBoundTokens` needs a confidential client. Anything else is 400. 409 for key/certificate methods or binding on the admin client. A key or certificate method **deletes the client secret**. Whether the server accepts client certificates is not checked here: without mTLS configured such a client simply cannot authenticate. Audit `ADMIN_UPDATE "client-authentication <clientId> <method>"` (no key material). |
+| `DELETE /realms/{r}/clients/{id}/authentication` | 204; 404 when none. A former key or certificate client has no secret afterwards: regenerate one to let it sign in with a secret. Audit `ADMIN_DELETE`. |
+
+`POST /realms/{r}/clients/{id}/secret` answers 409 while the client uses a key or certificate method.

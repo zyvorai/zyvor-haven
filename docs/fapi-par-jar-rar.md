@@ -45,7 +45,7 @@ client (confidential)                 haven-idp                               br
 
 | Check | Rule |
 |---|---|
-| client authentication | required: `client_secret_basic` or `client_secret_post`. Public clients, unknown, disabled or wrong-secret clients get `401 invalid_client`. (`private_key_jwt` and mTLS are not implemented.) |
+| client authentication | required: the client's secret, or the method configured for it (`private_key_jwt`, mutual TLS; see [client-authentication.md](client-authentication.md)). Public clients, unknown, disabled or wrongly authenticated clients get `401 invalid_client`. |
 | parameters | `request_uri` is refused. Redirect URI is matched exactly against the client's registration; `response_type` must be `code`; each value at most 8 KiB. |
 | request object | when `request` is present, **only** the verified object counts; every other form parameter is ignored (FAPI 2.0 and RFC 9101). |
 | `authorization_details` | validated (see RAR), stored canonicalised |
@@ -174,23 +174,25 @@ here; it does not mean conformance-tested.
 | Exact redirect URI matching | **Met**, but `http://` redirect URIs are accepted (FAPI requires https, loopback excepted); not enforced. |
 | Authorization codes single use, at most 60 s | **Met** (default 60 s, configurable; single use) |
 | **Confidential clients only** | **Not met.** Public clients are supported. |
-| **Client authentication with `private_key_jwt` or mTLS** | **Not met.** Only `client_secret_basic` / `client_secret_post` (and none for public clients). This is the largest gap. |
+| **Client authentication with `private_key_jwt` or mTLS** | **Partly.** Both exist and are exclusive per client ([client-authentication.md](client-authentication.md)), but nothing requires them: secret clients are still allowed. Assertions may be signed with **RS256** unless `signingAlg` pins another, and the endpoint URL is accepted as `aud` besides the issuer (FAPI 2.0 asks for the issuer only and no RS256). |
 | **RFC 8414 authorization server metadata** (`/.well-known/oauth-authorization-server`) | **Not met.** Only OIDC discovery is served (it carries the new fields). |
-| `token_endpoint_auth_signing_alg_values_supported` and related metadata | **Not met** (no signed client authentication) |
+| `token_endpoint_auth_signing_alg_values_supported` and related metadata | **Met** (lists RS256, see above) |
 | TLS 1.2+ with the FAPI cipher restrictions | **Not verified.** TLS is terminated outside haven-idp. |
 | Conformance suite run | **Not done.** |
 | FAPI 2.0 Message Signing (JARM, signed introspection responses, non-repudiation) | **Not implemented** (a separate profile) |
-| mTLS certificate-bound tokens (RFC 8705) | **Not implemented** |
+| mTLS certificate-bound tokens (RFC 8705) | **Partly.** Per confidential client, when the server has mutual TLS configured; refresh tokens and public clients are not certificate-bound |
 
 RAR is not part of the FAPI 2.0 Security Profile itself; it is here because FAPI-style deployments (payments, open
 banking) use it.
 
 ## Not yet
 
-* `private_key_jwt` / mTLS client authentication, a confidential-clients-only realm mode, RFC 8414 metadata, https-only
+* A confidential-clients-only or strong-client-authentication-only realm mode, RFC 8414 metadata, https-only
   redirect URIs, PS256 DPoP proofs and dropping RS256 proofs.
 * A realm-wide "require PAR / DPoP" and a policy that makes `requirePkce` follow `requirePar`.
-* `jwks_uri`, JWE request objects, `jti` replay cache for by-value objects, per-client algorithm pinning.
+* `jwks_uri` for request objects (client authentication has its own, see
+  [client-authentication.md](client-authentication.md)), JWE request objects, `jti` replay cache for by-value
+  objects, per-client algorithm pinning for request objects.
 * A consent screen that shows `authorization_details`; token-endpoint narrowing; details with `client_credentials`
   and the device grant; `authorization_details_types_supported` in discovery.
 * Federation (brokered login) with PAR/JAR/RAR requests. Passkey and MFA steps continue from the login context

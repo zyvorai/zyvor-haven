@@ -85,6 +85,10 @@ type Config struct {
 	// for (resources.go). Nil = none: any `resource` parameter is refused with
 	// invalid_target.
 	Resources ResourceAllowList
+	// MTLS says where client certificates come from (clientauth_mtls.go).
+	// The zero value turns mutual TLS off: no header or connection
+	// certificate is ever consulted.
+	MTLS MTLSConfig
 }
 
 // Provider is the http.Handler for all realms.

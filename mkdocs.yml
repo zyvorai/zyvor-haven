@@ -96,6 +96,7 @@ nav:
       - Login fallback and step-up: login-fallback-and-stepup.md
       - DPoP (sender-constrained tokens): dpop.md
       - FAPI building blocks (PAR, JAR, RAR): fapi-par-jar-rar.md
+      - Client authentication (private_key_jwt, mTLS): client-authentication.md
       - Password policy: password-policy.md
       - Device login (CLI, CI): device-flow.md
       - Workload identity (no static secrets): workload-identity.md
