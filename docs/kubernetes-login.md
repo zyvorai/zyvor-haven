@@ -188,7 +188,12 @@ the API server's configuration.
 | Discovery | `groups` appears in `scopes_supported` / `claims_supported` of realms with a listed client |
 
 A refresh cannot add the scope to a login that did not request it
-(`invalid_scope`).
+(`invalid_scope`). Where the browser flow shows the
+[consent screen](mcp-clients-and-consent.md#choosing-scopes) for this client,
+the user can untick `groups`, and `preferred_username` is only in the token when
+`profile` was requested and left ticked: with the default
+`--username-claim preferred_username`, request `profile` too, or list the client
+in the consent policy's `skipClients`.
 
 ## The client created by `--ensure-client`
 

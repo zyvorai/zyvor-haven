@@ -96,8 +96,23 @@ Rules that keep a demand from lowering security:
 * The device flow cannot enforce a demand: `acr_values` or `claims` on the device authorization request are
   `invalid_request`. [CIBA](ciba.md) accepts `acr_values` and requires the approver to meet them.
 
-Signing in again to step up replaces the browser's SSO session, exactly like `prompt=login`: the old session ends
-(its clients get back-channel logout, its online refresh tokens are revoked).
+A **successful** step-up replaces the browser's SSO session, exactly like `prompt=login`: the old session ends
+(its clients get back-channel logout, its online refresh tokens are revoked). A step-up that fails creates no
+session and ends none.
+
+## With other features
+
+| Feature | Behaviour |
+|---|---|
+| [Session limit](sso-and-logout.md) | the session a step-up replaces is not counted: `deny_new` does not block the same browser, `revoke_oldest` does not evict another device for it |
+| "Keep me signed in" | the box ticked on the password form applies through the second factor; a step-up without it replaces a long session with an ordinary one. A long session keeps its original `acr` and `auth_time` for its whole life: demand `max_age` when age matters |
+| [Passkey autofill](passkeys.md) | the same request options as the passkey button: user verification is required and checked, so `uv` is reported only when it happened |
+| Passkey re-authentication on account pages | unlocks that page only; the session's `amr`, `acr` and `auth_time` do not change |
+| [Account console](account-console.md) confirmation and password change | neither is a new sign-in: the session keeps its id, methods and `auth_time`; a password change revokes the refresh tokens |
+| Passkey-only realms | a demand never re-opens the password, offers a one-time code or enrolls anything; passkey sign-ins reach every default level |
+| Passkey relying party misconfigured | an account that has a passkey is still treated as having one: a demand enrolls nothing for it |
+| [Client authentication](client-authentication.md) | `private_key_jwt` and mutual TLS clients get the same claims; certificate-bound tokens keep `cnf.x5t#S256` and introspection reports both it and `acr`/`amr`/`auth_time` |
+| [`groups` claim](kubernetes-login.md) | follows the `groups` scope: unticked on the consent screen, absent from the ID token, also after refresh |
 
 ## Refresh tokens and policy changes
 

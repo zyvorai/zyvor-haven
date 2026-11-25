@@ -88,7 +88,7 @@ Allow grants exactly the ticked subset:
 * the grant records the subset; the receipt records it and, in `detail`, what was declined;
 * for a client that goes through this screen, claims follow the granted scopes: `realm_access.roles` is empty
   without `roles`, and `preferred_username` is absent (ID token, access token, userinfo, introspection `username`)
-  without `profile`. This also applies when such a scope was simply not requested, so a client cannot get a declined
+  without `profile`; the [`groups` claim](kubernetes-login.md) is only there with `groups`. This also applies when such a scope was simply not requested, so a client cannot get a declined
   claim back by dropping the scope from its next request. Clients that are never asked for consent keep the previous
   behaviour (roles and user name are always in the token);
 * a later request for a scope that was not granted shows the screen again (`prompt=none`: `consent_required`);

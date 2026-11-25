@@ -556,6 +556,11 @@ func (p *Provider) completeLogin(w http.ResponseWriter, r *http.Request, ar *aut
 	if !p.passkeyOnlyAllows(w, r, ar, u, detail) { // passkeyonly.go
 		return
 	}
+	// authn.go: a sign-in that cannot meet the demanded level ends here, before
+	// it replaces this browser's session or counts against the session limit.
+	if !p.loginMeetsACR(w, r, ar, u, detail) {
+		return
+	}
 	sess, err := p.startSession(w, r, ar.realm, u)
 	if errors.Is(err, core.ErrSessionLimit) {
 		p.sessionLimitPage(w, r, ar, u) // sessioncontrols.go

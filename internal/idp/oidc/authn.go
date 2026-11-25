@@ -214,6 +214,29 @@ func (p *Provider) recordAuthn(ctx context.Context, realm, sessionID, detail str
 	return st.PutSessionAuthn(ctx, core.SessionAuthn{Realm: realm, SessionID: sessionID, AMR: amrOf(detail, uv)})
 }
 
+// loginMeetsACR checks a completed sign-in against the demand before any
+// session exists. It reports whether the caller may go on; otherwise it has
+// answered. issueCode checks the stored session again.
+func (p *Provider) loginMeetsACR(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, detail string) bool {
+	if ar.acr.Empty() {
+		return true
+	}
+	pol, on, err := p.acrPolicy(r.Context(), ar.realm.Name)
+	if err != nil {
+		p.cfg.Logger.Error("oidc: acr policy", "err", err)
+		p.errorPage(w, http.StatusInternalServerError, mfaTemporary)
+		return false
+	}
+	if on {
+		uv, _ := r.Context().Value(uvCtxKey{}).(bool)
+		if _, met := pol.Select(amrOf(detail, uv), ar.acr); met {
+			return true
+		}
+	}
+	p.acrUnmet(w, r, ar, u.ID, "login_too_weak")
+	return false
+}
+
 // sessionGrant is the context tokens of session sid carry for a request that
 // demands req. met=false: the session does not satisfy req.
 func (p *Provider) sessionGrant(ctx context.Context, realm, sid string, authTime time.Time, req core.ACRRequirement) (g grantAuthn, met bool, err error) {
@@ -457,14 +480,18 @@ func acrStep(p *Provider, w http.ResponseWriter, r *http.Request, ar *authzReq, 
 	if reaches(core.AMRPassword) {
 		return false
 	}
+	// Whether the account has a passkey does not depend on the relying party
+	// being usable: a misconfiguration must not let someone who knows only the
+	// password add another authenticator.
 	var hasPasskey, hasTOTP bool
-	if st, _, ok := p.passkeys(); ok {
+	if st, ok := core.StoreAs[core.PasskeyStore](p.cfg.Store); ok {
 		creds, err := st.ListPasskeys(ctx, ar.realm.Name, u.ID)
 		if err != nil {
 			return fail("acr list passkeys", err)
 		}
 		hasPasskey = len(creds) > 0
 	}
+	_, _, passkeysUsable := p.passkeys()
 	mst, mfaOn := p.mfaStore()
 	if mfaOn {
 		c, err := mst.GetTOTP(ctx, ar.realm.Name, u.ID)
@@ -475,7 +502,7 @@ func acrStep(p *Provider, w http.ResponseWriter, r *http.Request, ar *authzReq, 
 	}
 	totpReaches := reaches(core.AMRPassword, core.AMROTP, core.AMRMFA)
 	switch {
-	case hasPasskey:
+	case hasPasskey && passkeysUsable:
 		// The passkey step challenges this user. TOTP is deliberately not
 		// substituted: a request parameter must not pick a weaker factor.
 		if reaches(core.AMRPassword, core.AMRWebAuthn, core.AMRUser, core.AMRUV, core.AMRMFA) {
@@ -487,8 +514,8 @@ func acrStep(p *Provider, w http.ResponseWriter, r *http.Request, ar *authzReq, 
 			return false
 		}
 		return unmet("factor_too_weak")
-	case mfaOn && totpReaches:
-		// Only for a user with no second factor at all (the cases above).
+	case !hasPasskey && mfaOn && totpReaches:
+		// Only for a user with no second factor at all.
 		mpol, err := mst.GetMFAPolicy(ctx, ar.realm.Name)
 		if err != nil {
 			return fail("acr mfa policy", err)
