@@ -183,9 +183,8 @@ var recoveryCodeWordRe = regexp.MustCompile(`^[A-Z2-9]{5}-[A-Z2-9]{5}$`)
 func (recoveryCodeFinder) FindAllString(body string, _ int) []string {
 	var out []string
 	// Split on everything a base64url or dot-joined token cannot contain.
-	for _, w := range strings.FieldsFunc(body, func(r rune) bool {
-		return !(r == '-' || r == '_' || r == '.' || r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z')
-	}) {
+	const tokenChars = "-_.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	for _, w := range strings.FieldsFunc(body, func(r rune) bool { return !strings.ContainsRune(tokenChars, r) }) {
 		if recoveryCodeWordRe.MatchString(w) {
 			out = append(out, w)
 		}
