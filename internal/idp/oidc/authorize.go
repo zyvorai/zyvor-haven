@@ -321,10 +321,12 @@ var pageTmpl = template.Must(template.New("page").Parse(withTheme(`<!doctype htm
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
 <form method="post" action="{{.Action}}" autocomplete="on">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
-<label for="u">Username or email</label><input id="u" name="username" value="{{.Username}}" autocomplete="username" autofocus required maxlength="256">
+<label for="u">Username or email</label><input id="u" name="username" value="{{.Username}}" autocomplete="{{if .Passkey}}username webauthn{{else}}username{{end}}" autofocus required maxlength="256">
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required maxlength="1024">
-<button type="submit">Sign in</button></form>
+{{if .RememberMe}}<label class="check"><input type="checkbox" name="remember_me" value="on"{{if .Remembered}} checked{{end}}> Keep me signed in</label>
+{{end}}<button type="submit">Sign in</button></form>
 {{if .Passkey}}{{template "passkey" .}}{{end}}
+{{if .Note}}<p class="sub">{{.Note}}</p>{{end}}
 {{if .ForgotURL}}<p class="sub"><a href="{{.ForgotURL}}">Forgot your password?</a></p>{{end}}
 {{range .Providers}}<a class="fed" href="{{.URL}}">Continue with {{.Name}}</a>
 {{end}}
@@ -351,6 +353,8 @@ type pageData struct {
 	Login                                                               bool
 	Passkey                                                             *PasskeyLogin // set by passkeys.go via loginPageHook
 	Providers                                                           []fedButton   // federation.go
+	RememberMe, Remembered                                              bool          // sessioncontrols.go
+	Note                                                                string        // passkeyonly.go
 }
 
 func (p *Provider) errorPage(w http.ResponseWriter, status int, msg string) {
@@ -385,6 +389,7 @@ func (p *Provider) loginPage(w http.ResponseWriter, r *http.Request, ar *authzRe
 	if loginPageHook != nil {
 		loginPageHook(p, w, ar, nonce, &pd) // passkeys: adds the button and its nonce'd script
 	}
+	p.loginSessionOptions(r, ar, &pd) // sessioncontrols.go: keep-me-signed-in, passkey-only note
 	w.WriteHeader(http.StatusOK)
 	_ = pageTmpl.Execute(w, pd)
 }
@@ -522,7 +527,14 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request, ar *authzReq) {
 // completeLogin is where every interactive login ends: all required factors
 // have been satisfied, so start the SSO session and issue the code.
 func (p *Provider) completeLogin(w http.ResponseWriter, r *http.Request, ar *authzReq, u core.User, detail string) {
+	if !p.passkeyOnlyAllows(w, r, ar, u, detail) { // passkeyonly.go
+		return
+	}
 	sess, err := p.startSession(w, r, ar.realm, u)
+	if errors.Is(err, core.ErrSessionLimit) {
+		p.sessionLimitPage(w, r, ar, u) // sessioncontrols.go
+		return
+	}
 	if err != nil {
 		p.cfg.Logger.Error("oidc: start session", "err", err)
 		p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")

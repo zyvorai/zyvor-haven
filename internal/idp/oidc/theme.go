@@ -57,6 +57,8 @@ input::placeholder{color:var(--muted);opacity:.8}
 input:hover{border-color:var(--muted)}
 input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--ring)}
 input[type=hidden]{display:none}
+input[type=checkbox]{flex:0 0 auto;width:20px;height:20px;margin:0 10px 0 0;padding:0;accent-color:var(--accent);-webkit-appearance:auto;appearance:auto}
+label.check{display:flex;align-items:center;color:var(--text);cursor:pointer}
 input[name=code],input[name=user_code]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1.3rem;letter-spacing:.18em;text-align:center}
 input[name=user_code]{text-transform:uppercase}
 button{position:relative;display:block;width:100%;min-height:48px;margin-top:24px;padding:0 20px;font:inherit;font-weight:400;letter-spacing:-.01em;color:#fff;background:var(--accent);border:1px solid transparent;border-radius:12px;cursor:pointer;transition:background-color .15s,border-color .15s,box-shadow .15s,transform .12s}

@@ -66,7 +66,15 @@ type pkAcctData struct {
 	Recent, Required                                 bool
 	Opts, Token                                      string
 	Script                                           template.JS
+	// Re-authentication of a stale session: by password, by passkey
+	// (ReauthOpts set) or both. A passkey-only account has no password option.
+	Password                bool
+	ReauthOpts, ReauthToken string
 }
+
+// pkReauthPurpose binds a re-authentication challenge to the session it was
+// issued to (and, through the pending token, to its user).
+func pkReauthPurpose(sessionID string) string { return "pk-reauth-assert|" + sessionID }
 
 func (p *Provider) pkNotice(w http.ResponseWriter, status int, msg string) {
 	p.simplePage(w, status, "Passkeys", msg)
@@ -165,6 +173,22 @@ func (p *Provider) pkAccountPage(w http.ResponseWriter, r *http.Request, rl core
 		o.ExcludeCredentials = pkDescriptors(creds)
 		d.Opts, d.Token = mustJSON(o), tok
 	}
+	if !d.Recent {
+		only, _, err := p.passkeyOnlyFor(ctx, rl.Name, u.ID)
+		if err != nil {
+			p.cfg.Logger.Error("oidc: passkey-only policy", "err", err)
+			p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
+			return
+		}
+		d.Password = !only
+		if len(creds) > 0 {
+			chal, tok := p.pkChallenge(rl.Name, u.ID, pkReauthPurpose(sess.ID))
+			// User verification required: this stands in for the password.
+			d.ReauthOpts = mustJSON(pkAssertionOptions{Challenge: b64(chal), RPID: rp.ID, Timeout: 60000,
+				UserVerification: "required", AllowCredentials: pkDescriptors(creds)})
+			d.ReauthToken = tok
+		}
+	}
 	h := w.Header()
 	h.Set("Content-Type", "text/html; charset=utf-8")
 	h.Set("X-Frame-Options", "DENY")
@@ -237,14 +261,49 @@ func (p *Provider) pkAccountPost(w http.ResponseWriter, r *http.Request, rl core
 		if p.pkRecent(r, rl, sess) {
 			return true
 		}
-		page(http.StatusForbidden, "Confirm your password to continue: your sign-in is older than 10 minutes.")
+		page(http.StatusForbidden, "Confirm your password or passkey to continue: your sign-in is older than 10 minutes.")
+		return false
+	}
+	// confirmed records a successful re-authentication for this session only.
+	confirmed := func() {
+		// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
+		http.SetCookie(w, &http.Cookie{Name: pkReauthCook, Value: p.signPending(rl.Name, u.ID, "pk-reauth", sess.ID, pkRecentAuth),
+			Path: pkAccountPath(rl.Name), HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(pkRecentAuth.Seconds())})
+		redirect("reauth")
+	}
+	// reauthRate is shared by password and passkey, so offering two methods
+	// does not double the guesses.
+	reauthRate := func() bool {
+		if p.pkRate(ctx, rl.Name, "reauth-ip", ip, 10) && p.pkRate(ctx, rl.Name, "reauth-user", u.ID, 5) {
+			return true
+		}
+		page(http.StatusTooManyRequests, "Too many attempts. Try again later.")
 		return false
 	}
 
 	switch r.PostForm.Get("pk_action") {
+	case "reauth_passkey":
+		if !reauthRate() {
+			return
+		}
+		if !p.pkReauthAssert(r, rl, st, rp, sess, u) {
+			p.event(ctx, rl, "PASSKEY_FAILED", u.ID, "", ip, "reauth_passkey_failed")
+			page(http.StatusForbidden, "That passkey could not confirm it is you. Try again.")
+			return
+		}
+		confirmed()
+
 	case "reauth":
-		if !p.pkRate(ctx, rl.Name, "reauth-ip", ip, 10) || !p.pkRate(ctx, rl.Name, "reauth-user", u.ID, 5) {
-			page(http.StatusTooManyRequests, "Too many attempts. Try again later.")
+		if !reauthRate() {
+			return
+		}
+		if only, _, err := p.passkeyOnlyFor(ctx, rl.Name, u.ID); err != nil {
+			p.cfg.Logger.Error("oidc: passkey-only policy", "err", err)
+			p.errorPage(w, http.StatusInternalServerError, "Temporary error. Try again.")
+			return
+		} else if only {
+			p.event(ctx, rl, "PASSKEY_FAILED", u.ID, "", ip, "reauth_passkey_only")
+			page(http.StatusForbidden, "This account confirms with a passkey, not with a password.")
 			return
 		}
 		pw := r.PostForm.Get("password")
@@ -260,10 +319,7 @@ func (p *Provider) pkAccountPost(w http.ResponseWriter, r *http.Request, rl core
 			page(http.StatusForbidden, "That password is not correct.")
 			return
 		}
-		// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
-		http.SetCookie(w, &http.Cookie{Name: pkReauthCook, Value: p.signPending(rl.Name, u.ID, "pk-reauth", sess.ID, pkRecentAuth),
-			Path: pkAccountPath(rl.Name), HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(pkRecentAuth.Seconds())})
-		redirect("reauth")
+		confirmed()
 
 	case "add":
 		if !needRecent() {
@@ -364,6 +420,52 @@ func (p *Provider) pkAccountPost(w http.ResponseWriter, r *http.Request, rl core
 	}
 }
 
+// pkReauthAssert verifies a passkey re-authentication: a single-use challenge
+// issued to this session, a passkey of this user, user verification, and an
+// account that is not locked out.
+func (p *Provider) pkReauthAssert(r *http.Request, rl core.Realm, st core.PasskeyStore, rp webauthn.RP, sess core.Session, u core.User) bool {
+	ctx := r.Context()
+	uid, chal, ok := p.pkOpen(ctx, st, rl.Name, r.PostForm.Get("pk_token"), pkReauthPurpose(sess.ID))
+	if !ok || uid != u.ID {
+		return false
+	}
+	credID, ok1 := formB64(r, "pk_cred", 1023)
+	cd, ok2 := formB64(r, "pk_cd", 4096)
+	ad, ok3 := formB64(r, "pk_ad", 8192)
+	sig, ok4 := formB64(r, "pk_sig", 1024)
+	if !ok1 || !ok2 || !ok3 || !ok4 {
+		return false
+	}
+	if rl.BruteForceProtection && !u.LockedUntil.IsZero() && p.now().Before(u.LockedUntil) {
+		return false
+	}
+	credKey := b64(credID)
+	cred, err := st.GetPasskey(ctx, rl.Name, credKey)
+	if err != nil {
+		if !errors.Is(err, idp.ErrNotFound) {
+			p.cfg.Logger.Error("oidc: load passkey", "err", err)
+		}
+		return false
+	}
+	if cred.UserID != u.ID {
+		return false
+	}
+	res, err := webauthn.VerifyAssertion(rp, chal, cd, ad, sig, webauthn.Credential{
+		ID: credID, PublicKey: cred.PublicKey, SignCount: cred.SignCount, BackupEligible: cred.BackupEligible}, true)
+	if errors.Is(err, webauthn.ErrCounterRegression) {
+		p.event(ctx, rl, "PASSKEY_CLONE_SUSPECTED", u.ID, "", p.clientIP(r), "credential "+pkShort(credKey))
+		return false
+	}
+	if err != nil {
+		return false
+	}
+	if err := st.UpdatePasskeyUse(ctx, rl.Name, credKey, res.SignCount, res.BackupState, p.now()); err != nil {
+		p.cfg.Logger.Error("oidc: record passkey use", "err", err)
+		return false
+	}
+	return true
+}
+
 var pkAcctTmpl = template.Must(template.New("pkacct").Parse(withTheme(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Passkeys</title>
@@ -388,8 +490,14 @@ var pkAcctTmpl = template.Must(template.New("pkacct").Parse(withTheme(`<!doctype
 <p class="err pk-err" role="alert" hidden></p></form>
 <p class="err pk-no" role="alert" hidden>This browser does not support passkeys.</p>
 <script nonce="{{.Nonce}}">{{.Script}}</script>{{end}}
-{{else}}<h2>Confirm your password</h2>
-<p class="sub">Your sign-in is older than 10 minutes. Confirm your password to add or remove passkeys.</p>
-<form class="row" method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="reauth">
+{{else}}<h2>{{if .Password}}Confirm your password{{else}}Confirm with your passkey{{end}}</h2>
+<p class="sub">Your sign-in is older than 10 minutes. Confirm {{if not .Password}}with a passkey{{else if .ReauthOpts}}your password, or use a passkey,{{else}}your password{{end}} to add or remove passkeys.</p>
+{{if .Password}}<form class="row" method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="reauth">
 <input name="password" type="password" autocomplete="current-password" required maxlength="1024" aria-label="Password"><button type="submit">Confirm</button></form>{{end}}
+{{if .ReauthOpts}}<form method="post" action="{{.Action}}" data-pk="get" data-opts="{{.ReauthOpts}}" hidden>
+<input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="reauth_passkey"><input type="hidden" name="pk_token" value="{{.ReauthToken}}">
+<input type="hidden" name="pk_cred"><input type="hidden" name="pk_cd"><input type="hidden" name="pk_ad"><input type="hidden" name="pk_sig"><input type="hidden" name="pk_uh">
+<button type="button">Confirm with a passkey</button><p class="err pk-err" role="alert" hidden></p></form>
+{{if not .Password}}<p class="err pk-no" role="alert" hidden>This browser does not support passkeys.</p>{{end}}
+<script nonce="{{.Nonce}}">{{.Script}}</script>{{end}}{{end}}
 </main></body></html>`)))

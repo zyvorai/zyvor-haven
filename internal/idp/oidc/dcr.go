@@ -5,6 +5,7 @@ package oidc
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -91,6 +92,7 @@ type dcrMeta struct {
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
 	Scope                   string   `json:"scope"`
 	BackchannelLogoutURI    string   `json:"backchannel_logout_uri"`
+	FrontchannelLogoutURI   string   `json:"frontchannel_logout_uri"`
 	Contacts                []string `json:"contacts"`
 	LogoURI                 string   `json:"logo_uri"`
 	ClientURI               string   `json:"client_uri"`
@@ -102,6 +104,9 @@ type dcrMeta struct {
 type dcrNormalized struct {
 	client core.Client
 	reg    core.RegisteredClient
+	// frontchannel is the validated frontchannel_logout_uri, stored beside
+	// the client (core.FrontchannelStore).
+	frontchannel string
 }
 
 func dcrReadMeta(w http.ResponseWriter, r *http.Request) (dcrMeta, *dcrErr) {
@@ -231,6 +236,11 @@ func dcrValidate(m dcrMeta, allowed []string) (dcrNormalized, *dcrErr) {
 			return n, metaErr("backchannel_logout_uri is not acceptable")
 		}
 	}
+	if m.FrontchannelLogoutURI != "" {
+		if _, err := idp.FrontchannelOrigin(m.FrontchannelLogoutURI, uris); err != nil {
+			return n, metaErr("frontchannel_logout_uri is not acceptable: " + err.Error()) // fixed texts, no input echoed
+		}
+	}
 	if len(m.Contacts) > 10 {
 		return n, metaErr("too many contacts")
 	}
@@ -252,6 +262,7 @@ func dcrValidate(m dcrMeta, allowed []string) (dcrNormalized, *dcrErr) {
 		RequirePKCE:          hasCode,
 		BackchannelLogoutURI: m.BackchannelLogoutURI,
 	}
+	n.frontchannel = m.FrontchannelLogoutURI
 	n.reg = core.RegisteredClient{
 		ApplicationType: app, TokenAuthMethod: method, Scope: strings.Join(sc, " "), GrantTypes: gs,
 		Contacts: m.Contacts, LogoURI: m.LogoURI, ClientURI: m.ClientURI, PolicyURI: m.PolicyURI, TosURI: m.TosURI,
@@ -429,6 +440,40 @@ func (p *Provider) dcrView(rl core.Realm, cl core.Client, rc core.RegisteredClie
 	return v
 }
 
+// dcrFrontchannelSupported refuses a frontchannel_logout_uri the store cannot
+// keep, rather than dropping it silently.
+func (p *Provider) dcrFrontchannelSupported(n dcrNormalized) *dcrErr {
+	if _, ok := core.StoreAs[core.FrontchannelStore](p.cfg.Store); !ok && n.frontchannel != "" {
+		return metaErr("frontchannel_logout_uri is not supported by this server")
+	}
+	return nil
+}
+
+// dcrSetFrontchannel replaces the client's URI ("" removes it).
+func (p *Provider) dcrSetFrontchannel(ctx context.Context, realm, clientUUID, uri string) error {
+	st, ok := core.StoreAs[core.FrontchannelStore](p.cfg.Store)
+	if !ok {
+		return nil
+	}
+	return st.SetFrontchannelLogoutURI(ctx, realm, clientUUID, uri)
+}
+
+func (p *Provider) dcrViewFrontchannel(ctx context.Context, v map[string]any, realm string, cl core.Client) {
+	st, ok := core.StoreAs[core.FrontchannelStore](p.cfg.Store)
+	if !ok {
+		return
+	}
+	uri, err := st.FrontchannelLogoutURI(ctx, realm, cl.ID)
+	if err != nil {
+		p.cfg.Logger.Error("oidc: dcr front-channel logout uri", "err", err)
+		return
+	}
+	if uri != "" {
+		v["frontchannel_logout_uri"] = uri
+		v["frontchannel_logout_session_required"] = true // iss and sid are always sent
+	}
+}
+
 func nonNil(s []string) []string {
 	if s == nil {
 		return []string{}
@@ -500,6 +545,9 @@ func (p *Provider) dcrRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n, verr := dcrValidate(meta, pol.AllowedGrantTypes)
+	if verr == nil {
+		verr = p.dcrFrontchannelSupported(n)
+	}
 	if verr != nil {
 		fail(verr)
 		return
@@ -562,9 +610,16 @@ func (p *Provider) dcrRegister(w http.ResponseWriter, r *http.Request) {
 		fail(capErr)
 		return
 	}
+	if err := p.dcrSetFrontchannel(ctx, rl.Name, stored.ID, n.frontchannel); err != nil {
+		_ = st.DeleteRegisteredClient(ctx, rl.Name, stored.ClientID)
+		rollback()
+		srvFail("store front-channel logout uri", err)
+		return
+	}
 	created = true
 
 	v := p.dcrView(rl, stored, rc)
+	p.dcrViewFrontchannel(ctx, v, rl.Name, stored)
 	v["registration_access_token"] = regTok
 	if secret != "" {
 		v["client_secret"] = secret
@@ -630,7 +685,9 @@ func (p *Provider) dcrRead(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, p.dcrView(rl, cl, rc))
+	v := p.dcrView(rl, cl, rc)
+	p.dcrViewFrontchannel(r.Context(), v, rl.Name, cl)
+	writeJSON(w, http.StatusOK, v)
 }
 
 // dcrUpdate replaces the client's metadata (RFC 7592 section 2.2). Nothing is
@@ -663,6 +720,9 @@ func (p *Provider) dcrUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n, verr := dcrValidate(meta, pol.AllowedGrantTypes)
+	if verr == nil {
+		verr = p.dcrFrontchannelSupported(n)
+	}
 	if verr != nil {
 		fail(verr)
 		return
@@ -680,6 +740,11 @@ func (p *Provider) dcrUpdate(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "server_error"})
 		return
 	}
+	if err := p.dcrSetFrontchannel(ctx, rl.Name, cl.ID, n.frontchannel); err != nil {
+		p.cfg.Logger.Error("oidc: dcr update front-channel logout uri", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "server_error"})
+		return
+	}
 	rc.ApplicationType, rc.TokenAuthMethod, rc.Scope, rc.GrantTypes = n.reg.ApplicationType, n.reg.TokenAuthMethod, n.reg.Scope, n.reg.GrantTypes
 	rc.Contacts, rc.LogoURI, rc.ClientURI, rc.PolicyURI, rc.TosURI = n.reg.Contacts, n.reg.LogoURI, n.reg.ClientURI, n.reg.PolicyURI, n.reg.TosURI
 	rc.UpdatedAt = p.now().UTC()
@@ -689,7 +754,9 @@ func (p *Provider) dcrUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.dcrEvent(r, rl, "CLIENT_UPDATE_REGISTRATION", cl.ClientID, "")
-	writeJSON(w, http.StatusOK, p.dcrView(rl, next, rc))
+	v := p.dcrView(rl, next, rc)
+	p.dcrViewFrontchannel(ctx, v, rl.Name, next)
+	writeJSON(w, http.StatusOK, v)
 }
 
 // dcrDelete removes the client and its registration record. Codes and tokens

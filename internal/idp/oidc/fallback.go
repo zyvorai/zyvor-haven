@@ -88,6 +88,11 @@ func (p *Provider) fallbackOffer(r *http.Request, ar *authzReq, userID, from str
 	to, label := methodPasskey, "Use a passkey instead"
 	if from == methodPasskey {
 		to, label = methodTOTP, "Use an authenticator code or recovery code instead"
+		// Passkey-only realms offer no way around the passkey (passkeyonly.go
+		// also refuses it at completion).
+		if only, _, err := p.passkeyOnlyFor(r.Context(), ar.realm.Name, userID); err != nil || only {
+			return nil
+		}
 	}
 	if !p.methodReady(r, ar.realm.Name, userID, to) {
 		return nil

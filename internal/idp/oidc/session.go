@@ -29,11 +29,9 @@ func (p *Provider) ssoCookiePath(realm string) string { return "/realms/" + real
 
 // startSession creates an SSO session for u after a successful credential
 // check and sets the browser cookie. Any session the browser already had in
-// this realm is ended first (a fresh login replaces it).
+// this realm is ended (a fresh login replaces it). The realm's session limit
+// and "keep me signed in" are applied by persistSession (sessioncontrols.go).
 func (p *Provider) startSession(w http.ResponseWriter, r *http.Request, rl core.Realm, u core.User) (core.Session, error) {
-	if old, ok := p.currentSession(r, rl); ok {
-		_, _ = p.sessions().End(r.Context(), rl.Name, old.ID)
-	}
 	now := p.now()
 	raw := randToken(32)
 	ua := r.UserAgent()
@@ -45,7 +43,8 @@ func (p *Provider) startSession(w http.ResponseWriter, r *http.Request, rl core.
 		AuthTime: now, LastSeen: now, IdleExpires: now.Add(p.idleTTL(rl)), ExpiresAt: now.Add(maxSessionLife),
 		IP: p.clientIP(r), UserAgent: ua, CreatedAt: now,
 	}
-	if err := p.cfg.Store.PutSession(r.Context(), s); err != nil {
+	s, err := p.persistSession(w, r, rl, s)
+	if err != nil {
 		return core.Session{}, err
 	}
 	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
@@ -67,7 +66,7 @@ func (p *Provider) currentSession(r *http.Request, rl core.Realm) (core.Session,
 		return core.Session{}, false
 	}
 	now := p.now()
-	if !now.Before(s.ExpiresAt) || !now.Before(s.IdleExpires) {
+	if !now.Before(s.ExpiresAt) || !now.Before(s.IdleExpires) || !p.longSessionAllowed(r.Context(), rl.Name, s) {
 		return core.Session{}, false
 	}
 	return s, true
@@ -84,13 +83,13 @@ func (p *Provider) sessionAlive(r *http.Request, realm, id string) bool {
 		return false
 	}
 	now := p.now()
-	return now.Before(s.ExpiresAt) && now.Before(s.IdleExpires)
+	return now.Before(s.ExpiresAt) && now.Before(s.IdleExpires) && p.longSessionAllowed(r.Context(), realm, s)
 }
 
 // touchSession slides the idle window.
 func (p *Provider) touchSession(r *http.Request, rl core.Realm, s core.Session) {
 	now := p.now()
-	_ = p.cfg.Store.TouchSession(r.Context(), rl.Name, s.ID, now, now.Add(p.idleTTL(rl)))
+	_ = p.cfg.Store.TouchSession(r.Context(), rl.Name, s.ID, now, now.Add(p.sessionIdleFor(r.Context(), rl, s.ID)))
 }
 
 func (p *Provider) clearSSOCookie(w http.ResponseWriter, realm string) {

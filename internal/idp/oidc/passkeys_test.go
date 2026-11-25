@@ -648,7 +648,9 @@ func TestPasskeyRecentAuthRequired(t *testing.T) {
 	a := e.register(-7)
 	e.now = e.now.Add(11 * time.Minute) // session is still alive (idle 30m) but the login is stale
 	w := e.do("GET", e.accountPath(), nil)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "Confirm your password") || optsRe.MatchString(w.Body.String()) {
+	// The page offers only re-authentication: no registration form or options.
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "Confirm your password") || strings.Contains(w.Body.String(), `data-pk="create"`) ||
+		strings.Contains(w.Body.String(), `name="pk_action" value="add"`) {
 		t.Fatalf("stale session must be asked to reauthenticate and get no registration options: %d", w.Code)
 	}
 	pg := pkPage{csrf: csrfRe.FindStringSubmatch(w.Body.String())[1]}

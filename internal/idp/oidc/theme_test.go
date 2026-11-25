@@ -30,6 +30,8 @@ func TestEveryPageUsesSharedTheme(t *testing.T) {
 		"ciba":      {cibaTmpl, cibaView{Nonce: nonce, Mode: "done"}},
 		"passkeys":  {pkAcctTmpl, pkAcctData{Nonce: nonce}},
 		"step/mfa/": {stepTemplate(""), StepData{Nonce: nonce, Title: "t"}},
+		"frontchannel logout": {fcLogoutTmpl, fcPageData{Nonce: nonce, Next: "https://app.example/",
+			Frames: []fcFrame{{URL: "https://app.example/fc"}, {URL: "https://idp.example/fc", Isolated: true}}}},
 	}
 	for name, pg := range pages {
 		var b bytes.Buffer
