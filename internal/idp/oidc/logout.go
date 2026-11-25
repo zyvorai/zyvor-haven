@@ -16,18 +16,24 @@ import (
 func (p *Provider) logoutPath(realm string) string { return "/realms/" + realm + oidcPath + "/logout" }
 
 var logoutTmpl = template.Must(template.New("logout").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign out</title>
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.L.T "Sign out"}}</title>
 <!--theme--></head><body><main>
 <!--hero:door-->
-<h1>Sign out of {{.Realm}}?</h1>
+<h1>{{.L.T "Sign out of %s?" .Realm}}</h1>
 <form method="post" action="{{.Action}}">
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 {{range .Hidden}}<input type="hidden" name="{{.K}}" value="{{.V}}">
-{{end}}<button type="submit">Sign out</button></form>
+{{end}}<button type="submit">{{.L.T "Sign out"}}</button></form>
 </main></body></html>`)))
 
 type hiddenField struct{ K, V string }
+
+type logoutView struct {
+	Nonce, Realm, CSRF, Action string
+	Hidden                     []hiddenField
+	L                          Loc // ui.go
+}
 
 // verifyHint validates an id_token_hint for logout. Signature, alg pinning,
 // issuer and realm are always enforced; only expiry is waived, because ID
@@ -227,15 +233,10 @@ func (p *Provider) logoutConfirm(w http.ResponseWriter, rl core.Realm, ru, clien
 	}
 	nonce := randToken(16)
 	p.pageHeaders(w, nonce)
-	disp := rl.DisplayName
-	if disp == "" {
-		disp = rl.Name
-	}
+	l := p.loc(w)
 	w.WriteHeader(http.StatusOK)
-	_ = logoutTmpl.Execute(w, struct {
-		Nonce, Realm, CSRF, Action string
-		Hidden                     []hiddenField
-	}{nonce, disp, csrf, p.logoutPath(rl.Name), hidden})
+	_ = logoutTmpl.Execute(w, logoutView{Nonce: nonce, Realm: l.RealmName(rl), CSRF: csrf,
+		Action: keepUILocales(w, p.logoutPath(rl.Name)), Hidden: hidden, L: l})
 }
 
 func (p *Provider) clearLogoutCSRF(w http.ResponseWriter, realm string) {

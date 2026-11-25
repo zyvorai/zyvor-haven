@@ -37,7 +37,7 @@ var jarAlgs = []string{"ES256", "PS256"}
 // jarParams are the request object members that become authorization request
 // parameters. Anything else in the object is dropped.
 var jarParams = []string{"redirect_uri", "response_type", "scope", "state", "nonce", "code_challenge",
-	"code_challenge_method", "response_mode", "prompt", "max_age", "authorization_details", "dpop_jkt"}
+	"code_challenge_method", "response_mode", "prompt", "max_age", "authorization_details", "dpop_jkt", "ui_locales"}
 
 var errJAR = errors.New("invalid request object")
 

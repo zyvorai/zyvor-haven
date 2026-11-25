@@ -437,6 +437,24 @@ migration `0017_mcp_consent.sql`. All under `/realms/{r}`.
 | `POST /consent/unkill` | `{clientId` xor `agentId}`; `204`, removes the block and re-enables the client row only. 404 when not blocked |
 
 Auth events: `CONSENT_GRANT`, `CONSENT_DENY`, `CONSENT_REVOKE`. User-facing: `GET/POST /realms/{r}/account/consents`.
+## Branding and email templates
+
+See `docs/branding-and-i18n.md`. Optional store extension `core.BrandingStore`; a store without it answers 501. Bodies
+reject unknown fields. Pg migration `0026_branding.sql`. All under `/realms/{r}`.
+
+| Method and path | Notes |
+|---|---|
+| `GET /branding` | `{displayName, accentColor, accentColorDark, logoLight, logoDark, supportUrl, privacyUrl, termsUrl, defaultLocale, effectiveAccentColorDark, supportedLocales, updatedAt?}`; empty strings when unset |
+| `PUT /branding` | replaces the record (omitted = unset; the three read-only members are not accepted); `200` with the stored form. 400: unreadable or malformed colour, logo outside the SVG subset, non-https link, bad name or locale, dark logo without light. Audit `ADMIN_UPDATE "branding <realm>"` |
+| `DELETE /branding` | `204`, idempotent |
+| `GET /email-templates/kinds` | `[{kind, variables, requiresLink, locales}]` |
+| `GET /email-templates` | stored templates `[{kind, locale, subject, text, html, updatedAt}]` |
+| `GET /email-templates/{kind}/{locale}` | one stored template; 404 none, unknown kind or locale |
+| `PUT /email-templates/{kind}/{locale}` | `{subject, text, html?}` -> `200`; 400 names the rule broken. Audit `ADMIN_UPDATE "email-template <kind>/<locale>"` |
+| `DELETE /email-templates/{kind}/{locale}` | `204`; 404 none |
+| `POST /email-templates/{kind}/{locale}/preview` | optional `{subject, text, html?}` draft -> `{source: draft/custom/builtin, subject, text, html}` with sample data |
+| `POST /email-templates/{kind}/{locale}/test-send` | same optional body; mails the sample to the calling admin user's own address -> `204`. No recipient field. 409 email not configured, service account, or no address; 429 over 10 per hour; 502 delivery failed. Audit `ADMIN_ACTION "email-template-test <kind>/<locale>"` |
+
 ## Session controls and front-channel logout (`docs/sso-and-logout.md`)
 
 Optional store extensions `core.SessionPolicyStore` and `core.FrontchannelStore`; a store without one answers

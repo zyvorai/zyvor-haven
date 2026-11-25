@@ -70,6 +70,7 @@ type pkAcctData struct {
 	// (ReauthOpts set) or both. A passkey-only account has no password option.
 	Password                bool
 	ReauthOpts, ReauthToken string
+	L                       Loc // ui.go
 }
 
 // pkReauthPurpose binds a re-authentication challenge to the session it was
@@ -133,10 +134,12 @@ func (p *Provider) pkAccountPage(w http.ResponseWriter, r *http.Request, rl core
 	http.SetCookie(w, &http.Cookie{Name: pkCSRFCookie, Value: csrf, Path: pkAccountPath(rl.Name),
 		HttpOnly: true, Secure: p.secure, SameSite: http.SameSiteStrictMode, MaxAge: int(csrfTTL.Seconds())})
 	nonce := randToken(16)
-	d := pkAcctData{Nonce: nonce, CSRF: csrf, Realm: rl.Name, Action: pkAccountPath(rl.Name), Msg: msg, Error: errMsg,
-		Username: u.Username, Recent: p.pkRecent(r, rl, sess), Required: required, Script: pkScript}
+	l := p.loc(w)
+	d := pkAcctData{Nonce: nonce, CSRF: csrf, Realm: l.brandedName(rl.Name), Action: keepUILocales(w, pkAccountPath(rl.Name)),
+		Msg: l.T(msg), Error: l.T(errMsg), Username: u.Username, Recent: p.pkRecent(r, rl, sess), Required: required,
+		Script: pkScript, L: l}
 	for _, c := range creds {
-		v := pkCredView{ID: c.CredentialID, Name: c.Name, Created: c.CreatedAt.UTC().Format("2006-01-02"), LastUsed: "never",
+		v := pkCredView{ID: c.CredentialID, Name: c.Name, Created: c.CreatedAt.UTC().Format("2006-01-02"), LastUsed: l.T("never"),
 			BackedUp: c.BackupState, Eligible: c.BackupEligible}
 		if !c.LastUsedAt.IsZero() {
 			v.LastUsed = c.LastUsedAt.UTC().Format("2006-01-02 15:04 UTC")
@@ -252,7 +255,7 @@ func (p *Provider) pkAccountPost(w http.ResponseWriter, r *http.Request, rl core
 	}
 	ip := p.clientIP(r)
 	redirect := func(code string) {
-		http.Redirect(w, r, pkAccountPath(rl.Name)+"?m="+code, http.StatusSeeOther) // #nosec G710 -- fixed in-realm account path and a code chosen by the handler, no user-supplied target
+		http.Redirect(w, r, keepUILocales(w, pkAccountPath(rl.Name)+"?m="+code), http.StatusSeeOther) // #nosec G710 -- fixed in-realm account path and a code chosen by the handler, no user-supplied target
 	}
 	page := func(status int, msg string) {
 		p.pkAccountPage(w, r, rl, st, rp, sess, u, status, "", msg)
@@ -467,37 +470,37 @@ func (p *Provider) pkReauthAssert(r *http.Request, rl core.Realm, st core.Passke
 }
 
 var pkAcctTmpl = template.Must(template.New("pkacct").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Passkeys</title>
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.L.T "Passkeys"}}</title>
 <!--theme--></head><body><main class="wide">
 <!--hero:fingerprint-->
-<h1>Passkeys for {{.Username}}</h1>
-<p class="sub">Realm {{.Realm}}. A passkey lets you sign in without a password, or confirm a password sign-in.</p>
+<h1>{{.L.T "Passkeys for %s" .Username}}</h1>
+<p class="sub">{{.L.T "Realm %s. A passkey lets you sign in without a password, or confirm a password sign-in." .Realm}}</p>
 {{if .Msg}}<p class="ok" role="status">{{.Msg}}</p>{{end}}
 {{if .Error}}<p class="err" role="alert">{{.Error}}</p>{{end}}
-{{if .Required}}<p class="sub">This realm requires passkeys: your last passkey cannot be removed.</p>{{end}}
+{{if .Required}}<p class="sub">{{.L.T "This realm requires passkeys: your last passkey cannot be removed."}}</p>{{end}}
 <ul>{{range .Creds}}<li><strong>{{.Name}}</strong><br>
-<span class="sub">Added {{.Created}}, last used {{.LastUsed}}{{if .Eligible}}, {{if .BackedUp}}backed up (synced){{else}}can be backed up, not yet{{end}}{{else}}, device-bound{{end}}</span>
+<span class="sub">{{$.L.T "Added %s, last used %s" .Created .LastUsed}}{{if .Eligible}}, {{if .BackedUp}}{{$.L.T "backed up (synced)"}}{{else}}{{$.L.T "can be backed up, not yet"}}{{end}}{{else}}, {{$.L.T "device-bound"}}{{end}}</span>
 <form class="row" method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="pk_action" value="rename"><input type="hidden" name="cred" value="{{.ID}}">
-<input name="name" value="{{.Name}}" maxlength="64" aria-label="Name"><button type="submit">Rename</button></form>
+<input name="name" value="{{.Name}}" maxlength="64" aria-label="{{$.L.T "Name"}}"><button type="submit">{{$.L.T "Rename"}}</button></form>
 <form class="row" method="post" action="{{$.Action}}"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="pk_action" value="delete"><input type="hidden" name="cred" value="{{.ID}}">
-<button type="submit">Remove</button></form></li>{{else}}<li class="sub">No passkeys yet.</li>{{end}}</ul>
-{{if .Recent}}{{if .Opts}}<h2>Add a passkey</h2>
-<form method="post" action="{{.Action}}" data-pk="create" data-opts="{{.Opts}}" hidden>
+<button type="submit">{{$.L.T "Remove"}}</button></form></li>{{else}}<li class="sub">{{$.L.T "No passkeys yet."}}</li>{{end}}</ul>
+{{if .Recent}}{{if .Opts}}<h2>{{.L.T "Add a passkey"}}</h2>
+<form method="post" action="{{.Action}}" data-pk="create" data-opts="{{.Opts}}" data-fail="{{.L.T "The passkey request was cancelled or is not available on this device."}}" hidden>
 <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="add"><input type="hidden" name="pk_token" value="{{.Token}}">
 <input type="hidden" name="pk_cd"><input type="hidden" name="pk_att"><input type="hidden" name="pk_tr">
-<div class="row"><input name="name" placeholder="Name, e.g. Work laptop" maxlength="64" aria-label="Name for the new passkey"><button type="button">Add passkey</button></div>
+<div class="row"><input name="name" placeholder="{{.L.T "Name, e.g. Work laptop"}}" maxlength="64" aria-label="{{.L.T "Name for the new passkey"}}"><button type="button">{{.L.T "Add passkey"}}</button></div>
 <p class="err pk-err" role="alert" hidden></p></form>
-<p class="err pk-no" role="alert" hidden>This browser does not support passkeys.</p>
+<p class="err pk-no" role="alert" hidden>{{.L.T "This browser does not support passkeys."}}</p>
 <script nonce="{{.Nonce}}">{{.Script}}</script>{{end}}
-{{else}}<h2>{{if .Password}}Confirm your password{{else}}Confirm with your passkey{{end}}</h2>
-<p class="sub">Your sign-in is older than 10 minutes. Confirm {{if not .Password}}with a passkey{{else if .ReauthOpts}}your password, or use a passkey,{{else}}your password{{end}} to add or remove passkeys.</p>
+{{else}}<h2>{{if .Password}}{{.L.T "Confirm your password"}}{{else}}{{.L.T "Confirm with your passkey"}}{{end}}</h2>
+<p class="sub">{{if not .Password}}{{.L.T "Your sign-in is older than 10 minutes. Confirm with a passkey to add or remove passkeys."}}{{else if .ReauthOpts}}{{.L.T "Your sign-in is older than 10 minutes. Confirm your password, or use a passkey, to add or remove passkeys."}}{{else}}{{.L.T "Your sign-in is older than 10 minutes. Confirm your password to add or remove passkeys."}}{{end}}</p>
 {{if .Password}}<form class="row" method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="reauth">
-<input name="password" type="password" autocomplete="current-password" required maxlength="1024" aria-label="Password"><button type="submit">Confirm</button></form>{{end}}
-{{if .ReauthOpts}}<form method="post" action="{{.Action}}" data-pk="get" data-opts="{{.ReauthOpts}}" hidden>
+<input name="password" type="password" autocomplete="current-password" required maxlength="1024" aria-label="{{.L.T "Password"}}"><button type="submit">{{.L.T "Confirm"}}</button></form>{{end}}
+{{if .ReauthOpts}}<form method="post" action="{{.Action}}" data-pk="get" data-opts="{{.ReauthOpts}}" data-fail="{{.L.T "The passkey request was cancelled or is not available on this device."}}" hidden>
 <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="reauth_passkey"><input type="hidden" name="pk_token" value="{{.ReauthToken}}">
 <input type="hidden" name="pk_cred"><input type="hidden" name="pk_cd"><input type="hidden" name="pk_ad"><input type="hidden" name="pk_sig"><input type="hidden" name="pk_uh">
-<button type="button">Confirm with a passkey</button><p class="err pk-err" role="alert" hidden></p></form>
-{{if not .Password}}<p class="err pk-no" role="alert" hidden>This browser does not support passkeys.</p>{{end}}
+<button type="button">{{.L.T "Confirm with a passkey"}}</button><p class="err pk-err" role="alert" hidden></p></form>
+{{if not .Password}}<p class="err pk-no" role="alert" hidden>{{.L.T "This browser does not support passkeys."}}</p>{{end}}
 <script nonce="{{.Nonce}}">{{.Script}}</script>{{end}}{{end}}
 </main></body></html>`)))

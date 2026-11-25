@@ -169,8 +169,43 @@ func (b *mfaBrowser) hasSSO() bool {
 var (
 	tokenRe   = regexp.MustCompile(`name="mfa_token" value="([^"]+)"`)
 	secretRe  = regexp.MustCompile(`Secret key: <code>([A-Z2-7]+)</code>`)
-	recCodeRe = regexp.MustCompile(`[A-Z2-9]{5}-[A-Z2-9]{5}`)
+	recCodeRe recoveryCodeFinder
 )
+
+// recoveryCodeFinder finds the recovery codes of a page. A code only counts
+// when it stands alone: the random CSRF tokens and nonces of a page can contain
+// the same five-dash-five shape inside them (about one page in 600 did).
+type recoveryCodeFinder struct{}
+
+var recoveryCodeWordRe = regexp.MustCompile(`^[A-Z2-9]{5}-[A-Z2-9]{5}$`)
+
+// FindAllString returns every stand-alone code in body (n is ignored).
+func (recoveryCodeFinder) FindAllString(body string, _ int) []string {
+	var out []string
+	// Split on everything a base64url or dot-joined token cannot contain.
+	for _, w := range strings.FieldsFunc(body, func(r rune) bool {
+		return !(r == '-' || r == '_' || r == '.' || r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z')
+	}) {
+		if recoveryCodeWordRe.MatchString(w) {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
+func (f recoveryCodeFinder) MatchString(body string) bool { return len(f.FindAllString(body, -1)) > 0 }
+
+func TestRecoveryCodeFinderIgnoresTokens(t *testing.T) {
+	page := `<input value="MTc4.P80jFbixs7VSJACS7-3HYP8CeRN5-YCk"><style nonce="ABCDE-FGHJKxyz"></style><pre>ABCDE-FGHJK
+LMNPQ-RSTUV
+</pre>`
+	if got := recCodeRe.FindAllString(page, -1); strings.Join(got, ",") != "ABCDE-FGHJK,LMNPQ-RSTUV" {
+		t.Fatalf("%v", got)
+	}
+	if recCodeRe.MatchString(`<input value="MTc4.P80jFbixs7VSJACS7-3HYP8CeRN5-YCk">`) {
+		t.Fatal("a token counted as a recovery code")
+	}
+}
 
 // authURL is the /auth URL used by all login tests.
 func authURL() string { return base + "auth?" + authQuery(nil).Encode() }

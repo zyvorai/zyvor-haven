@@ -167,6 +167,7 @@ func (s *Store) DeleteRealm(_ context.Context, name string) error {
 	}
 	delete(s.realms, lc(name))
 	n := r.Name
+	s.brandingDropRealm(n)
 	s.pkDrop(n, "")
 	s.fedDropRealm(n)     // federation.go
 	s.stepUpDropRealm(n)  // stepup.go

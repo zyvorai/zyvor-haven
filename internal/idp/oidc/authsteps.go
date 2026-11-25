@@ -138,10 +138,11 @@ func (p *Provider) pendingMAC(realm, body string) string {
 type StepData struct {
 	Title, Nonce, CSRF, Action, Realm, Client, Error string
 	Data                                             any // feature-specific
+	L                                                Loc // ui.go
 }
 
 const stepLayout = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
 <!--theme--></head><body><main>
 <!--hero-->
@@ -170,7 +171,9 @@ func stepTemplate(body string) *template.Template {
 // (scoped to the /auth path like the login form), nonce'd CSP, no-store. The
 // form must POST to {{.Action}} (the original /auth URL, so the authorization
 // request survives) and include <input type="hidden" name="csrf" value="{{.CSRF}}">.
-// body is trusted static template text, never user input.
+// body is trusted static template text, never user input. title and errMsg are
+// translated when the catalogue has them (ui.go); text in body is translated
+// where it is written {{$.L.T "..."}}.
 func (p *Provider) stepPage(w http.ResponseWriter, r *http.Request, ar *authzReq, status int, title, errMsg, body string, data any) {
 	csrf := p.newCSRF(ar.realm.Name)
 	// #nosec G124 -- HttpOnly and SameSite are set; Secure follows p.secure (config-driven, off only for plain-HTTP dev installs)
@@ -181,15 +184,10 @@ func (p *Provider) stepPage(w http.ResponseWriter, r *http.Request, ar *authzReq
 	// Step pages may carry one inline script (WebAuthn), but only with this
 	// response's nonce; everything else stays blocked.
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'nonce-"+nonce+"'; script-src 'nonce-"+nonce+"'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'")
-	disp := ar.realm.DisplayName
-	if disp == "" {
-		disp = ar.realm.Name
-	}
-	cn := ar.client.Name
-	if cn == "" {
-		cn = ar.client.ClientID
-	}
+	l := p.loc(w)
+	disp := l.RealmName(ar.realm)
+	cn := l.clientName(ar.client)
 	w.WriteHeader(status)
-	_ = stepTemplate(body).Execute(w, StepData{Title: title, Nonce: nonce, CSRF: csrf, Realm: disp, Client: cn,
-		Error: errMsg, Action: r.URL.Path + "?" + r.URL.RawQuery, Data: data})
+	_ = stepTemplate(body).Execute(w, StepData{Title: l.T(title), Nonce: nonce, CSRF: csrf, Realm: disp, Client: cn,
+		Error: l.T(errMsg), Action: r.URL.Path + "?" + r.URL.RawQuery, Data: data, L: l})
 }

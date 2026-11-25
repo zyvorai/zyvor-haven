@@ -77,7 +77,7 @@ var pc={challenge:d(o.challenge),rp:o.rp,user:{id:d(o.user.id),name:o.user.name,
 p=navigator.credentials.create({publicKey:pc}).then(function(c){var r=c.response;
 set(f,'pk_cd',e(r.clientDataJSON));set(f,'pk_att',e(r.attestationObject));set(f,'pk_tr',r.getTransports?r.getTransports().join(','):'');f.submit();});
 }
-p.catch(function(){busy=false;say(f,'The passkey request was cancelled or is not available on this device.');autofill();});
+p.catch(function(){busy=false;say(f,f.getAttribute('data-fail')||'The passkey request was cancelled or is not available on this device.');autofill();});
 }
 if(btn){btn.addEventListener('click',go);}
 if(f.getAttribute('data-auto')==='1'){try{go();}catch(x){busy=false;}}
@@ -89,18 +89,18 @@ var pkScript = template.JS(pkScriptText)
 
 // Login page snippet (a template "passkey" attached to pageTmpl). Hidden until
 // the script confirms the browser supports WebAuthn.
-const pkLoginSnippet = `{{define "passkey"}}{{with .Passkey}}<form id="pkform" method="post" action="{{$.Action}}" data-pk="get" data-conditional="1" data-opts="{{.Opts}}" hidden>
+const pkLoginSnippet = `{{define "passkey"}}{{with .Passkey}}<form id="pkform" method="post" action="{{$.Action}}" data-pk="get" data-conditional="1" data-opts="{{.Opts}}" data-fail="{{$.L.T "The passkey request was cancelled or is not available on this device."}}" hidden>
 <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="pk_mode" value="login"><input type="hidden" name="pk_token" value="{{.Token}}"><input type="hidden" name="remember_me">
 <input type="hidden" name="pk_cred"><input type="hidden" name="pk_cd"><input type="hidden" name="pk_ad"><input type="hidden" name="pk_sig"><input type="hidden" name="pk_uh">
-<button type="button">Sign in with a passkey</button><p class="err pk-err" role="alert" hidden></p></form>
+<button type="button">{{$.L.T "Sign in with a passkey"}}</button><p class="err pk-err" role="alert" hidden></p></form>
 <script nonce="{{$.Nonce}}">{{.Script}}</script>{{end}}{{end}}`
 
 // Second-factor step body (rendered through stepPage; Data is pkStepData).
 var pkStepBody = strings.TrimSpace(`
-<p class="sub">Confirm it is you with a passkey or security key.</p>
-<form method="post" action="{{.Action}}" data-pk="get" data-auto="1" data-opts="{{.Data.Opts}}" hidden>
+<p class="sub">{{.L.T "Confirm it is you with a passkey or security key."}}</p>
+<form method="post" action="{{.Action}}" data-pk="get" data-auto="1" data-opts="{{.Data.Opts}}" data-fail="{{.L.T "The passkey request was cancelled or is not available on this device."}}" hidden>
 <input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_mode" value="2fa"><input type="hidden" name="pk_token" value="{{.Data.Token}}">
 <input type="hidden" name="pk_cred"><input type="hidden" name="pk_cd"><input type="hidden" name="pk_ad"><input type="hidden" name="pk_sig"><input type="hidden" name="pk_uh">
-<button type="button">Use passkey</button><p class="err pk-err" role="alert" hidden></p></form>
-<p class="err pk-no" role="alert" hidden>This browser does not support passkeys, so this sign-in cannot continue here.</p>
+<button type="button">{{.L.T "Use passkey"}}</button><p class="err pk-err" role="alert" hidden></p></form>
+<p class="err pk-no" role="alert" hidden>{{.L.T "This browser does not support passkeys, so this sign-in cannot continue here."}}</p>
 <script nonce="{{.Nonce}}">{{.Data.Script}}</script>`)

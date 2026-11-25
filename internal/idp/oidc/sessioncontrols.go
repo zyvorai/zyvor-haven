@@ -216,6 +216,6 @@ func (p *Provider) loginSessionOptions(r *http.Request, ar *authzReq, pd *pageDa
 		pd.Remembered = r.PostForm.Get(rememberField) == "on"
 	}
 	if on, err := p.passkeyOnlyOn(r.Context(), ar.realm.Name); err == nil && on {
-		pd.Note = passkeyOnlyNote
+		pd.Note = pd.L.T(passkeyOnlyNote)
 	}
 }

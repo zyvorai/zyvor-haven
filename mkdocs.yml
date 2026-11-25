@@ -86,6 +86,7 @@ nav:
       - OIDCClient CRD: oidcclient-crd.md
       - Ingress registration: ingress-registration.md
       - Email and password reset: email-and-password-reset.md
+      - Branding, email templates and languages: branding-and-i18n.md
       - Federation (Sign in with Google, Entra, OIDC): federation.md
       - SSO sessions and single logout: sso-and-logout.md
       - Guard as an admission gate: guard-gate.md
@@ -110,6 +111,7 @@ nav:
       - Add an app (wizard and Test login): add-an-app.md
       - Backups: backups.md
       - haven CLI (device login, kubectl): haven-cli.md
+      - Kubernetes login (API server trusts haven-idp): kubernetes-login.md
       - macOS (launchd service, Keychain, packaging): macos.md
   - Migration:
       - Migrate from Keycloak: migrate-from-keycloak.md

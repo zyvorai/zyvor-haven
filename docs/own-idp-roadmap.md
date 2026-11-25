@@ -79,6 +79,7 @@ most features also run live against the dev binary and the store suite run again
 | TOTP, passkeys, fallback, risk-based step-up | tested (software authenticators) | [mfa-totp.md](mfa-totp.md), [passkeys.md](passkeys.md), [login-fallback-and-stepup.md](login-fallback-and-stepup.md) |
 | Passkey autofill and re-authentication, passkey-only option, session limit, keep-me-signed-in, front-channel logout | live-tested (headless Chrome, virtual authenticator) | [passkeys.md](passkeys.md), [sso-and-logout.md](sso-and-logout.md) |
 | Device flow and `haven` CLI (macOS Keychain optional) | live-tested | [device-flow.md](device-flow.md), [haven-cli.md](haven-cli.md) |
+| Kubernetes API server login (`kube-config generate`/`check`, `groups` claim) | tested against a local kube-apiserver 1.34.1; kubeadm and k3s snippets not run | [kubernetes-login.md](kubernetes-login.md) |
 | `OIDCClient` CRD | deployed (k3s) | [oidcclient-crd.md](oidcclient-crd.md) |
 | Ingress-annotation registration | fake client only | [ingress-registration.md](ingress-registration.md) |
 | Dynamic registration, client ID metadata documents, consent | live-tested | [dynamic-client-registration.md](dynamic-client-registration.md), [mcp-clients-and-consent.md](mcp-clients-and-consent.md) |
@@ -87,7 +88,8 @@ most features also run live against the dev binary and the store suite run again
 | SCIM 2.0, Shared Signals (CAEP/RISC) | live-tested; no real Okta/Entra/receiver | [scim.md](scim.md), [shared-signals.md](shared-signals.md) |
 | Federation (OIDC upstreams), time-boxed access, Guard gate, Time Machine undo | tested | [federation.md](federation.md), [time-boxed-access.md](time-boxed-access.md), [guard-gate.md](guard-gate.md), [time-machine-undo.md](time-machine-undo.md) |
 | macOS: launchd service, Keychain, pkg/Homebrew templates | user LaunchAgent run for real; unsigned | [macos.md](macos.md) |
-| Not started | SAML, LDAP, organizations, i18n, mTLS client auth | |
+| Per-realm branding, email templates, English/German/Hindi (translations machine-generated, unreviewed; no bitmap logos, per-user language or config-as-code support) | live-tested against the dev binary; no real mail client or native-speaker review | [branding-and-i18n.md](branding-and-i18n.md) |
+| Not started | SAML, LDAP, organizations, mTLS client auth | |
 Done and verified end to end: parity (OIDC core, Admin API v1, native Provider,
 selectable console backend), #1 `haven-idp init` / `dev` (with a browser OIDC
 playground, the first slice of #2; the add-an-app wizard and Test login debugger are in [add-an-app.md](add-an-app.md)), #3 config as code (`validate`/`plan`/`apply`/
@@ -101,6 +103,7 @@ routes; see [sso-and-logout.md](sso-and-logout.md)). #11 Guard as an admission g
 realm create/update and client create/update (off, warn or enforce, audited overrides, waivers, dry-run
 route; see [guard-gate.md](guard-gate.md)); users, roles, groups and realm import are not gated.
 The `haven` CLI client (device-flow login, `haven token`, kubectl exec plugin; see [haven-cli.md](haven-cli.md)) is tested against a fake RFC 8628 IdP and was run end to end against the real `haven-idp` device endpoint (login with approval, `token`, `whoami` with JWKS-verified ID token, `exec-credential`, `logout`); it has no OS keychain and no Windows cross-process lock.
+Kubernetes API server login (`haven-idp kube-config generate`/`check`, an opt-in `groups` claim, an idempotent public client; flags and AuthenticationConfiguration verified with a real local kube-apiserver 1.34.1) is done; not done: a run of the kubeadm or k3s snippets, a real multi-node or managed cluster, an Admin API setting for the claim opt-in, and revocation before token expiry; see [kubernetes-login.md](kubernetes-login.md).
 #13 is partly done: time-boxed *role* grants (reason, expiry, realm policy, audit, Admin API) are in [time-boxed-access.md](time-boxed-access.md); there is no approval workflow, no break-glass alerting, no group-membership expiry and no Access Review integration yet.
 The OAuth device authorization grant (RFC 8628) for terminals and CI (opt-in per client, login reuses the normal flow incl. extra auth steps; fixed TTL/interval, no admin view of pending requests; see [device-flow.md](device-flow.md)).
 OAuth dynamic client registration (RFC 7591/7592) behind

@@ -92,20 +92,21 @@ func (p *Provider) frontchannelFrames(ctx context.Context, realm string, s core.
 }
 
 var fcLogoutTmpl = template.Must(template.New("fclogout").Parse(withTheme(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Signed out</title>
+<html<!--loc-->><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{.L.T "Signed out"}}</title>
 <!--theme--></head><body><main>
 <!--hero:door-->
-<h1>Signed out</h1>
-<p class="sub">You have been signed out. Your applications are being told to sign you out too.</p>
-{{if .Next}}<p class="sub"><a href="{{.Next}}">Continue to the application</a></p>{{end}}
-{{range .Frames}}{{if .Isolated}}<iframe src="{{.URL}}" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Application sign-out" hidden></iframe>{{else}}<iframe src="{{.URL}}" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" title="Application sign-out" hidden></iframe>{{end}}
+<h1>{{.L.T "Signed out"}}</h1>
+<p class="sub">{{.L.T "You have been signed out. Your applications are being told to sign you out too."}}</p>
+{{if .Next}}<p class="sub"><a href="{{.Next}}">{{.L.T "Continue to the application"}}</a></p>{{end}}
+{{range .Frames}}{{if .Isolated}}<iframe src="{{.URL}}" sandbox="allow-scripts" referrerpolicy="no-referrer" title="{{$.L.T "Application sign-out"}}" hidden></iframe>{{else}}<iframe src="{{.URL}}" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" title="{{$.L.T "Application sign-out"}}" hidden></iframe>{{end}}
 {{end}}</main></body></html>`)))
 
 type fcPageData struct {
 	Nonce  string
 	Next   template.URL
 	Frames []fcFrame
+	L      Loc // ui.go
 }
 
 // frontchannelLogout writes the sign-out page for a session this browser just
@@ -119,6 +120,7 @@ func (p *Provider) frontchannelLogout(w http.ResponseWriter, r *http.Request, rl
 	}
 	nonce := randToken(16)
 	p.pageHeaders(w, nonce)
+	l := p.loc(w)
 	// The one page that frames anything: frame-src lists exactly the origins of
 	// the frames below. Everything else stays as on every page.
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'nonce-"+nonce+"'; frame-src "+
@@ -131,6 +133,6 @@ func (p *Provider) frontchannelLogout(w http.ResponseWriter, r *http.Request, rl
 	// next passed the post_logout_redirect_uri registration check and
 	// safeRedirect (no javascript:, data: ...); template.URL keeps the custom
 	// schemes of native apps intact.
-	_ = fcLogoutTmpl.Execute(w, fcPageData{Nonce: nonce, Next: template.URL(next), Frames: frames}) // #nosec G203 -- registered and scheme-checked redirect URI, see above
+	_ = fcLogoutTmpl.Execute(w, fcPageData{Nonce: nonce, Next: template.URL(next), Frames: frames, L: l}) // #nosec G203 -- registered and scheme-checked redirect URI, see above
 	return true
 }
