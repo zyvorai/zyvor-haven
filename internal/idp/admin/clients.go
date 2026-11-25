@@ -188,6 +188,13 @@ func (a *api) regenerateSecret(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, bad("public clients have no secret"))
 		return
 	}
+	if strong, err := a.strongClientAuth(r, rl.Name, cur); err != nil {
+		a.fail(w, r, err)
+		return
+	} else if strong {
+		writeErr(w, http.StatusConflict, "this client authenticates with a key or certificate; change its authentication settings first")
+		return
+	}
 	secret, err := newSecret()
 	if err != nil {
 		a.fail(w, r, err)

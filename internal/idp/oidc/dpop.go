@@ -414,6 +414,7 @@ func dpopBindClaims(ctx context.Context, claims core.Claims) {
 	if jkt := dpopJKT(ctx); jkt != "" {
 		claims["cnf"] = map[string]any{"jkt": jkt}
 	}
+	mtlsBindClaims(ctx, claims) // RFC 8705 certificate binding (clientauth_mtls.go)
 }
 
 func dpopTokenType(ctx context.Context, resp map[string]any) {
@@ -450,6 +451,17 @@ func (p *Provider) dpopResource(w http.ResponseWriter, r *http.Request, realm st
 	var want string
 	if m, ok := cnfRaw.(map[string]any); ok {
 		want, _ = m["jkt"].(string)
+		// RFC 8705: a certificate-bound token needs that certificate
+		// (clientauth_mtls.go), with or without a DPoP binding next to it.
+		if _, certBound := m[x5tClaim]; certBound {
+			if !p.certConstraintOK(r, m) {
+				p.bearerErr(w, http.StatusUnauthorized, "invalid_token")
+				return false
+			}
+			if len(m) == 1 && !isDPoP {
+				return true
+			}
+		}
 	}
 	if want == "" { // a cnf we cannot interpret is never ignored
 		p.dpopWWW(w, http.StatusUnauthorized, "invalid_token", "")

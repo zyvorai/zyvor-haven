@@ -77,7 +77,7 @@ store supports DCR. Advertising it does not make registration open: a call still
 | `application_type` | `web` (default) or `native` |
 | `grant_types` | any of `authorization_code` (default), `refresh_token`, `client_credentials`, and `urn:ietf:params:oauth:grant-type:device_code` (see below). `refresh_token` needs `authorization_code` or the device grant. Not `password`, not `implicit`. A public client cannot have `client_credentials`; the device grant cannot be combined with `client_credentials` (a service account has no user to approve a device). Narrowed by the realm policy. |
 | `response_types` | `code` only (derived from the grants when omitted) |
-| `token_endpoint_auth_method` | `client_secret_basic` (default), `client_secret_post`, or `none`. `none` makes a public client; PKCE S256 is then mandatory. |
+| `token_endpoint_auth_method` | `client_secret_basic` (default), `client_secret_post`, `none`, `private_key_jwt`, `tls_client_auth` or `self_signed_tls_client_auth`. `none` makes a public client; PKCE S256 is then mandatory. The last three get no secret and need their key or certificate metadata, see [client-authentication.md](client-authentication.md). |
 | `scope` | space-separated, from `openid profile email roles offline_access` (default `openid profile email`). `offline_access` needs `refresh_token`. |
 | `backchannel_logout_uri` | checked with the same rules as the Admin API (`idp.ValidateLogoutURI`) |
 | `contacts`, `logo_uri`, `client_uri`, `policy_uri`, `tos_uri` | stored and returned. Contacts: at most 10 short strings. The URIs must be `https` (`http` for loopback). They are not used for anything else. |
@@ -101,9 +101,9 @@ client, secrets and registration access tokens are shown once and stored hashed,
   `authorization_code` the code-flow rules (redirect URIs, PKCE S256) apply as always.
 - `refresh_token` and `offline_access` work for device clients on their own.
 
-Unknown fields are ignored and never echoed. `jwks`, `jwks_uri`, `software_statement` and the rest of the
-RFC 7591 client metadata that haven-idp does not implement are not stored; `software_statement` is
-refused with `invalid_software_statement`.
+Unknown fields are ignored and never echoed. `jwks` and `jwks_uri` are stored only for the key and certificate
+authentication methods. `software_statement` and the rest of the RFC 7591 client metadata that haven-idp does not
+implement are not stored; `software_statement` is refused with `invalid_software_statement`.
 
 Errors follow RFC 7591: `400 invalid_redirect_uri`, `400 invalid_client_metadata`,
 `400 invalid_software_statement`, `401 invalid_token`, `403 access_denied` (realm cap reached),
@@ -112,7 +112,7 @@ input.
 
 ## Response
 
-`client_id` is `hc_` followed by 22 random URL-safe characters. `client_secret` is 32 random bytes and is
+`client_id` is `hc_` followed by 22 random URL-safe characters. `client_secret` (secret methods only) is 32 random bytes and is
 stored only as the same sha256 hash the Admin API uses; `client_secret_expires_at` is `0` (secrets do not
 expire). `registration_access_token` is stored only as a sha256 hash. `registration_client_uri` is the
 management URL. The response also echoes the stored metadata and `client_id_issued_at`.
@@ -171,7 +171,6 @@ tokens stay in the list until you delete them.
 - No software statements and no JWT-secured registration (`software_statement` is refused).
 - No anonymous or open registration mode, and no setting for one.
 - No client metadata localisation (`client_name#fr` and friends are ignored).
-- No `jwks` / `jwks_uri` / `private_key_jwt` client authentication.
 - `scope` is validated and stored, and returned, but it is not enforced per client at the authorization
   endpoint: authorization requests are filtered against the realm's known scopes for every client.
 - No registration access token rotation, and no way to ask for one.
