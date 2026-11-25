@@ -7,6 +7,7 @@
 //	haven-idp init               write a production config with generated secrets
 //	haven-idp serve [--env-file] run the server (default when no command is given)
 //	haven-idp import-keycloak | import-users  migrate a Keycloak realm; users keep their passwords
+//	haven-idp kube-config generate | check    make a Kubernetes API server trust this issuer
 //	haven-idp version | help
 //
 // `serve` is configured by environment (an env file fills in unset variables):
@@ -36,6 +37,8 @@
 //	HAVEN_IDP_AUDIT_WEBHOOK_SECRET HMAC secret signing webhook audit deliveries
 //	OTEL_EXPORTER_OTLP_ENDPOINT  export request traces over OTLP/HTTP (also OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
 //	                             OTEL_EXPORTER_OTLP_HEADERS, OTEL_SERVICE_NAME, OTEL_TRACES_SAMPLER_ARG ratio 0..1)
+//	HAVEN_IDP_GROUPS_CLAIM_CLIENTS  comma-separated realm/clientId list whose ID tokens may carry `groups`
+//	                             (the "groups" scope is needed too); see docs/kubernetes-login.md
 //	HAVEN_IDP_ENV_FILE           same as --env-file
 package main
 
@@ -66,6 +69,8 @@ Usage:
   haven-idp export   REALM [--dev | --url URL --admin-realm R]
   haven-idp import-keycloak -f EXPORT.json [--realm NAME] [--out-dir DIR] [--format text|json]
   haven-idp import-users    -f users.json --realm NAME [--dev | --url URL --admin-realm R]
+  haven-idp kube-config generate --issuer URL [--bind GROUP=ROLE[@NS]]... [--ensure-client]
+  haven-idp kube-config check    --issuer URL [--ca-file PEM] [--token-file FILE|-]
   haven-idp keygen          print a new HAVEN_IDP_SECRET_KEY (TOTP seeds, upstream IdP secrets)
   haven-idp install-service | uninstall-service | service-status [--system] [--label L]   (macOS launchd, see docs/macos.md)
   haven-idp version
@@ -91,6 +96,8 @@ func main() {
 		os.Exit(cmdConfig(cmd, args, osCfgIO()))
 	case "import-keycloak", "import-users":
 		os.Exit(cmdImport(cmd, args, osCfgIO()))
+	case "kube-config":
+		os.Exit(cmdKubeConfig(args, osCfgIO()))
 	case "install-service", "uninstall-service", "service-status":
 		err = cmdService(cmd, args)
 	case "keygen":

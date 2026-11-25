@@ -110,6 +110,7 @@ nav:
       - Add an app (wizard and Test login): add-an-app.md
       - Backups: backups.md
       - haven CLI (device login, kubectl): haven-cli.md
+      - Kubernetes login (API server trusts haven-idp): kubernetes-login.md
       - macOS (launchd service, Keychain, packaging): macos.md
   - Migration:
       - Migrate from Keycloak: migrate-from-keycloak.md

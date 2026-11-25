@@ -85,6 +85,9 @@ type Config struct {
 	// for (resources.go). Nil = none: any `resource` parameter is refused with
 	// invalid_target.
 	Resources ResourceAllowList
+	// GroupsClaim lists the clients whose ID tokens may carry `groups`
+	// (groupsclaim.go). Nil = none.
+	GroupsClaim *GroupsClaimPolicy
 }
 
 // Provider is the http.Handler for all realms.
