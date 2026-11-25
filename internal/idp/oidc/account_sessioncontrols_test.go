@@ -59,6 +59,7 @@ func TestAccountPasswordChangeKeepsRememberedSession(t *testing.T) {
 	oldCookie := a.cookies[ssoCookie].Value
 	e.wantRedirect(a.post("password", "action", "change", "current", "alice-pass", "password", "new-password-1", "confirm", "new-password-1"),
 		acctRoot+"/password?m=password", "password change")
+	e.h.Drain() // the notice mail reads the clock this test moves below
 	ck := a.cookies[ssoCookie]
 	after := a.session()
 	if ck.Value == oldCookie || after.ID != before.ID || !ck.Expires.Equal(before.ExpiresAt.Truncate(time.Second)) ||
