@@ -34,7 +34,7 @@ What is built, what is being finished and what comes later. The identity server'
 - Retire password bootstrap once OIDC is the default everywhere
 
 ## Not started
-- SAML, LDAP, organizations, i18n, mTLS client authentication
+- SAML, LDAP, organizations, i18n
 
 ## Non-goals until someone pays for them
 - Managing LDAP/AD servers

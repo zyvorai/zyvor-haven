@@ -88,6 +88,10 @@ type Config struct {
 	// GroupsClaim lists the clients whose ID tokens may carry `groups`
 	// (groupsclaim.go). Nil = none.
 	GroupsClaim *GroupsClaimPolicy
+	// MTLS says where client certificates come from (clientauth_mtls.go).
+	// The zero value turns mutual TLS off: no header or connection
+	// certificate is ever consulted.
+	MTLS MTLSConfig
 }
 
 // Provider is the http.Handler for all realms.

@@ -159,7 +159,7 @@ request with it.
   port must list the port it uses).
 * Consent is per client and user, not per scope or per resource server; the user cannot untick single scopes.
 * Granted `resource`s are recorded and shown but not yet bound into the issued token `aud`.
-* No `software_statement`, signed metadata, `jwks`/`private_key_jwt` clients, or `logo_uri` display.
+* No `software_statement`, signed metadata, `jwks`/`private_key_jwt` for metadata-document clients, or `logo_uri` display.
 * No ETag/conditional refetch of documents, no push invalidation; a changed document is picked up at cache expiry.
 * The kill switch cannot recall access tokens that were already issued; there is no per-token deny list.
 * No consent for the device flow's own approval page, for `client_credentials`, or for token exchange (agents
