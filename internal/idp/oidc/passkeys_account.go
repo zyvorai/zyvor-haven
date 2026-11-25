@@ -392,4 +392,5 @@ var pkAcctTmpl = template.Must(template.New("pkacct").Parse(withTheme(`<!doctype
 <p class="sub">Your sign-in is older than 10 minutes. Confirm your password to add or remove passkeys.</p>
 <form class="row" method="post" action="{{.Action}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="pk_action" value="reauth">
 <input name="password" type="password" autocomplete="current-password" required maxlength="1024" aria-label="Password"><button type="submit">Confirm</button></form>{{end}}
+<p class="sub"><a href="../account">Back to your account</a></p>
 </main></body></html>`)))

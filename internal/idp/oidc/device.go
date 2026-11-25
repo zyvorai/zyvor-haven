@@ -411,6 +411,7 @@ type deviceView struct {
 	Scopes                                   []string
 	IP, UA, When, Ago                        string
 	Approved                                 bool
+	Account                                  string // account console, on the done page
 }
 
 var scopeWords = map[string]string{
@@ -450,6 +451,7 @@ var deviceTmpl = template.Must(template.New("device").Parse(withTheme(`<!doctype
 {{else}}
 {{if .Approved}}<p>You approved the sign-in. You can close this window and go back to your device.</p>
 {{else}}<p>You denied the sign-in. Nothing was shared with the device. You can close this window.</p>{{end}}
+{{if .Account}}<p class="sub"><a href="{{.Account}}/activity">Review your account activity</a></p>{{end}}
 {{end}}
 </main></body></html>`)))
 
@@ -461,6 +463,9 @@ func (p *Provider) deviceRender(w http.ResponseWriter, rl core.Realm, status int
 		v.Realm = rl.Name
 	}
 	v.Action = p.deviceURL(rl.Name)
+	if v.Mode == "done" {
+		v.Account = p.accountLink(rl.Name)
+	}
 	if v.Mode != "done" {
 		csrf := p.newCSRF(rl.Name)
 		v.CSRF = csrf

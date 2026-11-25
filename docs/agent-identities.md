@@ -99,7 +99,8 @@ Under `/admin/v1/realms/{realm}`; mutating calls are audited (see `SPEC.md`).
 
 ## Not yet
 
-* Admin API only: no owner self-service page, so a user cannot list or revoke their own agents in the browser.
+* Creating, editing and issuing credentials is Admin API only. An owner can list their agents and revoke their
+  credentials in the [account console](account-console.md), but cannot create, disable or delete an agent there.
 * No RFC 8693 delegation chain: the exchange does not take a user's access token as `subject_token` with the agent
   as `actor_token`, and `act` is not nested. The owner is fixed at registration.
 * No consent screen or per-call approval, no per-agent rate limits beyond the exchange limit, no token binding

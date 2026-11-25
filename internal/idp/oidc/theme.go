@@ -105,7 +105,7 @@ dd{margin:2px 0 0;overflow-wrap:anywhere}
 `
 
 // themeStyle is the full nonce'd style element injected into every page.
-const themeStyle = `<style nonce="{{.Nonce}}">` + themeCSS + `</style>`
+const themeStyle = `<style nonce="{{.Nonce}}">` + themeCSS + consoleCSS + `</style>`
 
 // heroGlyphs are the illustrations, drawn on a 64x64 tile in one style
 // (rounded 2.5 strokes, white glyph on a gradient tile with a soft glow). They
@@ -118,6 +118,7 @@ var heroGlyphs = map[string]string{ // #nosec G101 -- SVG path data, no credenti
 	"envelope":     `<rect class="gl" x="15" y="21" width="34" height="23" rx="6"/><path class="gl" d="M18 25l14 11 14-11"/>`,
 	"door":         `<path class="gl" d="M27 18h-7a2 2 0 0 0-2 2v24a2 2 0 0 0 2 2h7"/><path class="gl" d="M31 32h18M43 26l6 6-6 6"/>`,
 	"devices":      `<rect class="gl" x="13" y="21" width="28" height="19" rx="3.5"/><path class="gl" d="M10 46h34"/><rect class="gl" x="44" y="29" width="9" height="17" rx="2.5"/>`,
+	"person":       `<circle class="gl" cx="32" cy="25" r="8"/><path class="gl" d="M18 47c1-9 7-13 14-13s13 4 14 13"/>`,
 	"bell":         `<path class="gl" d="M32 17a9 9 0 0 0-9 9v7l-3 5h24l-3-5v-7a9 9 0 0 0-9-9z"/><path class="gl" d="M28 44a4 4 0 0 0 8 0"/>`,
 	"compass":      `<circle class="gl" cx="32" cy="32" r="14"/><path class="gl" d="M38.5 25.5l-3.5 9-9 3.5 3.5-9z"/>`,
 	"check":        `<circle class="gl draw" cx="32" cy="32" r="14"/><path class="gl draw" d="M25.5 32.5l5 5 9-10"/>`,
@@ -163,3 +164,55 @@ func withTheme(src string) string {
 		return heroSVG(heroMarkerRE.FindStringSubmatch(m)[1])
 	})
 }
+
+// consoleCSS styles the account console (account_ui.go): a sidebar beside the
+// content on wide screens, a wrapping segmented menu above it on narrow ones
+// (down to 320px). Every selector is scoped to main.console.
+const consoleCSS = `
+main.console{width:min(960px,calc(100% - 24px));display:grid;grid-template-columns:minmax(0,1fr);gap:20px;margin-top:max(16px,4vh);padding:24px;align-content:start}
+.console .who{display:flex;align-items:center;gap:14px;min-width:0}
+.console .who .hero{width:48px;height:48px;flex:0 0 auto;margin:0}
+.console .who p{margin:0;min-width:0;line-height:1.3}
+.console .who strong,.console .who span{display:block;overflow-wrap:anywhere}
+.console .seg{display:flex;flex-wrap:wrap;gap:4px;align-self:start;padding:4px;background:var(--surface);border-radius:14px}
+.console .seg a{flex:1 1 auto;min-height:40px;display:flex;align-items:center;justify-content:center;padding:0 12px;font-size:.88rem;color:var(--text);border-radius:10px}
+.console .seg a:hover{background:var(--card);text-decoration:none}
+.console .seg a[aria-current=page],.console .seg a[aria-current=page]:hover{background:var(--accent);color:#fff;font-weight:600}
+.console .seg a.out{color:var(--link)}
+.console .content{min-width:0}
+.console h1{text-align:left;font-size:1.6rem;margin-bottom:12px}
+.console h1+.sub,.console h1+.err{text-align:left}
+.console h2{margin:28px 0 8px}
+.console h3{margin:0 0 8px;font-size:1.02rem;font-weight:600;overflow-wrap:anywhere}
+.console .panel{margin:0 0 12px;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:16px}
+.console .panel h2{margin:0 0 8px;font-size:1.1rem}
+.console .panel>:last-child{margin-bottom:0}
+.console .panel dl{margin:0}
+.console .panel dl dt:first-child{margin-top:0}
+.console .panel ul{margin-bottom:12px}
+.console .confirm{border-color:var(--accent)}
+.console form+form{margin-top:12px}
+.console form~p.sub{text-align:left}
+.console form>label:first-of-type{margin-top:0}
+.console .panel button{margin-top:12px}
+.console a.fed{margin-top:8px;text-align:center}
+.console .meta{display:block;margin:0 0 8px;color:var(--muted);font-size:.85rem;line-height:1.55;overflow-wrap:anywhere}
+.console .meta strong{color:var(--text)}
+.console li.meta{margin:0;padding:8px 0}
+.console li .meta{margin-bottom:0}
+.console li form{margin-top:4px}
+.console .ua{font-size:.75rem}
+.console .badge{display:inline-block;padding:1px 9px;font-size:.72rem;font-weight:600;line-height:1.7;color:var(--ok);border:1px solid currentColor;border-radius:999px;vertical-align:middle;white-space:nowrap}
+.console .badge.off{color:var(--muted)}
+.console .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.console .stat{display:block;padding:14px 16px;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:16px}
+.console .stat:hover{border-color:var(--accent);text-decoration:none}
+.console .stat strong{display:block;font-size:1.6rem;line-height:1.2}
+.console .stat span{color:var(--muted);font-size:.85rem}
+.console .events li strong{display:block;font-size:.92rem}
+.console .events li .meta{margin:0}
+.console .events strong.err{margin:0}
+@media (min-width:760px){main.console{grid-template-columns:200px minmax(0,1fr);grid-template-rows:auto 1fr;grid-template-areas:"who content" "menu content";column-gap:28px;padding:32px}.console .who{grid-area:who}.console .seg{grid-area:menu;flex-direction:column;flex-wrap:nowrap}.console .seg a{flex:0 0 auto;justify-content:flex-start}.console .content{grid-area:content}}
+@media (max-width:480px){main.console{padding:20px 14px;gap:16px}.console .seg a{padding:0 8px}}
+@media (forced-colors:active){.console .seg a[aria-current=page]{text-decoration:underline;forced-color-adjust:none;background:Highlight;color:HighlightText}.console .panel,.console .stat{border-color:CanvasText}}
+`

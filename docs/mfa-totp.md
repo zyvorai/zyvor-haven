@@ -109,7 +109,7 @@ Auth events are written when the realm has `AuthEventsLogged`.
 ## Not yet
 
 - No QR code (see above).
-- No link to the account page from anywhere; no account console.
+- The page is reached from the [account console](account-console.md) (Security); sign-in itself does not link to it.
 - The code page is one field for TOTP and recovery codes, not a separate toggle.
 - `acr`/`amr` claims are not added to tokens; clients cannot ask for or learn that a second factor
   was used.
